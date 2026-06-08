@@ -1,68 +1,67 @@
 /**
- * 角色：简单人形（立方体 + 球体 + 圆柱拼凑）
- * 无动画，站在原地即可
+ * 角色：VRM 动漫角色加载器
+ * 加载 jo.vrm 模型
+ * 如果 MToon 着色器编译失败，自动回退到标准材质
  */
 import * as THREE from 'three';
-import { matWhite, matPant, matSkin, matHair, matShoe, matEye } from '../materials.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 
 export function createHumanoid() {
-    const person = new THREE.Group();
+    const group = new THREE.Group();
 
-    // ── 躯干 ──
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 0.25), matWhite);
-    torso.position.y = 1.15;
-    torso.castShadow = true;
-    person.add(torso);
+    const loader = new GLTFLoader();
+    loader.register((parser) => new VRMLoaderPlugin(parser));
 
-    // ── 头 ──
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 24, 24), matSkin);
-    head.position.y = 1.63;
-    head.castShadow = true;
-    person.add(head);
+    loader.load(
+        './jo.vrm',
+        (gltf) => {
+            const vrm = gltf.userData.vrm;
+            if (!vrm) {
+                console.error('VRM: gltf.userData.vrm is undefined');
+                return;
+            }
 
-    // 头发（上半球）
-    const hair = new THREE.Mesh(
-        new THREE.SphereGeometry(0.19, 24, 24, 0, Math.PI * 2, 0, Math.PI * 0.6),
-        matHair
+            // 开启阴影 + MToon 着色器失败时回退到标准材质
+            gltf.scene.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+
+                    // 检测 ShaderMaterial（MToon），替换为 MeshStandardMaterial
+                    if (child.material && child.material.type === 'ShaderMaterial') {
+                        const m = child.material;
+                        const color = m.color || new THREE.Color(0xffffff);
+                        const map = m.map || null;
+                        const fallback = new THREE.MeshStandardMaterial({
+                            color,
+                            map,
+                            side: m.side ?? THREE.FrontSide,
+                            transparent: m.transparent ?? false,
+                            opacity: m.opacity ?? 1.0,
+                            alphaTest: m.alphaTest ?? 0,
+                        });
+                        child.material = fallback;
+                        console.log('MToon → Standard fallback:', child.name);
+                    }
+                }
+            });
+
+            // 调整位置和朝向
+            vrm.scene.position.set(1.5, 0, 0.3);
+            vrm.scene.rotation.y = -0.4;
+
+            group.add(vrm.scene);
+            console.log('VRM loaded:', vrm.meta?.name);
+        },
+        (progress) => {
+            const pct = progress.total ? Math.round((progress.loaded / progress.total) * 100) : '?';
+            console.log(`VRM loading: ${pct}%`);
+        },
+        (error) => {
+            console.error('VRM load error:', error);
+        }
     );
-    hair.position.y = 1.66;
-    person.add(hair);
 
-    // 眼睛 ×2
-    const eyeGeo = new THREE.SphereGeometry(0.025, 12, 12);
-    [-0.065, 0.065].forEach(x => {
-        const eye = new THREE.Mesh(eyeGeo, matEye);
-        eye.position.set(x, 1.65, 0.15);
-        person.add(eye);
-    });
-
-    // ── 腿 ×2 ──
-    const legGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.7, 12);
-    [-0.1, 0.1].forEach(x => {
-        const leg = new THREE.Mesh(legGeo, matPant);
-        leg.position.set(x, 0.5, 0);
-        leg.castShadow = true;
-        person.add(leg);
-
-        // 鞋
-        const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.18), matShoe);
-        shoe.position.set(x, 0.03, 0.03);
-        shoe.castShadow = true;
-        person.add(shoe);
-    });
-
-    // ── 手臂 ×2 ──
-    const armGeo = new THREE.CylinderGeometry(0.05, 0.04, 0.55, 12);
-    [-0.3, 0.3].forEach(x => {
-        const arm = new THREE.Mesh(armGeo, matSkin);
-        arm.position.set(x, 1.05, 0);
-        arm.rotation.z = x < 0 ? 0.12 : -0.12;
-        arm.castShadow = true;
-        person.add(arm);
-    });
-
-    // 站在房间右侧，微微侧身
-    person.position.set(1.5, 0, 0.3);
-    person.rotation.y = -0.4;
-    return person;
+    return group;
 }
