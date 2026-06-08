@@ -9,7 +9,7 @@ export const ROOM_HEIGHT = 3.5;
 export const ROOM_DEPTH  = 7;
 
 // 背景与雾效
-export const BG_COLOR    = 0x1a1a2e;   // 深蓝灰
+export const BG_COLOR    = 0x6b4455;   // 暖紫黄昏天空
 export const FOG_NEAR    = 8;
 export const FOG_FAR     = 25;
 

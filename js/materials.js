@@ -8,7 +8,7 @@ import * as THREE from 'three';
 export const matWall    = new THREE.MeshStandardMaterial({ color: 0xd4b896, roughness: 0.9 });
 export const matFloor   = new THREE.MeshStandardMaterial({ color: 0x8b6f4e, roughness: 0.8 });
 export const matCeiling = new THREE.MeshStandardMaterial({ color: 0xe8ddd0, roughness: 0.95 });
-export const matGlass   = new THREE.MeshStandardMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.15, roughness: 0.05, metalness: 0.1 });
+export const matGlass   = new THREE.MeshStandardMaterial({ color: 0xaaddff, transparent: true, opacity: 0.1, roughness: 0.02, metalness: 0.3 });
 export const matFrame   = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.6 });
 
 // ── 家具通用 ──────────────────────────────────────────
