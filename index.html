@@ -49,6 +49,32 @@
         .sb-info { flex: 1; min-width: 0; }
         .sb-name { color: rgba(255,255,255,0.85); font-size: 12px; font-weight: 500; }
         .sb-meta { color: rgba(255,255,255,0.4); font-size: 10px; margin-top: 2px; }
+        /* 指南针 */
+        #compass {
+            position: absolute;
+            bottom: 48px;
+            left: 24px;
+            width: 64px;
+            height: 64px;
+            pointer-events: none;
+            z-index: 20;
+        }
+        #compass-ring {
+            width: 100%;
+            height: 100%;
+        }
+        .compass-label { font: bold 11px sans-serif; fill: rgba(255,255,255,0.7); }
+        .compass-label-s { fill: #ff6b6b; }
+        #compass-indicator {
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 8px solid rgba(255,255,255,0.8);
+        }
     </style>
 
     <!-- Three.js r160 CDN (ES Modules) -->
@@ -66,6 +92,20 @@
 
 <div id="info">拖拽旋转 · 滚轮缩放 · 右键平移 · 拖拽移动家具/角色 · 点击窗帘开合</div>
 <div id="sidebar"></div>
+<div id="compass">
+    <div id="compass-indicator"></div>
+    <svg id="compass-ring" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="28" fill="rgba(20,15,25,0.6)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <!-- N at top -->
+        <text x="32" y="14" text-anchor="middle" class="compass-label" dominant-baseline="auto">N</text>
+        <!-- S at bottom -->
+        <text x="32" y="56" text-anchor="middle" class="compass-label compass-label-s" dominant-baseline="auto">S</text>
+        <!-- E at right -->
+        <text x="54" y="36" text-anchor="middle" class="compass-label" dominant-baseline="auto">E</text>
+        <!-- W at left -->
+        <text x="10" y="36" text-anchor="middle" class="compass-label" dominant-baseline="auto">W</text>
+    </svg>
+</div>
 
 <!-- 主入口模块 -->
 <script type="module" src="./js/main.js"></script>

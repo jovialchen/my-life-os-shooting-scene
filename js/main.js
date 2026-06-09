@@ -374,12 +374,26 @@ window.addEventListener('resize', () => {
 });
 
 // ============================================================
+//  指南针
+// ============================================================
+const compassRing = document.getElementById('compass-ring');
+
+// ============================================================
 //  动画循环
 // ============================================================
 function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
     controls.update();
+
+    // 指南针旋转（相机方位角 → CSS rotate）
+    if (compassRing) {
+        const camAngle = Math.atan2(
+            camera.position.x - controls.target.x,
+            camera.position.z - controls.target.z,
+        );
+        compassRing.style.transform = `rotate(${camAngle * 180 / Math.PI + 90}deg)`;
+    }
 
     // VRM 加载完成后绑定 LookAt（只执行一次）
     if (!lookAtBound && humanoid.userData.vrm) {
