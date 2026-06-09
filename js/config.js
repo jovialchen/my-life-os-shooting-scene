@@ -10,6 +10,10 @@ export const ROOM_DEPTH  = 7;
 export const ROOM_HALF_W = ROOM_WIDTH / 2;   // 4
 export const ROOM_HALF_D = ROOM_DEPTH / 2;    // 3.5
 
+// 门洞尺寸
+export const DOOR_WIDTH  = 1.2;
+export const DOOR_HEIGHT = 2.4;
+
 // 背景与雾效
 export const BG_COLOR    = 0x6b4455;   // 暖紫黄昏天空
 export const FOG_NEAR    = 8;

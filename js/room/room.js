@@ -1,8 +1,8 @@
 /**
- * 房间壳体：地板 + 天花板 + 三面墙（前面敞开供摄像机观察）
+ * 房间壳体：地板 + 天花板 + 四面墙（前墙留门洞）
  */
 import * as THREE from 'three';
-import { ROOM_WIDTH, ROOM_HEIGHT, ROOM_DEPTH } from '../config.js';
+import { ROOM_WIDTH, ROOM_HEIGHT, ROOM_DEPTH, DOOR_WIDTH, DOOR_HEIGHT } from '../config.js';
 import { matWall, matFloor, matCeiling } from '../materials.js';
 
 export function createRoom() {
@@ -39,6 +39,29 @@ export function createRoom() {
     rightWall.position.set(ROOM_WIDTH / 2, ROOM_HEIGHT / 2, 0);
     rightWall.receiveShadow = true;
     room.add(rightWall);
+
+    // 前墙 (z = +ROOM_DEPTH/2) — 三块拼出居中门洞
+    const hx = DOOR_WIDTH / 2;               // 门洞半宽 = 0.6
+    const sideW = (ROOM_WIDTH / 2 - hx);     // 门两侧墙宽 = 3.4
+    const topH  = ROOM_HEIGHT - DOOR_HEIGHT;  // 门上方墙高 = 1.1
+
+    // 左侧墙
+    const fwLeft = new THREE.Mesh(new THREE.PlaneGeometry(sideW, ROOM_HEIGHT), matWall);
+    fwLeft.position.set(-ROOM_WIDTH / 2 + sideW / 2, ROOM_HEIGHT / 2, ROOM_DEPTH / 2);
+    fwLeft.receiveShadow = true;
+    room.add(fwLeft);
+
+    // 右侧墙
+    const fwRight = new THREE.Mesh(new THREE.PlaneGeometry(sideW, ROOM_HEIGHT), matWall);
+    fwRight.position.set(ROOM_WIDTH / 2 - sideW / 2, ROOM_HEIGHT / 2, ROOM_DEPTH / 2);
+    fwRight.receiveShadow = true;
+    room.add(fwRight);
+
+    // 门上方墙
+    const fwTop = new THREE.Mesh(new THREE.PlaneGeometry(DOOR_WIDTH, topH), matWall);
+    fwTop.position.set(0, DOOR_HEIGHT + topH / 2, ROOM_DEPTH / 2);
+    fwTop.receiveShadow = true;
+    room.add(fwTop);
 
     return room;
 }

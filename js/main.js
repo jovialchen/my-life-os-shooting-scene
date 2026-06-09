@@ -50,6 +50,7 @@ import {
 
 // ── 房间 ──
 import { createRoom }       from './room/room.js';
+import { createDoor }       from './room/door.js';
 import { createWindow, createCurtains, createPlant } from './room/window.js';
 import { createRug, createWallArt } from './room/decorations.js';
 
@@ -111,6 +112,7 @@ let lookAtBound = false; // 标记 LookAt 是否已绑定
 scene.add(createRoom());
 
 // 可拖拽对象（保存引用）
+const door         = createDoor();
 const windowGroup  = createWindow();
 const curtains     = createCurtains();
 const plant        = createPlant();
@@ -129,7 +131,7 @@ wallArt.userData.surface   = 'wall-left';
 wallArt.userData.crossWall = true; // 画作可在不同墙面间拖拽
 curtains.userData.surface  = 'wall-back';
 
-scene.add(windowGroup, curtains, plant, rug, wallArt);
+scene.add(door, windowGroup, curtains, plant, rug, wallArt);
 scene.add(sofa, chair, floorLamp, coffeeTable, sideTable, bookshelf);
 scene.add(sideTableBook, ...shelfBooks, ...sofaCushions);
 scene.add(humanoid);
@@ -208,6 +210,7 @@ smallItems.forEach(item => {
         { obj: sideTableBook, name: '边桌书本', cat: '小物品', room: '客厅' },
         { obj: sofaCushions[0], name: '靠枕（金）', cat: '小物品', room: '客厅' },
         { obj: sofaCushions[1], name: '靠枕（绿）', cat: '小物品', room: '客厅' },
+        { obj: door,        name: '门',         cat: '家具',   room: '客厅' },
         { obj: humanoid,    name: '小人',       cat: '角色',   room: '客厅' },
     ];
     // 书架上的书
@@ -306,6 +309,13 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (hits.length > 0) {
         curtainOpen = !curtainOpen;
         curtainTargetX = curtainOpen ? CURTAIN_OPEN_X : CURTAIN_CLOSED_X;
+    }
+
+    // 门点击开合
+    const doorHits = curtainRaycaster.intersectObjects(door.children, true);
+    if (doorHits.length > 0) {
+        door.userData.isOpen = !door.userData.isOpen;
+        door.userData.targetRotation = door.userData.isOpen ? Math.PI / 2 : 0;
     }
 });
 
@@ -480,6 +490,17 @@ function animate() {
         `角色: x=${_debugPos.x.toFixed(2)} y=${_debugPos.y.toFixed(2)} z=${_debugPos.z.toFixed(2)} | ` +
         `盆栽: x=${plant.position.x.toFixed(2)} y=${plant.position.y.toFixed(2)} z=${plant.position.z.toFixed(2)}`
     );
+
+    // 门开合动画
+    const doorPivot = door.userData.doorPivot;
+    if (doorPivot) {
+        const doorDiff = door.userData.targetRotation - doorPivot.rotation.y;
+        if (Math.abs(doorDiff) > 0.005) {
+            doorPivot.rotation.y += doorDiff * 0.08;
+        } else {
+            doorPivot.rotation.y = door.userData.targetRotation;
+        }
+    }
 
     // 窗帘开合动画（缓动 + 褶皱变形）
     // 先计算 openAmount（0=全关, 1=全开），用于后续灯光联动

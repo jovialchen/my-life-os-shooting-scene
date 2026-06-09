@@ -6,7 +6,7 @@
  * - 小物品（small-item）：在当前高度水平移动，松开时吸附到最近表面
  *
  * 通过 obj.userData 标记：
- *   .surface      — 'floor' | 'wall-left' | 'wall-right' | 'wall-back'
+ *   .surface      — 'floor' | 'wall-left' | 'wall-right' | 'wall-back' | 'wall-front'
  *   .crossWall    — true 表示可在墙面间切换
  *   .movableType  — 'small-item' 表示小物品
  *   .surfaceHeights — [number] 小物品的子 mesh 底部到中心的偏移（用于吸附）
@@ -24,6 +24,7 @@ const PLANES = {
     'wall-left':  new THREE.Plane(new THREE.Vector3(1, 0, 0), ROOM_HALF_W),
     'wall-right': new THREE.Plane(new THREE.Vector3(-1, 0, 0), ROOM_HALF_W),
     'wall-back':  new THREE.Plane(new THREE.Vector3(0, 0, 1), ROOM_HALF_D),
+    'wall-front': new THREE.Plane(new THREE.Vector3(0, 0, -1), ROOM_HALF_D),
 };
 
 export function createDragControls(movables, camera, renderer, orbitControls, scene, options = {}) {
@@ -89,6 +90,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             { wall: 'wall-left',  dist: Math.abs(p.x + ROOM_HALF_W), setPos: () => { p.x = -ROOM_HALF_W; }, rotY: Math.PI / 2 },
             { wall: 'wall-right', dist: Math.abs(p.x - ROOM_HALF_W), setPos: () => { p.x =  ROOM_HALF_W; }, rotY: -Math.PI / 2 },
             { wall: 'wall-back',  dist: Math.abs(p.z + ROOM_HALF_D), setPos: () => { p.z = -ROOM_HALF_D; }, rotY: 0 },
+            { wall: 'wall-front', dist: Math.abs(p.z - ROOM_HALF_D), setPos: () => { p.z =  ROOM_HALF_D; }, rotY: Math.PI },
         ];
         dists.sort((a, b) => a.dist - b.dist);
         const nearest = dists[0];
@@ -162,6 +164,9 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         } else if (surface === 'wall-back') {
             p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
             p.y = Math.max(he.y, Math.min(ROOM_HEIGHT - he.y, p.y));
+        } else if (surface === 'wall-front') {
+            p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
+            p.y = Math.max(he.y, Math.min(ROOM_HEIGHT - he.y, p.y));
         }
     }
 
@@ -231,8 +236,8 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 if (selected.userData.crossWall) {
                     if (selected.position.z >= ROOM_HALF_D) {
                         selected.position.z = ROOM_HALF_D;
-                        selected.userData.surface = 'wall-back';
-                        activePlane = PLANES['wall-back'];
+                        selected.userData.surface = 'wall-front';
+                        activePlane = PLANES['wall-front'];
                         const newHit = raycastToPlane(event, activePlane);
                         offset.copy(selected.position).sub(newHit);
                     } else if (selected.position.z <= -ROOM_HALF_D) {
@@ -244,6 +249,25 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                     }
                 }
             } else if (surface === 'wall-back') {
+                selected.position.x = planeHit.x + offset.x;
+                selected.position.y = planeHit.y + offset.y;
+
+                if (selected.userData.crossWall) {
+                    if (selected.position.x >= ROOM_HALF_W) {
+                        selected.position.x = ROOM_HALF_W;
+                        selected.userData.surface = 'wall-right';
+                        activePlane = PLANES['wall-right'];
+                        const newHit = raycastToPlane(event, activePlane);
+                        offset.copy(selected.position).sub(newHit);
+                    } else if (selected.position.x <= -ROOM_HALF_W) {
+                        selected.position.x = -ROOM_HALF_W;
+                        selected.userData.surface = 'wall-left';
+                        activePlane = PLANES['wall-left'];
+                        const newHit = raycastToPlane(event, activePlane);
+                        offset.copy(selected.position).sub(newHit);
+                    }
+                }
+            } else if (surface === 'wall-front') {
                 selected.position.x = planeHit.x + offset.x;
                 selected.position.y = planeHit.y + offset.y;
 
