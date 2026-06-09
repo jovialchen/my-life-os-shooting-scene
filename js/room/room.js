@@ -47,18 +47,21 @@ export function createRoom() {
 
     // 左侧墙
     const fwLeft = new THREE.Mesh(new THREE.PlaneGeometry(sideW, ROOM_HEIGHT), matWall);
+    fwLeft.rotation.y = Math.PI;
     fwLeft.position.set(-ROOM_WIDTH / 2 + sideW / 2, ROOM_HEIGHT / 2, ROOM_DEPTH / 2);
     fwLeft.receiveShadow = true;
     room.add(fwLeft);
 
     // 右侧墙
     const fwRight = new THREE.Mesh(new THREE.PlaneGeometry(sideW, ROOM_HEIGHT), matWall);
+    fwRight.rotation.y = Math.PI;
     fwRight.position.set(ROOM_WIDTH / 2 - sideW / 2, ROOM_HEIGHT / 2, ROOM_DEPTH / 2);
     fwRight.receiveShadow = true;
     room.add(fwRight);
 
     // 门上方墙
     const fwTop = new THREE.Mesh(new THREE.PlaneGeometry(DOOR_WIDTH, topH), matWall);
+    fwTop.rotation.y = Math.PI;
     fwTop.position.set(0, DOOR_HEIGHT + topH / 2, ROOM_DEPTH / 2);
     fwTop.receiveShadow = true;
     room.add(fwTop);
