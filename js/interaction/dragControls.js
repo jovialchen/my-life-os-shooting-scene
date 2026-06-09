@@ -12,11 +12,13 @@
  *   .surfaceHeights — [number] 小物品的子 mesh 底部到中心的偏移（用于吸附）
  */
 import * as THREE from 'three';
+import { ROOM_WIDTH, ROOM_HEIGHT, ROOM_DEPTH, ROOM_HALF_W, ROOM_HALF_D } from '../config.js';
 
-const ROOM_HALF_W = 4;   // ROOM_WIDTH / 2
-const ROOM_HALF_D = 3.5; // ROOM_DEPTH / 2
-const ROOM_H = 3.5;      // ROOM_HEIGHT
+// ── 小物品吸附检测参数 ────────────────────────────────
+const SNAP_RAY_Y_OFFSET = 1;   // raycast 起点在物体上方的偏移
+const SNAP_SURFACE_TOLERANCE = 0.1; // 表面必须在物体下方 + 此容差内
 
+// ── 拖拽吸附平面 ──────────────────────────────────────
 const PLANES = {
     'floor':      new THREE.Plane(new THREE.Vector3(0, 1, 0), 0),
     'wall-left':  new THREE.Plane(new THREE.Vector3(1, 0, 0), ROOM_HALF_W),
@@ -24,25 +26,28 @@ const PLANES = {
     'wall-back':  new THREE.Plane(new THREE.Vector3(0, 0, 1), ROOM_HALF_D),
 };
 
-/** 预定义可放置表面：{ minX, maxX, minZ, maxZ, height } */
+/**
+ * 预定义可放置表面：{ minX, maxX, minZ, maxZ, height }
+ * 注释中标注了来源家具的位置和尺寸，方便联动修改
+ */
 const SURFACES = [
-    // 地面
-    { minX: -4, maxX: 4, minZ: -3.5, maxZ: 3.5, height: 0 },
-    // 茶几 (0.3, 0, 1.5) 桌面 y=0.45, 厚0.05, 半径0.55
+    // 地面 — 全房间
+    { minX: -ROOM_HALF_W, maxX: ROOM_HALF_W, minZ: -ROOM_HALF_D, maxZ: ROOM_HALF_D, height: 0 },
+    // 茶几 (pos=0.3, 0, 1.5) 桌面 y=0.45, 厚0.05, 半径0.55
     { minX: -0.25, maxX: 0.85, minZ: 0.95, maxZ: 2.05, height: 0.475 },
-    // 边桌 (-3, 0, -1.8) 桌面 y=0.65, 厚0.04, 半径0.3
+    // 边桌 (pos=-3.0, 0, -1.8) 桌面 y=0.65, 厚0.04, 半径0.3
     { minX: -3.3, maxX: -2.7, minZ: -2.1, maxZ: -1.5, height: 0.67 },
-    // 沙发 (-1.5, 0, 0.5) 旋转PI/2, 坐面 y=0.55+0.2=0.75, 尺寸2.4×0.9 → z×x
+    // 沙发 (pos=-1.5, 0, 0.5) 旋转PI/2, 坐面 y=0.55+0.2=0.75, 尺寸2.4×0.9 → z×x
     { minX: -1.95, maxX: -1.05, minZ: -1.2, maxZ: 1.2, height: 0.75 },
-    // 椅子 (1.8, 0, 1.2) 旋转-PI/4, 坐面 y=0.53, 尺寸0.6×0.55 旋转后约0.81×0.81
+    // 椅子 (pos=1.8, 0, 1.2) 旋转-PI/4, 坐面 y=0.53, 尺寸0.6×0.55 旋转后约0.81×0.81
     { minX: 1.4, maxX: 2.2, minZ: 0.8, maxZ: 1.6, height: 0.53 },
-    // 书架 (1.0, 0, -3.3) w=1.2 d=0.35, 层板厚0.04
+    // 书架 (pos=1.0, 0, -3.3) w=1.2 d=0.35, 层板厚0.04
     // i=0: y=0.02 → 顶面 0.04; i=1: y=0.687 → 顶面 0.707; i=2: y=1.353 → 顶面 1.373; i=3: y=2.02 → 顶面 2.04
     { minX: 0.4, maxX: 1.6, minZ: -3.5, maxZ: -3.1, height: 0.04 },
     { minX: 0.4, maxX: 1.6, minZ: -3.5, maxZ: -3.1, height: 0.707 },
     { minX: 0.4, maxX: 1.6, minZ: -3.5, maxZ: -3.1, height: 1.373 },
     { minX: 0.4, maxX: 1.6, minZ: -3.5, maxZ: -3.1, height: 2.04 },
-    // 窗台 (3.98, 0, 0) 旋转后: x=3.80~4.00, z=-2.65~2.65, y=0.25
+    // 窗台 (x=ROOM_WIDTH/2-0.02) 旋转后: x≈3.80~4.00, z=-2.65~2.65, y=0.25+0.03=0.28
     { minX: 3.8, maxX: 4.0, minZ: -2.65, maxZ: 2.65, height: 0.28 },
 ];
 
@@ -130,8 +135,8 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
         // 从物品位置向下 raycast
         const downRay = new THREE.Raycaster(
-            new THREE.Vector3(p.x, p.y + 1, p.z),
-            new THREE.Vector3(0, -1, 0)
+            new THREE.Vector3(p.x, p.y + SNAP_RAY_Y_OFFSET, p.z),
+            new THREE.Vector3(0, -1, 0),
         );
         const allMeshes = [];
         scene.traverse(child => { if (child.isMesh) allMeshes.push(child); });
@@ -144,7 +149,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         let bestY = 0; // 默认地面
         for (const hit of hits) {
             const surfaceY = hit.point.y;
-            if (surfaceY <= p.y + 0.1 && surfaceY > bestY) {
+            if (surfaceY <= p.y + SNAP_SURFACE_TOLERANCE && surfaceY > bestY) {
                 bestY = surfaceY;
             }
         }
@@ -172,16 +177,16 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         if (obj.userData.movableType === 'small-item') {
             p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
             p.z = Math.max(-ROOM_HALF_D + he.z, Math.min(ROOM_HALF_D - he.z, p.z));
-            p.y = Math.max(he.y, Math.min(ROOM_H - he.y, p.y));
+            p.y = Math.max(he.y, Math.min(ROOM_HEIGHT - he.y, p.y));
         } else if (surface === 'floor') {
             p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
             p.z = Math.max(-ROOM_HALF_D + he.z, Math.min(ROOM_HALF_D - he.z, p.z));
         } else if (surface === 'wall-left' || surface === 'wall-right') {
-            p.y = Math.max(he.y, Math.min(ROOM_H - he.y, p.y));
+            p.y = Math.max(he.y, Math.min(ROOM_HEIGHT - he.y, p.y));
             p.z = Math.max(-ROOM_HALF_D + he.z, Math.min(ROOM_HALF_D - he.z, p.z));
         } else if (surface === 'wall-back') {
             p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
-            p.y = Math.max(he.y, Math.min(ROOM_H - he.y, p.y));
+            p.y = Math.max(he.y, Math.min(ROOM_HEIGHT - he.y, p.y));
         }
     }
 

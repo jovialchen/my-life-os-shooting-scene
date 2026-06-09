@@ -21,7 +21,27 @@ import {
     BG_COLOR, FOG_NEAR, FOG_FAR,
     CAMERA_FOV, CAMERA_NEAR, CAMERA_FAR, CAMERA_POS, CAMERA_TARGET,
     TONE_MAPPING_EXPOSURE,
-    BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD
+    BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,
+    // 轨道控制器
+    ORBIT_DAMPING, ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
+    // 灯光
+    AMBIENT_LIGHT_COLOR, AMBIENT_LIGHT_INTENSITY,
+    SUN_COLOR, SUN_INTENSITY, SUN_POSITION,
+    SUN_SHADOW_MAP_SIZE, SUN_SHADOW_LEFT, SUN_SHADOW_RIGHT, SUN_SHADOW_TOP, SUN_SHADOW_BOTTOM,
+    SUN_SHADOW_NEAR, SUN_SHADOW_FAR, SUN_SHADOW_RADIUS, SUN_SHADOW_BIAS,
+    FILL_LIGHT_COLOR, FILL_LIGHT_INTENSITY, FILL_LIGHT_POSITION,
+    WINDOW_SPOT_COLOR, WINDOW_SPOT_INTENSITY, WINDOW_SPOT_DISTANCE, WINDOW_SPOT_ANGLE, WINDOW_SPOT_PENUMBRA,
+    WINDOW_SPOT_POSITION, WINDOW_SPOT_SHADOW_MAP_SIZE,
+    // 窗帘动画
+    CURTAIN_CLOSED_X, CURTAIN_OPEN_X, CURTAIN_SNAP_THRESH, CURTAIN_EASE_FACTOR,
+    CURTAIN_ROD_HALF, CURTAIN_PLEAT_COMPRESSION, CURTAIN_PLEAT_FREQ_OX, CURTAIN_PLEAT_FREQ_T, CURTAIN_PLEAT_AMPLITUDE,
+    // 点击检测
+    CLICK_DRAG_THRESHOLD,
+    // 缩略图
+    THUMB_SIZE, THUMB_AMBIENT_COLOR, THUMB_AMBIENT_INTENSITY,
+    THUMB_LIGHT_COLOR, THUMB_LIGHT_INTENSITY, THUMB_LIGHT_POSITION,
+    THUMB_CAMERA_FOV, THUMB_CAMERA_ASPECT, THUMB_CAMERA_NEAR, THUMB_CAMERA_FAR,
+    THUMB_DIST_MULTIPLIER, THUMB_OFFSET_XZ, THUMB_OFFSET_Y,
 } from './config.js';
 
 // ── 房间 ──
@@ -55,7 +75,7 @@ camera.position.set(CAMERA_POS.x, CAMERA_POS.y, CAMERA_POS.z);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, MAX_PIXEL_RATIO));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -68,10 +88,10 @@ document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(CAMERA_TARGET.x, CAMERA_TARGET.y, CAMERA_TARGET.z);
 controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.minDistance = 2;
-controls.maxDistance = 12;
-controls.maxPolarAngle = Math.PI * 0.85;
+controls.dampingFactor = ORBIT_DAMPING;
+controls.minDistance = ORBIT_MIN_DISTANCE;
+controls.maxDistance = ORBIT_MAX_DISTANCE;
+controls.maxPolarAngle = ORBIT_MAX_POLAR;
 controls.update();
 
 // ============================================================
@@ -119,20 +139,19 @@ smallItems.forEach(item => {
 // ============================================================
 (function initSidebar() {
     // 缩略图渲染器
-    const thumbSize = 96;
     const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    thumbRenderer.setSize(thumbSize, thumbSize);
+    thumbRenderer.setSize(THUMB_SIZE, THUMB_SIZE);
     thumbRenderer.setPixelRatio(1);
     thumbRenderer.shadowMap.enabled = false;
     thumbRenderer.toneMapping = THREE.ACESFilmicToneMapping;
     thumbRenderer.toneMappingExposure = TONE_MAPPING_EXPOSURE;
     const thumbScene = new THREE.Scene();
     thumbScene.background = new THREE.Color(BG_COLOR);
-    thumbScene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const thumbLight = new THREE.DirectionalLight(0xffeedd, 0.8);
-    thumbLight.position.set(2, 3, 2);
+    thumbScene.add(new THREE.AmbientLight(THUMB_AMBIENT_COLOR, THUMB_AMBIENT_INTENSITY));
+    const thumbLight = new THREE.DirectionalLight(THUMB_LIGHT_COLOR, THUMB_LIGHT_INTENSITY);
+    thumbLight.position.set(THUMB_LIGHT_POSITION.x, THUMB_LIGHT_POSITION.y, THUMB_LIGHT_POSITION.z);
     thumbScene.add(thumbLight);
-    const thumbCam = new THREE.PerspectiveCamera(40, 1, 0.1, 50);
+    const thumbCam = new THREE.PerspectiveCamera(THUMB_CAMERA_FOV, THUMB_CAMERA_ASPECT, THUMB_CAMERA_NEAR, THUMB_CAMERA_FAR);
 
     function renderThumbnail(obj) {
         // 计算包围盒
@@ -144,8 +163,12 @@ smallItems.forEach(item => {
 
         // 相机定位
         const maxDim = Math.max(size.x, size.y, size.z);
-        const dist = maxDim * 2.2;
-        thumbCam.position.set(center.x + dist * 0.6, center.y + dist * 0.4, center.z + dist * 0.6);
+        const dist = maxDim * THUMB_DIST_MULTIPLIER;
+        thumbCam.position.set(
+            center.x + dist * THUMB_OFFSET_XZ,
+            center.y + dist * THUMB_OFFSET_Y,
+            center.z + dist * THUMB_OFFSET_XZ,
+        );
         thumbCam.lookAt(center);
         thumbCam.updateProjectionMatrix();
 
@@ -234,9 +257,6 @@ curtains.children.forEach(child => {
     }
 });
 
-const CURTAIN_CLOSED_X = 1.25;  // 关闭时：每片遮住半窗 (5.0/2/2)
-const CURTAIN_OPEN_X = 2.95;   // 打开时：滑到杆两端，不超出杆端头
-
 let curtainOpen = false;
 let curtainTargetX = CURTAIN_CLOSED_X;
 
@@ -254,8 +274,8 @@ renderer.domElement.addEventListener('pointerup', e => {
     const dx = e.clientX - curtainPointerDownPos.x;
     const dy = e.clientY - curtainPointerDownPos.y;
     curtainPointerDownPos = null;
-    // 移动超过 5px 视为拖拽，不触发点击
-    if (Math.sqrt(dx * dx + dy * dy) > 5) return;
+    // 移动超过阈值视为拖拽，不触发点击
+    if (Math.sqrt(dx * dx + dy * dy) > CLICK_DRAG_THRESHOLD) return;
 
     curtainMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     curtainMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -272,34 +292,37 @@ renderer.domElement.addEventListener('pointerup', e => {
 // ============================================================
 
 // 环境光 — 柔和暖色基底
-scene.add(new THREE.AmbientLight(0xffeedd, 0.3));
+scene.add(new THREE.AmbientLight(AMBIENT_LIGHT_COLOR, AMBIENT_LIGHT_INTENSITY));
 
 // 主方向光 — 模拟夕阳从窗户照入
-const sun = new THREE.DirectionalLight(0xffaa55, 1.8);
-sun.position.set(5, 6, 2);
+const sun = new THREE.DirectionalLight(SUN_COLOR, SUN_INTENSITY);
+sun.position.set(SUN_POSITION.x, SUN_POSITION.y, SUN_POSITION.z);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left   = -6;
-sun.shadow.camera.right  =  6;
-sun.shadow.camera.top    =  5;
-sun.shadow.camera.bottom = -5;
-sun.shadow.camera.near   =  0.1;
-sun.shadow.camera.far    = 20;
-sun.shadow.radius = 6;
-sun.shadow.bias = -0.0005;
+sun.shadow.mapSize.set(SUN_SHADOW_MAP_SIZE, SUN_SHADOW_MAP_SIZE);
+sun.shadow.camera.left   = SUN_SHADOW_LEFT;
+sun.shadow.camera.right  = SUN_SHADOW_RIGHT;
+sun.shadow.camera.top    = SUN_SHADOW_TOP;
+sun.shadow.camera.bottom = SUN_SHADOW_BOTTOM;
+sun.shadow.camera.near   = SUN_SHADOW_NEAR;
+sun.shadow.camera.far    = SUN_SHADOW_FAR;
+sun.shadow.radius = SUN_SHADOW_RADIUS;
+sun.shadow.bias = SUN_SHADOW_BIAS;
 scene.add(sun);
 
 // 补光 — 另一侧冷色，增加层次
-const fill = new THREE.DirectionalLight(0x8899bb, 0.3);
-fill.position.set(-3, 4, -2);
+const fill = new THREE.DirectionalLight(FILL_LIGHT_COLOR, FILL_LIGHT_INTENSITY);
+fill.position.set(FILL_LIGHT_POSITION.x, FILL_LIGHT_POSITION.y, FILL_LIGHT_POSITION.z);
 scene.add(fill);
 
 // 窗外聚光 — 暖光从窗户打入
-const windowLight = new THREE.SpotLight(0xffcc88, 2.0, 10, Math.PI / 5, 0.5);
-windowLight.position.set(ROOM_WIDTH / 2 + 0.5, 2.5, -0.5);
+const windowLight = new THREE.SpotLight(
+    WINDOW_SPOT_COLOR, WINDOW_SPOT_INTENSITY, WINDOW_SPOT_DISTANCE,
+    WINDOW_SPOT_ANGLE, WINDOW_SPOT_PENUMBRA,
+);
+windowLight.position.set(ROOM_WIDTH / 2 + WINDOW_SPOT_POSITION.x, WINDOW_SPOT_POSITION.y, WINDOW_SPOT_POSITION.z);
 windowLight.target.position.set(0, 0, 0);
 windowLight.castShadow = true;
-windowLight.shadow.mapSize.set(1024, 1024);
+windowLight.shadow.mapSize.set(WINDOW_SPOT_SHADOW_MAP_SIZE, WINDOW_SPOT_SHADOW_MAP_SIZE);
 scene.add(windowLight);
 scene.add(windowLight.target);
 
@@ -336,13 +359,12 @@ function animate() {
     controls.update();
 
     // 窗帘开合动画（缓动 + 褶皱变形）
-    const ROD_HALF = 3.0; // 窗帘杆半长
     curtainPanels.forEach(panel => {
         const sign = panel.userData.side;
         const target = sign * curtainTargetX;
         const diff = target - panel.position.x;
-        if (Math.abs(diff) > 0.005) {
-            panel.position.x += diff * 0.08;
+        if (Math.abs(diff) > CURTAIN_SNAP_THRESH) {
+            panel.position.x += diff * CURTAIN_EASE_FACTOR;
         } else {
             panel.position.x = target;
         }
@@ -365,15 +387,16 @@ function animate() {
 
             // 外侧钉在杆端，内侧向杆端压缩
             // newX 是局部坐标，世界坐标 = panel.position.x + newX
-            // 外边缘(t=0)：世界坐标 = sign*ROD_HALF → 局部 = sign*ROD_HALF - panel.position.x
-            // 内边缘(t=1)：从杆端向内缩 panelW*0.65
-            const rodEndLocal = sign * ROD_HALF - panel.position.x;
+            // 外边缘(t=0)：世界坐标 = sign*CURTAIN_ROD_HALF → 局部 = sign*CURTAIN_ROD_HALF - panel.position.x
+            // 内边缘(t=1)：从杆端向内缩 panelW*CURTAIN_PLEAT_COMPRESSION
+            const rodEndLocal = sign * CURTAIN_ROD_HALF - panel.position.x;
             const closedEdge = ox;
-            const openEdge = rodEndLocal - sign * panelW * 0.65 * t;
+            const openEdge = rodEndLocal - sign * panelW * CURTAIN_PLEAT_COMPRESSION * t;
             const newX = closedEdge + (openEdge - closedEdge) * openAmount;
 
             // 褶皱：越靠近外侧越明显（堆积在杆附近）
-            const pleat = Math.sin(ox * 12 + t * 8) * 0.04 * openAmount * (1 - t);
+            const pleat = Math.sin(ox * CURTAIN_PLEAT_FREQ_OX + t * CURTAIN_PLEAT_FREQ_T)
+                        * CURTAIN_PLEAT_AMPLITUDE * openAmount * (1 - t);
 
             pos.setXYZ(i, newX, oy, oz + pleat);
         }

@@ -5,32 +5,53 @@
 import * as THREE from 'three';
 import { matFabricA, matWood } from '../materials.js';
 
+// ── 椅子尺寸 ──────────────────────────────────────────
+const D = {
+    seatWidth: 0.6,     // 坐面宽度
+    seatThick: 0.06,    // 坐面厚度
+    seatDepth: 0.55,    // 坐面深度
+    seatY: 0.5,         // 坐面中心 y
+    backHeight: 0.6,    // 靠背高度
+    backThick: 0.06,    // 靠背厚度
+    backY: 0.83,        // 靠背中心 y
+    backZ: -0.245,      // 靠背 z 偏移
+    legRadius: 0.03,    // 腿半径
+    legHeight: 0.47,    // 腿高度
+    legX: 0.25,         // 腿 x 偏移（左右对称）
+    legZ: 0.2,          // 腿 z 偏移（前后对称）
+    legY: 0.235,        // 腿中心 y
+    // 摆放位置
+    posX: 1.8,
+    posY: 0,
+    posZ: 1.2,
+};
+
 export function createChair() {
     const chair = new THREE.Group();
 
     // 坐面
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.06, 0.55), matFabricA);
-    seat.position.y = 0.5;
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(D.seatWidth, D.seatThick, D.seatDepth), matFabricA);
+    seat.position.y = D.seatY;
     seat.castShadow = true;
     chair.add(seat);
 
     // 靠背
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.06), matFabricA);
-    back.position.set(0, 0.83, -0.245);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(D.seatWidth, D.backHeight, D.backThick), matFabricA);
+    back.position.set(0, D.backY, D.backZ);
     back.castShadow = true;
     chair.add(back);
 
     // 腿 ×4
-    const legGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.47);
-    [[-0.25, -0.2], [-0.25, 0.2], [0.25, -0.2], [0.25, 0.2]].forEach(([x, z]) => {
+    const legGeo = new THREE.CylinderGeometry(D.legRadius, D.legRadius, D.legHeight);
+    [[-D.legX, -D.legZ], [-D.legX, D.legZ], [D.legX, -D.legZ], [D.legX, D.legZ]].forEach(([x, z]) => {
         const leg = new THREE.Mesh(legGeo, matWood);
-        leg.position.set(x, 0.235, z);
+        leg.position.set(x, D.legY, z);
         leg.castShadow = true;
         chair.add(leg);
     });
 
     // 位置：右侧偏前，微微侧转
-    chair.position.set(1.8, 0, 1.2);
+    chair.position.set(D.posX, D.posY, D.posZ);
     chair.rotation.y = -Math.PI / 4;
     return chair;
 }

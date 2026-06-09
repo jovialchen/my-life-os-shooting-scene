@@ -7,6 +7,15 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 
+// ── 角色摆放参数 ──────────────────────────────────────
+const VRM = {
+    posX: 1.5,          // x 位置
+    posY: 0,            // y 位置
+    posZ: 0.3,          // z 位置
+    rotY: -0.4,         // y 旋转（弧度）
+    fallbackColor: 0xffffff, // 回退材质颜色
+};
+
 export function createHumanoid() {
     const group = new THREE.Group();
 
@@ -31,7 +40,7 @@ export function createHumanoid() {
                     // 检测 ShaderMaterial（MToon），替换为 MeshStandardMaterial
                     if (child.material && child.material.type === 'ShaderMaterial') {
                         const m = child.material;
-                        const color = m.color || new THREE.Color(0xffffff);
+                        const color = m.color || new THREE.Color(VRM.fallbackColor);
                         const map = m.map || null;
                         const fallback = new THREE.MeshStandardMaterial({
                             color,
@@ -48,8 +57,8 @@ export function createHumanoid() {
             });
 
             // 调整位置和朝向
-            vrm.scene.position.set(1.5, 0, 0.3);
-            vrm.scene.rotation.y = -0.4;
+            vrm.scene.position.set(VRM.posX, VRM.posY, VRM.posZ);
+            vrm.scene.rotation.y = VRM.rotY;
 
             group.add(vrm.scene);
             console.log('VRM loaded:', vrm.meta?.name);
