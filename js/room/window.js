@@ -55,6 +55,21 @@ const PLANT = {
     posZ: 0.3,
 };
 
+// ── 窗台可放置表面 ────────────────────────────────────
+export function computeSillSurface() {
+    // 窗户组挂在右墙，rotation.y = -PI/2
+    // 旋转后：本地 x → 世界 -z，本地 z → 世界 +x
+    const groupX = ROOM_WIDTH / 2 - WIN.wallXOffset;
+    const sillW = WIN.width + WIN.sillExtraWidth;
+    return [{
+        minX: groupX + WIN.sillZOffset - WIN.sillDepth / 2,
+        maxX: groupX + WIN.sillZOffset + WIN.sillDepth / 2,
+        minZ: -sillW / 2,
+        maxZ: sillW / 2,
+        height: WIN.sillHeight + WIN.sillThick / 2,
+    }];
+}
+
 // ── 体积光雾锥 ────────────────────────────────────────
 const CONE = {
     topRadius: 0.1,

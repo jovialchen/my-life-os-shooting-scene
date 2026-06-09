@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { matWood, matMetal } from '../materials.js';
 
 // ── 茶几尺寸 ──────────────────────────────────────────
-const D = {
+export const D = {
     topRadius: 0.55,       // 桌面半径
     topThick: 0.05,        // 桌面厚度
     topSegments: 32,       // 桌面径向分段
@@ -50,4 +50,15 @@ export function createCoffeeTable() {
 
     table.position.set(D.posX, D.posY, D.posZ);
     return table;
+}
+
+/** 计算茶几可放置表面（圆形桌面） */
+export function computeSurfaces() {
+    return [{
+        minX: D.posX - D.topRadius,
+        maxX: D.posX + D.topRadius,
+        minZ: D.posZ - D.topRadius,
+        maxZ: D.posZ + D.topRadius,
+        height: D.topY + D.topThick / 2,
+    }];
 }

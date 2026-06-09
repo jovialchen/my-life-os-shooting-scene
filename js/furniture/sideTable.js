@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { matWood, matMetal, matBook1 } from '../materials.js';
 
 // ── 边桌尺寸 ──────────────────────────────────────────
-const D = {
+export const D = {
     topRadius: 0.3,     // 桌面半径
     topThick: 0.04,     // 桌面厚度
     topSegments: 24,    // 桌面径向分段
@@ -73,4 +73,15 @@ export function createSideTable() {
 
     table.position.set(D.posX, D.posY, D.posZ);
     return { table, book: bookGroup };
+}
+
+/** 计算边桌可放置表面（圆形桌面） */
+export function computeSurfaces() {
+    return [{
+        minX: D.posX - D.topRadius,
+        maxX: D.posX + D.topRadius,
+        minZ: D.posZ - D.topRadius,
+        maxZ: D.posZ + D.topRadius,
+        height: D.topY + D.topThick / 2,
+    }];
 }
