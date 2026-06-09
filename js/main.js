@@ -422,7 +422,9 @@ function animate() {
             const oz = orig[i * 3 + 2];
 
             // t: 0 = 外侧（杆端），1 = 内侧（窗中央）
-            const t = (ox + panelW / 2) / panelW; // 左右通用：-panelW/2→0, +panelW/2→1
+            // 左面板：ox=-panelW/2 是杆端 → t=0；右面板需要翻转
+            const rawT = (ox + panelW / 2) / panelW;
+            const t = sign === -1 ? rawT : 1 - rawT;
 
             // 外侧钉在杆端，内侧向杆端压缩
             // newX 是局部坐标，世界坐标 = panel.position.x + newX
