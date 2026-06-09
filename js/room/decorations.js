@@ -43,6 +43,7 @@ export function createRug() {
     rug.rotation.x = -Math.PI / 2;
     rug.position.set(0, RUG.yOffset, RUG.posZ);
     rug.receiveShadow = true;
+    rug.userData.noCollision = true;   // 地毯不阻挡其他家具（可在上面放东西）
     return rug;
 }
 

@@ -148,10 +148,10 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
     // ── 地面家具碰撞检测 ──
 
-    /** 获取所有地面家具（排除指定物体） */
+    /** 获取所有地面家具（排除指定物体和不参与碰撞的装饰层） */
     function getFloorMovables(exclude) {
         return movables.filter(m =>
-            m !== exclude && (m.userData.surface || 'floor') === 'floor' && m.userData.movableType !== 'small-item'
+            m !== exclude && (m.userData.surface || 'floor') === 'floor' && m.userData.movableType !== 'small-item' && !m.userData.noCollision
         );
     }
 
