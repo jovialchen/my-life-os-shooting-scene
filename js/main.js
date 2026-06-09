@@ -123,6 +123,7 @@ const humanoid     = createHumanoid();
 // 标记墙面物体
 wallArt.userData.surface   = 'wall-left';
 wallArt.userData.crossWall = true; // 画作可在不同墙面间拖拽
+curtains.userData.surface  = 'wall-right';
 
 scene.add(windowGroup, curtains, plant, rug, wallArt);
 scene.add(sofa, chair, floorLamp, coffeeTable, sideTable, bookshelf);
@@ -197,6 +198,8 @@ smallItems.forEach(item => {
         { obj: floorLamp,   name: '落地灯',     cat: '家具',   room: '客厅' },
         { obj: bookshelf,   name: '三层书架',   cat: '家具',   room: '客厅' },
         { obj: wallArt,     name: '装饰画',     cat: '挂画',   room: '客厅' },
+        { obj: curtains,    name: '窗帘',       cat: '窗帘',   room: '客厅' },
+        { obj: rug,         name: '地毯',       cat: '地毯',   room: '客厅' },
         { obj: plant,       name: '窗台盆栽',   cat: '小物品', room: '客厅' },
         { obj: sideTableBook, name: '边桌书本', cat: '小物品', room: '客厅' },
         { obj: sofaCushions[0], name: '靠枕（金）', cat: '小物品', room: '客厅' },
@@ -210,7 +213,7 @@ smallItems.forEach(item => {
 
     // 渲染侧边栏
     const sidebar = document.getElementById('sidebar');
-    const categories = ['家具', '挂画', '小物品', '角色'];
+    const categories = ['家具', '挂画', '小物品', '窗帘', '地毯', '角色'];
 
     categories.forEach(cat => {
         const catItems = items.filter(i => i.cat === cat);
