@@ -391,7 +391,7 @@ function updateTimeOfDay(value) {
     const az = lerp(a.az, b.az, t) * Math.PI / 180;
     const el = lerp(a.el, b.el, t) * Math.PI / 180;
     sun.position.set(
-        SUN_ORBIT_RADIUS * Math.cos(el) * Math.sin(az),
+        -SUN_ORBIT_RADIUS * Math.cos(el) * Math.sin(az), // 取反：方位角 90°=东 → x<0（左墙）
         SUN_ORBIT_RADIUS * Math.sin(el),
         SUN_ORBIT_RADIUS * Math.cos(el) * Math.cos(az),
     );
