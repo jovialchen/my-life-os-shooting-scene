@@ -58,6 +58,7 @@ import { createRug, createWallArt } from './room/decorations.js';
 import { createSofa }       from './furniture/sofa.js';
 import { createChair }      from './furniture/chair.js';
 import { createFloorLamp }  from './furniture/floorLamp.js';
+import { createCeilingLight } from './furniture/ceilingLight.js';
 import { createCoffeeTable } from './furniture/coffeeTable.js';
 import { createSideTable }  from './furniture/sideTable.js';
 import { createBookshelf }  from './furniture/bookshelf.js';
@@ -120,7 +121,8 @@ const rug          = createRug();
 const wallArt      = createWallArt();
 const { sofa, cushions: sofaCushions } = createSofa();
 const chair        = createChair();
-const floorLamp    = createFloorLamp();
+const { group: floorLamp, light: floorLampBulb } = createFloorLamp();
+const { group: ceilingLight, light: ceilingBulb } = createCeilingLight();
 const coffeeTable  = createCoffeeTable();
 const { table: sideTable, book: sideTableBook } = createSideTable();
 const { shelf: bookshelf, books: shelfBooks }    = createBookshelf();
@@ -132,9 +134,20 @@ wallArt.userData.crossWall = true; // 画作可在不同墙面间拖拽
 curtains.userData.surface  = 'wall-back';
 
 scene.add(door, windowGroup, curtains, plant, rug, wallArt);
-scene.add(sofa, chair, floorLamp, coffeeTable, sideTable, bookshelf);
+scene.add(sofa, chair, floorLamp, ceilingLight, coffeeTable, sideTable, bookshelf);
 scene.add(sideTableBook, ...shelfBooks, ...sofaCushions);
 scene.add(humanoid);
+
+// 标记灯具（可点击开关）
+ceilingLight.userData.toggleType = 'light';
+ceilingLight.userData.lightRef = ceilingBulb;
+ceilingBulb.userData.on = true;
+ceilingBulb.userData.baseIntensity = ceilingBulb.intensity;
+
+floorLamp.userData.toggleType = 'light';
+floorLamp.userData.lightRef = floorLampBulb;
+floorLampBulb.userData.on = true;
+floorLampBulb.userData.baseIntensity = floorLampBulb.intensity;
 
 // 标记小物品（可放置在任意平面上）
 const smallItems = [plant, sideTableBook, ...shelfBooks, ...sofaCushions];
@@ -165,6 +178,7 @@ smallItems.forEach(item => {
                     '右键平移视角',
                     '拖拽移动家具 / 角色',
                     '点击窗帘 / 门 开合',
+                    '点击灯具 开/关',
                 ],
                 nav: '角色移动',
                 navList: [
@@ -195,6 +209,7 @@ smallItems.forEach(item => {
                     'Right-click to pan',
                     'Drag furniture / character to move',
                     'Click curtain / door to open/close',
+                    'Click lights to toggle on/off',
                 ],
                 nav: 'Character Movement',
                 navList: [
@@ -268,6 +283,7 @@ smallItems.forEach(item => {
         { obj: coffeeTable, name: '圆形茶几',   nameEn: 'Coffee Table',    cat: '家具',   catEn: 'Furniture' },
         { obj: sideTable,   name: '圆形边桌',   nameEn: 'Side Table',      cat: '家具',   catEn: 'Furniture' },
         { obj: floorLamp,   name: '落地灯',     nameEn: 'Floor Lamp',      cat: '家具',   catEn: 'Furniture' },
+        { obj: ceilingLight, name: '顶灯',     nameEn: 'Ceiling Light',   cat: '灯具',   catEn: 'Lighting' },
         { obj: bookshelf,   name: '三层书架',   nameEn: 'Bookshelf',       cat: '家具',   catEn: 'Furniture' },
         { obj: wallArt,     name: '装饰画',     nameEn: 'Wall Art',        cat: '挂画',   catEn: 'Wall Art' },
         { obj: curtains,    name: '窗帘',       nameEn: 'Curtains',        cat: '窗帘',   catEn: 'Curtains' },
@@ -287,6 +303,7 @@ smallItems.forEach(item => {
     const itemsPanel = document.querySelector('[data-panel="items"]');
     const categories = [
         { zh: '家具', en: 'Furniture' },
+        { zh: '灯具', en: 'Lighting' },
         { zh: '挂画', en: 'Wall Art' },
         { zh: '小物品', en: 'Small Items' },
         { zh: '窗帘', en: 'Curtains' },
@@ -511,6 +528,20 @@ renderer.domElement.addEventListener('pointerup', e => {
     if (doorHits.length > 0) {
         door.userData.isOpen = !door.userData.isOpen;
         door.userData.targetRotation = door.userData.isOpen ? Math.PI / 2 : 0;
+    }
+
+    // 灯具点击开关
+    const lightHits = curtainRaycaster.intersectObjects([ceilingLight, floorLamp], true);
+    if (lightHits.length > 0) {
+        let obj = lightHits[0].object;
+        while (obj && obj.userData.toggleType !== 'light') obj = obj.parent;
+        if (obj) {
+            const lightRef = obj.userData.lightRef;
+            if (lightRef) {
+                lightRef.userData.on = !lightRef.userData.on;
+                lightRef.intensity = lightRef.userData.on ? lightRef.userData.baseIntensity : 0;
+            }
+        }
     }
 });
 

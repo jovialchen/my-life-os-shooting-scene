@@ -72,5 +72,5 @@ export function createFloorLamp() {
     lamp.add(bulb);
 
     lamp.position.set(D.posX, D.posY, D.posZ);
-    return lamp;
+    return { group: lamp, light: bulb };
 }
