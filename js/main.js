@@ -58,7 +58,8 @@ import { createSideTable }  from './furniture/sideTable.js';
 import { createBookshelf }  from './furniture/bookshelf.js';
 
 // ── 角色 ──
-import { createHumanoid }   from './character/humanoid.js';
+import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
+import { initWalker, updateWalker } from './character/walker.js';
 
 // ── 交互 ──
 import { createDragControls } from './interaction/dragControls.js';
@@ -93,6 +94,10 @@ controls.minDistance = ORBIT_MIN_DISTANCE;
 controls.maxDistance = ORBIT_MAX_DISTANCE;
 controls.maxPolarAngle = ORBIT_MAX_POLAR;
 controls.update();
+
+// ── 动画时钟 ──
+const clock = new THREE.Clock();
+let lookAtBound = false; // 标记 LookAt 是否已绑定
 
 // ============================================================
 //  组装场景
@@ -250,6 +255,11 @@ const movables = [
 createDragControls(movables, camera, renderer, controls, scene);
 
 // ============================================================
+//  角色点击走动
+// ============================================================
+initWalker(humanoid, camera, renderer, scene);
+
+// ============================================================
 //  窗帘点击开合
 // ============================================================
 const curtainPanels = [];
@@ -358,7 +368,20 @@ window.addEventListener('resize', () => {
 // ============================================================
 function animate() {
     requestAnimationFrame(animate);
+    const delta = clock.getDelta();
     controls.update();
+
+    // VRM 加载完成后绑定 LookAt（只执行一次）
+    if (!lookAtBound && humanoid.userData.vrm) {
+        setHumanoidLookAt(camera);
+        lookAtBound = true;
+    }
+
+    // 驱动 VRM 动画：spring bone 物理 + 眨眼 + 表情呼吸
+    updateHumanoid(delta);
+
+    // 角色步行：点击地面 → 走过去
+    updateWalker(delta);
 
     // 窗帘开合动画（缓动 + 褶皱变形）
     curtainPanels.forEach(panel => {
