@@ -710,14 +710,6 @@ function animate() {
     // 角色步行：点击地面 → 走过去
     updateWalker(delta);
 
-    // DEBUG: 打印角色和盆栽的世界坐标
-    const _debugPos = new THREE.Vector3();
-    humanoid.getWorldPosition(_debugPos);
-    console.log(
-        `角色: x=${_debugPos.x.toFixed(2)} y=${_debugPos.y.toFixed(2)} z=${_debugPos.z.toFixed(2)} | ` +
-        `盆栽: x=${plant.position.x.toFixed(2)} y=${plant.position.y.toFixed(2)} z=${plant.position.z.toFixed(2)}`
-    );
-
     // 门开合动画
     const doorPivot = door.userData.doorPivot;
     if (doorPivot) {
