@@ -1,9 +1,9 @@
 /**
  * 窗户 + 窗帘 + 窗台小盆栽
- * 全部挂在右墙上，位置由 ROOM_WIDTH 自动推算
+ * 全部挂在南墙上（后墙 z=-3.5），位置由 ROOM_DEPTH 自动推算
  */
 import * as THREE from 'three';
-import { ROOM_WIDTH, ROOM_HEIGHT } from '../config.js';
+import { ROOM_WIDTH, ROOM_HEIGHT, ROOM_DEPTH } from '../config.js';
 import { matFrame, matGlass, matMetal, matCurtain, matPot, matLeaf } from '../materials.js';
 
 // ── 窗户尺寸（模块级共享） ─────────────────────────────
@@ -116,9 +116,9 @@ export function createWindow() {
     sill.position.set(0, WIN.sillHeight, WIN.sillZOffset);
     win.add(sill);
 
-    // 挂到右墙（z 负方向 = 朝房间内侧）
-    win.position.set(ROOM_WIDTH / 2 - WIN.wallXOffset, 0, 0);
-    win.rotation.y = -Math.PI / 2;
+    // 挂到南墙（后墙 z=-ROOM_DEPTH/2，玻璃面朝 +z 房间内侧）
+    win.position.set(0, 0, -ROOM_DEPTH / 2 + WIN.wallXOffset);
+    win.rotation.y = 0;
     return win;
 }
 
@@ -166,8 +166,8 @@ export function createCurtains() {
         group.add(cap);
     });
 
-    group.position.set(ROOM_WIDTH / 2 - CURTAIN.groupXOffset, 0, 0);
-    group.rotation.y = -Math.PI / 2;
+    group.position.set(0, 0, -ROOM_DEPTH / 2 + CURTAIN.groupXOffset);
+    group.rotation.y = 0;
     return group;
 }
 
@@ -203,7 +203,7 @@ export function createPlant() {
         plant.add(leaf);
     }
 
-    plant.position.set(ROOM_WIDTH / 2 - PLANT.offsetX, PLANT.posY, PLANT.posZ);
+    plant.position.set(PLANT.posZ, PLANT.posY, -ROOM_DEPTH / 2 + PLANT.offsetX);
     return plant;
 }
 
@@ -218,7 +218,7 @@ export function createLightCone() {
         depthWrite: false,
     });
     const cone = new THREE.Mesh(geo, mat);
-    cone.position.set(ROOM_WIDTH / 2 - CONE.offsetX, CONE.posY, CONE.posZ);
-    cone.rotation.z = Math.PI / 2 + CONE.rotExtra;
+    cone.position.set(-CONE.posZ, CONE.posY, -(ROOM_DEPTH / 2 - CONE.offsetX));
+    cone.rotation.x = Math.PI / 2 + CONE.rotExtra;
     return cone;
 }

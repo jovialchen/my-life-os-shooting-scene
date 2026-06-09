@@ -127,7 +127,7 @@ const humanoid     = createHumanoid();
 // 标记墙面物体
 wallArt.userData.surface   = 'wall-left';
 wallArt.userData.crossWall = true; // 画作可在不同墙面间拖拽
-curtains.userData.surface  = 'wall-right';
+curtains.userData.surface  = 'wall-back';
 
 scene.add(windowGroup, curtains, plant, rug, wallArt);
 scene.add(sofa, chair, floorLamp, coffeeTable, sideTable, bookshelf);
@@ -337,7 +337,7 @@ const fill = new THREE.DirectionalLight(FILL_LIGHT_COLOR, FILL_LIGHT_INTENSITY);
 fill.position.set(FILL_LIGHT_POSITION.x, FILL_LIGHT_POSITION.y, FILL_LIGHT_POSITION.z);
 scene.add(fill);
 
-// 窗外聚光 — 暖光从南面窗户打入（后墙 z=-ROOM_DEPTH/2）
+// 窗外聚光 — 暖光从南面窗户打入（后墙 z=-ROOM_DEPTH/2，窗户已在 window.js 中移到南墙）
 const windowLight = new THREE.SpotLight(
     WINDOW_SPOT_COLOR, WINDOW_SPOT_INTENSITY, WINDOW_SPOT_DISTANCE,
     WINDOW_SPOT_ANGLE, WINDOW_SPOT_PENUMBRA,
@@ -458,7 +458,7 @@ function animate() {
             camera.position.x - controls.target.x,
             camera.position.z - controls.target.z,
         );
-        compassRing.style.transform = `rotate(${camAngle * 180 / Math.PI + 90}deg)`;
+        compassRing.style.transform = `rotate(${-camAngle * 180 / Math.PI}deg)`;
     }
 
     // VRM 加载完成后绑定 LookAt（只执行一次）
