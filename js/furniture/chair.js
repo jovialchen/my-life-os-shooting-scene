@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { matFabricA, matWood } from '../materials.js';
 
 // ── 椅子尺寸 ──────────────────────────────────────────
-export const D = {
+const D = {
     seatWidth: 0.6,     // 坐面宽度
     seatThick: 0.06,    // 坐面厚度
     seatDepth: 0.55,    // 坐面深度
@@ -54,20 +54,4 @@ export function createChair() {
     chair.position.set(D.posX, D.posY, D.posZ);
     chair.rotation.y = -Math.PI / 4;
     return chair;
-}
-
-/** 计算椅子可放置表面（坐面，旋转 -45° 后的包围盒） */
-export function computeSurfaces() {
-    const seatTop = D.seatY + D.seatThick / 2;
-    // 旋转 -45° 后的坐面包围盒
-    const cos45 = Math.SQRT1_2; // cos(45°) = sin(45°) = √2/2
-    const halfX = (D.seatWidth * cos45 + D.seatDepth * cos45) / 2;
-    const halfZ = halfX; // 正方形旋转后仍对称
-    return [{
-        minX: D.posX - halfX,
-        maxX: D.posX + halfX,
-        minZ: D.posZ - halfZ,
-        maxZ: D.posZ + halfZ,
-        height: seatTop,
-    }];
 }

@@ -8,7 +8,7 @@ import { ROOM_DEPTH } from '../config.js';
 import { matWood, matWall, matBook1, matBook2, matBook3 } from '../materials.js';
 
 // ── 书架尺寸 ──────────────────────────────────────────
-export const D = {
+const D = {
     width: 1.2,          // 书架宽度
     height: 2.0,         // 书架高度
     depth: 0.35,         // 书架深度
@@ -90,20 +90,4 @@ export function createBookshelf() {
 
     shelf.position.set(shelfPos.x, shelfPos.y, shelfPos.z);
     return { shelf, books };
-}
-
-/** 计算书架每层的可放置表面 */
-export function computeSurfaces() {
-    const surfaces = [];
-    const shelfPos = { x: D.posX, y: D.posY, z: -ROOM_DEPTH / 2 + D.wallOffset };
-    for (let i = 0; i <= D.shelfCount; i++) {
-        surfaces.push({
-            minX: shelfPos.x - D.width / 2,
-            maxX: shelfPos.x + D.width / 2,
-            minZ: shelfPos.z - D.depth / 2,
-            maxZ: shelfPos.z + D.depth / 2,
-            height: shelfPos.y + i * (D.height / D.shelfCount) + D.plankThick,
-        });
-    }
-    return surfaces;
 }

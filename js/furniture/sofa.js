@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { matFabric, matFabricA, matWood, matCushion } from '../materials.js';
 
 // ── 沙发尺寸 ──────────────────────────────────────────
-export const D = {
+const D = {
     width: 2.4,      // 沙发总宽
     depth: 0.9,      // 沙发总深
     baseHeight: 0.4,  // 坐垫底座高度
@@ -88,17 +88,4 @@ export function createSofa() {
     sofa.position.set(D.posX, D.posY, D.posZ);
     sofa.rotation.y = Math.PI / 2;
     return sofa;
-}
-
-/** 计算沙发可放置表面（坐面，旋转 90° 后宽深互换） */
-export function computeSurfaces() {
-    const seatTop = D.baseY + D.baseHeight / 2;
-    // 旋转 90° 后：本地 width → 世界 z，本地 depth → 世界 x
-    return [{
-        minX: D.posX - D.depth / 2,
-        maxX: D.posX + D.depth / 2,
-        minZ: D.posZ - D.width / 2,
-        maxZ: D.posZ + D.width / 2,
-        height: seatTop,
-    }];
 }
