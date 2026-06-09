@@ -43,11 +43,11 @@ export const BLOOM_THRESHOLD = 0.85;
 export const AMBIENT_LIGHT_COLOR     = 0xffeedd; // 柔和暖色基底
 export const AMBIENT_LIGHT_INTENSITY = 0.3;
 
-// 主方向光（模拟夕阳从西南方向、贴近地平线照入）
-// 后墙=南(有窗), 前方=北(摄像机), 右墙=西, 左墙=东
+// 主方向光（模拟夕阳从南面窗户照入）
+// 后墙=南(有窗,z=-3.5), 前方=北(摄像机), 右墙=西, 左墙=东
 export const SUN_COLOR      = 0xffaa55; // 橙色夕阳
 export const SUN_INTENSITY  = 1.8;
-export const SUN_POSITION   = { x: -6, y: 0.5, z: -8 };
+export const SUN_POSITION   = { x: 0, y: 0.5, z: -8 };
 export const SUN_SHADOW_MAP_SIZE = 2048;
 export const SUN_SHADOW_LEFT     = -6;
 export const SUN_SHADOW_RIGHT    =  6;
