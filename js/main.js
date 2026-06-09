@@ -468,7 +468,7 @@ function animate() {
             controls.target.x - camera.position.x,
             controls.target.z - camera.position.z,
         );
-        compassRing.style.transform = `rotate(${-camAngle * 180 / Math.PI}deg)`;
+        compassRing.style.transform = `rotate(${camAngle * 180 / Math.PI}deg)`;
     }
 
     // VRM 加载完成后绑定 LookAt（只执行一次）
