@@ -1,6 +1,6 @@
 /**
  * 角色：VRM 动漫角色加载器
- * 加载 jo.vrm 模型，驱动 spring bone / 表情 / 目光
+ * 加载 hazel-pink.vrm 模型，驱动 spring bone / 表情 / 目光
  * 如果 MToon 着色器编译失败，自动回退到标准材质
  */
 import * as THREE from 'three';
@@ -47,7 +47,7 @@ export function createHumanoid() {
     loader.register((parser) => new VRMLoaderPlugin(parser));
 
     loader.load(
-        './jo.vrm',
+        './models/hazel-pink.vrm',
         (gltf) => {
             const vrm = gltf.userData.vrm;
             if (!vrm) {
