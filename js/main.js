@@ -465,8 +465,8 @@ function animate() {
     // 指南针旋转（相机方位角 → CSS rotate）
     if (compassRing) {
         const camAngle = Math.atan2(
-            camera.position.x - controls.target.x,
-            camera.position.z - controls.target.z,
+            controls.target.x - camera.position.x,
+            controls.target.z - camera.position.z,
         );
         compassRing.style.transform = `rotate(${-camAngle * 180 / Math.PI}deg)`;
     }
