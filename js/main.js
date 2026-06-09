@@ -35,6 +35,9 @@ import {
     // 窗帘动画
     CURTAIN_CLOSED_X, CURTAIN_OPEN_X, CURTAIN_SNAP_THRESH, CURTAIN_EASE_FACTOR,
     CURTAIN_ROD_HALF, CURTAIN_PLEAT_COMPRESSION, CURTAIN_PLEAT_FREQ_OX, CURTAIN_PLEAT_FREQ_T, CURTAIN_PLEAT_AMPLITUDE,
+    // 窗帘联动灯光
+    CURTAIN_CLOSED_SUN_INTENSITY, CURTAIN_CLOSED_WINDOW_SPOT_INTENSITY,
+    CURTAIN_CLOSED_FILL_LIGHT_INTENSITY, CURTAIN_CLOSED_AMBIENT_INTENSITY,
     // 点击检测
     CLICK_DRAG_THRESHOLD,
     // 缩略图
@@ -310,7 +313,8 @@ renderer.domElement.addEventListener('pointerup', e => {
 // ============================================================
 
 // 环境光 — 柔和暖色基底
-scene.add(new THREE.AmbientLight(AMBIENT_LIGHT_COLOR, AMBIENT_LIGHT_INTENSITY));
+const ambientLight = new THREE.AmbientLight(AMBIENT_LIGHT_COLOR, AMBIENT_LIGHT_INTENSITY);
+scene.add(ambientLight);
 
 // 主方向光 — 模拟夕阳从窗户照入
 const sun = new THREE.DirectionalLight(SUN_COLOR, SUN_INTENSITY);
@@ -398,6 +402,12 @@ function animate() {
     );
 
     // 窗帘开合动画（缓动 + 褶皱变形）
+    // 先计算 openAmount（0=全关, 1=全开），用于后续灯光联动
+    const panel0 = curtainPanels[0];
+    const sign0  = panel0.userData.side;
+    const openAmount = Math.abs(panel0.position.x - sign0 * CURTAIN_CLOSED_X)
+                     / (CURTAIN_OPEN_X - CURTAIN_CLOSED_X);
+
     curtainPanels.forEach(panel => {
         const sign = panel.userData.side;
         const target = sign * curtainTargetX;
@@ -413,8 +423,6 @@ function animate() {
         if (!orig) return;
         const pos = panel.geometry.attributes.position;
         const panelW = CURTAIN_CLOSED_X * 2; // 2.5
-        const openAmount = Math.abs(panel.position.x - sign * CURTAIN_CLOSED_X)
-                         / (CURTAIN_OPEN_X - CURTAIN_CLOSED_X);
 
         for (let i = 0; i < pos.count; i++) {
             const ox = orig[i * 3];
@@ -444,6 +452,12 @@ function animate() {
         pos.needsUpdate = true;
         panel.geometry.computeVertexNormals();
     });
+
+    // 窗帘联动灯光：openAmount 0=全关 → 自然光减弱，台灯不变
+    sun.intensity          = CURTAIN_CLOSED_SUN_INTENSITY          + (SUN_INTENSITY          - CURTAIN_CLOSED_SUN_INTENSITY)          * openAmount;
+    windowLight.intensity  = CURTAIN_CLOSED_WINDOW_SPOT_INTENSITY  + (WINDOW_SPOT_INTENSITY  - CURTAIN_CLOSED_WINDOW_SPOT_INTENSITY)  * openAmount;
+    fill.intensity         = CURTAIN_CLOSED_FILL_LIGHT_INTENSITY   + (FILL_LIGHT_INTENSITY   - CURTAIN_CLOSED_FILL_LIGHT_INTENSITY)   * openAmount;
+    ambientLight.intensity = CURTAIN_CLOSED_AMBIENT_INTENSITY      + (AMBIENT_LIGHT_INTENSITY - CURTAIN_CLOSED_AMBIENT_INTENSITY)      * openAmount;
 
     composer.render();
 }

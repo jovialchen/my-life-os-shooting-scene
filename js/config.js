@@ -71,6 +71,12 @@ export const WINDOW_SPOT_PENUMBRA  = 0.5;
 export const WINDOW_SPOT_POSITION  = { x: 0.5, y: 2.5, z: -0.5 }; // 相对 ROOM_WIDTH/2 的偏移
 export const WINDOW_SPOT_SHADOW_MAP_SIZE = 1024;
 
+// ── 窗帘开合联动灯光（窗帘关闭时自然光减弱，台灯补光） ──
+export const CURTAIN_CLOSED_SUN_INTENSITY       = 0.15;  // 关帘后夕阳光几乎消失
+export const CURTAIN_CLOSED_WINDOW_SPOT_INTENSITY = 0.2;   // 关帘后窗外聚光大幅减弱
+export const CURTAIN_CLOSED_FILL_LIGHT_INTENSITY = 0.15;  // 关帘后补光也减弱
+export const CURTAIN_CLOSED_AMBIENT_INTENSITY    = 0.45;  // 关帘后环境光稍增（补偿整体亮度）
+
 // ── 窗帘动画 ────────────────────────────────────────────
 
 export const CURTAIN_CLOSED_X    = 1.25;   // 关闭时：每片遮住半窗 (5.0/2/2)
