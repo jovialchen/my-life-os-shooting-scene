@@ -10,7 +10,7 @@
         canvas { display: block; }
         #info {
             position: absolute;
-            bottom: 16px;
+            bottom: 56px;
             left: 50%;
             transform: translateX(-50%);
             color: rgba(255,255,255,0.5);
@@ -75,6 +75,53 @@
             border-right: 5px solid transparent;
             border-bottom: 8px solid rgba(255,255,255,0.8);
         }
+        /* 时间滑块 */
+        #time-bar {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(20,15,25,0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 8px 18px;
+            z-index: 20;
+            user-select: none;
+        }
+        #time-bar label {
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        #time-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 280px;
+            height: 4px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        #time-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #ffcc77;
+            cursor: pointer;
+        }
+        #time-label {
+            color: rgba(255,255,255,0.9);
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 28px;
+            text-align: center;
+        }
     </style>
 
     <!-- Three.js r160 CDN (ES Modules) -->
@@ -92,6 +139,11 @@
 
 <div id="info">拖拽旋转 · 滚轮缩放 · 右键平移 · 拖拽移动家具/角色 · 点击窗帘开合</div>
 <div id="sidebar"></div>
+<div id="time-bar">
+    <label>☀ 时间</label>
+    <input id="time-slider" type="range" min="0" max="5" step="0.01" value="4">
+    <span id="time-label">傍晚</span>
+</div>
 <div id="compass">
     <div id="compass-indicator"></div>
     <svg id="compass-ring" viewBox="0 0 64 64">

@@ -35,9 +35,10 @@ import {
     // 窗帘动画
     CURTAIN_CLOSED_X, CURTAIN_OPEN_X, CURTAIN_SNAP_THRESH, CURTAIN_EASE_FACTOR,
     CURTAIN_ROD_HALF, CURTAIN_PLEAT_COMPRESSION, CURTAIN_PLEAT_FREQ_OX, CURTAIN_PLEAT_FREQ_T, CURTAIN_PLEAT_AMPLITUDE,
-    // 窗帘联动灯光
-    CURTAIN_CLOSED_SUN_INTENSITY, CURTAIN_CLOSED_WINDOW_SPOT_INTENSITY,
-    CURTAIN_CLOSED_FILL_LIGHT_INTENSITY, CURTAIN_CLOSED_AMBIENT_INTENSITY,
+    // 一天时间系统
+    TIME_PRESETS, SUN_ORBIT_RADIUS,
+    // 窗帘衰减比例
+    CURTAIN_SUN_FACTOR, CURTAIN_SPOT_FACTOR, CURTAIN_FILL_FACTOR, CURTAIN_AMBIENT_BOOST,
     // 点击检测
     CLICK_DRAG_THRESHOLD,
     // 缩略图
@@ -351,6 +352,71 @@ scene.add(windowLight.target);
 // 落地灯点光源已在 createFloorLamp 中自动生成
 
 // ============================================================
+//  一天时间系统
+// ============================================================
+
+function smoothstep(t) { return t * t * (3 - 2 * t); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpHSL(h1, s1, l1, h2, s2, l2, t) {
+    // 色相取最短弧
+    let dh = h2 - h1;
+    if (dh > 0.5) dh -= 1;
+    if (dh < -0.5) dh += 1;
+    return { h: (h1 + dh * t + 1) % 1, s: lerp(s1, s2, t), l: lerp(l1, l2, t) };
+}
+
+// 基础强度（由时间滑块设置，窗帘在此基础上衰减）
+let sunBaseIntensity     = SUN_INTENSITY;
+let ambientBaseIntensity = AMBIENT_LIGHT_INTENSITY;
+let fillBaseIntensity    = FILL_LIGHT_INTENSITY;
+let spotBaseIntensity    = WINDOW_SPOT_INTENSITY;
+
+function updateTimeOfDay(value) {
+    const idx = Math.min(Math.floor(value), TIME_PRESETS.length - 2);
+    const t = smoothstep(value - idx);
+    const a = TIME_PRESETS[idx];
+    const b = TIME_PRESETS[idx + 1];
+
+    // 太阳位置（球坐标 → 直角坐标）
+    const az = lerp(a.az, b.az, t) * Math.PI / 180;
+    const el = lerp(a.el, b.el, t) * Math.PI / 180;
+    sun.position.set(
+        SUN_ORBIT_RADIUS * Math.cos(el) * Math.sin(az),
+        SUN_ORBIT_RADIUS * Math.sin(el),
+        SUN_ORBIT_RADIUS * Math.cos(el) * Math.cos(az),
+    );
+
+    // 太阳颜色（HSL 插值）
+    const hsl = lerpHSL(a.h, a.s, a.l, b.h, b.s, b.l, t);
+    sun.color.setHSL(hsl.h, hsl.s, hsl.l);
+
+    // 各光源基础强度
+    sunBaseIntensity     = lerp(a.sun,     b.sun,     t);
+    ambientBaseIntensity = lerp(a.ambient, b.ambient, t);
+    fillBaseIntensity    = lerp(a.fill,    b.fill,    t);
+    spotBaseIntensity    = lerp(a.spot,    b.spot,    t);
+
+    // 背景 & 雾色
+    const bgColor = new THREE.Color(a.bg).lerp(new THREE.Color(b.bg), t);
+    scene.background = bgColor;
+    scene.fog.color.copy(bgColor);
+}
+
+// 初始应用傍晚（slider 默认 value=4）
+updateTimeOfDay(4);
+
+// 时间滑块事件
+const timeSlider = document.getElementById('time-slider');
+const timeLabel  = document.getElementById('time-label');
+if (timeSlider) {
+    timeSlider.addEventListener('input', () => {
+        const v = parseFloat(timeSlider.value);
+        updateTimeOfDay(v);
+        if (timeLabel) timeLabel.textContent = TIME_PRESETS[Math.round(v)].name;
+    });
+}
+
+// ============================================================
 //  后期处理
 // ============================================================
 const composer = new EffectComposer(renderer);
@@ -467,11 +533,15 @@ function animate() {
         panel.geometry.computeVertexNormals();
     });
 
-    // 窗帘联动灯光：openAmount 0=全关 → 自然光减弱，台灯不变
-    sun.intensity          = CURTAIN_CLOSED_SUN_INTENSITY          + (SUN_INTENSITY          - CURTAIN_CLOSED_SUN_INTENSITY)          * openAmount;
-    windowLight.intensity  = CURTAIN_CLOSED_WINDOW_SPOT_INTENSITY  + (WINDOW_SPOT_INTENSITY  - CURTAIN_CLOSED_WINDOW_SPOT_INTENSITY)  * openAmount;
-    fill.intensity         = CURTAIN_CLOSED_FILL_LIGHT_INTENSITY   + (FILL_LIGHT_INTENSITY   - CURTAIN_CLOSED_FILL_LIGHT_INTENSITY)   * openAmount;
-    ambientLight.intensity = CURTAIN_CLOSED_AMBIENT_INTENSITY      + (AMBIENT_LIGHT_INTENSITY - CURTAIN_CLOSED_AMBIENT_INTENSITY)      * openAmount;
+    // 窗帘联动灯光：基于时间系统的基础强度 × 窗帘衰减系数
+    const curtainSunF   = lerp(CURTAIN_SUN_FACTOR,   1, openAmount);
+    const curtainSpotF  = lerp(CURTAIN_SPOT_FACTOR,  1, openAmount);
+    const curtainFillF  = lerp(CURTAIN_FILL_FACTOR,  1, openAmount);
+    const curtainAmbF   = lerp(CURTAIN_AMBIENT_BOOST, 1, openAmount);
+    sun.intensity          = sunBaseIntensity     * curtainSunF;
+    windowLight.intensity  = spotBaseIntensity    * curtainSpotF;
+    fill.intensity         = fillBaseIntensity    * curtainFillF;
+    ambientLight.intensity = ambientBaseIntensity * curtainAmbF;
 
     composer.render();
 }

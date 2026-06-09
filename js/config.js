@@ -72,11 +72,25 @@ export const WINDOW_SPOT_PENUMBRA  = 0.5;
 export const WINDOW_SPOT_POSITION  = { x: 0.5, y: 2.5, z: -0.5 }; // 相对 ROOM_WIDTH/2 的偏移
 export const WINDOW_SPOT_SHADOW_MAP_SIZE = 1024;
 
-// ── 窗帘开合联动灯光（窗帘关闭时自然光减弱，台灯补光） ──
-export const CURTAIN_CLOSED_SUN_INTENSITY       = 0.15;  // 关帘后夕阳光几乎消失
-export const CURTAIN_CLOSED_WINDOW_SPOT_INTENSITY = 0.2;   // 关帘后窗外聚光大幅减弱
-export const CURTAIN_CLOSED_FILL_LIGHT_INTENSITY = 0.15;  // 关帘后补光也减弱
-export const CURTAIN_CLOSED_AMBIENT_INTENSITY    = 0.45;  // 关帘后环境光稍增（补偿整体亮度）
+// ── 一天时间系统 ──────────────────────────────────────────
+// 每个时段：太阳方位角(°)、仰角(°)、颜色HSL(h 0-1, s, l)、各光源强度、背景色
+// 方位角：0=北, 90=东, 180=南, 270=西（房间朝南，右墙为西）
+export const SUN_ORBIT_RADIUS = 8; // 太阳轨道半径（比房间大，确保在窗外）
+
+export const TIME_PRESETS = [
+    { name: '清晨', az: 80,  el: 3,   h: 0.07, s: 0.9,  l: 0.55, sun: 0.6,  ambient: 0.15, fill: 0.1,  spot: 0.4,  bg: 0x3d2b4a },
+    { name: '早上', az: 100, el: 20,  h: 0.11, s: 0.8,  l: 0.7,  sun: 1.2,  ambient: 0.25, fill: 0.2,  spot: 1.0,  bg: 0x7a8caa },
+    { name: '中午', az: 180, el: 75,  h: 0.14, s: 0.3,  l: 0.95, sun: 2.0,  ambient: 0.4,  fill: 0.35, spot: 1.5,  bg: 0x87a5c0 },
+    { name: '下午', az: 240, el: 30,  h: 0.10, s: 0.7,  l: 0.75, sun: 1.5,  ambient: 0.3,  fill: 0.25, spot: 1.2,  bg: 0x8a7060 },
+    { name: '傍晚', az: 250, el: 5,   h: 0.04, s: 1.0,  l: 0.5,  sun: 0.8,  ambient: 0.15, fill: 0.1,  spot: 0.6,  bg: 0x6b4455 },
+    { name: '夜晚', az: 0,   el: -10, h: 0.6,  s: 0.3,  l: 0.1,  sun: 0,    ambient: 0.03, fill: 0.02, spot: 0,    bg: 0x0a0a1a },
+];
+
+// ── 窗帘衰减比例（窗帘全关时保留的光线比例） ──
+export const CURTAIN_SUN_FACTOR    = 0.08;  // 太阳光几乎全挡
+export const CURTAIN_SPOT_FACTOR   = 0.1;   // 窗外聚光大幅减弱
+export const CURTAIN_FILL_FACTOR   = 0.5;   // 补光保留一半
+export const CURTAIN_AMBIENT_BOOST = 1.5;   // 环境光补偿性增加
 
 // ── 窗帘动画 ────────────────────────────────────────────
 
