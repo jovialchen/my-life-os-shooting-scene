@@ -11,7 +11,7 @@
 13. 底下的游戏规则改动到右面的侧边栏的tab里。
 14. VRM 应该放到专门的地方而不是根目录下
 3. 扩张房间。
-4. 房间以外的花园 Gaussian Splatting
+4. 房间以外的花园 Gaussian Splatting 大树 秋千 小蘑菇
 
 
 
