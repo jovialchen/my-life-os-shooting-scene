@@ -153,11 +153,31 @@ floorLampBulb.userData.baseIntensity = floorLampBulb.intensity;
 const smallItems = [plant, sideTableBook, ...shelfBooks, ...sofaCushions];
 smallItems.forEach(item => {
     item.userData.movableType = 'small-item';
-    // 计算物品底部到中心的偏移（用于吸附时定位）
+    // 计算物品底部到中心的偏移（用几何尺寸，与位置无关）
     item.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(item);
-    item.userData.itemBottomOffset = item.position.y - box.min.y;
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    item.userData.itemBottomOffset = size.y / 2;
 });
+
+// ── 小物品旋转约束 ──
+// 书本：水平 + 垂直都可旋转（'any'）
+[sideTableBook, ...shelfBooks].forEach(book => {
+    book.userData.rotationConstraint = 'any';
+});
+// 盆栽/靠枕：只能水平旋转（'horizontal'）
+[plant, ...sofaCushions].forEach(item => {
+    item.userData.rotationConstraint = 'horizontal';
+});
+
+// ── 父子携带关系 ──
+// 书架 → 书本
+bookshelf.userData.children = [...shelfBooks];
+shelfBooks.forEach(book => { book.userData.parentGroup = bookshelf; });
+// 边桌 → 书本
+sideTable.userData.children = [sideTableBook];
+sideTableBook.userData.parentGroup = sideTable;
 
 // ============================================================
 //  侧边栏：Tab 式面板（物品 / 人物 / 规则 / 语言）
@@ -179,12 +199,16 @@ smallItems.forEach(item => {
                     '拖拽移动家具 / 角色',
                     '点击窗帘 / 门 开合',
                     '点击灯具 开/关',
+                    '选中物体后 Q/E 旋转45°',
+                    '选中书本后 R 垂直翻转',
                 ],
                 nav: '角色移动',
                 navList: [
                     '点击地面，角色自动走向目标',
                     '角色会绕开家具障碍物',
                     '门打开时角色会绕行门板',
+                    '移动书架/桌子时，上面的物品会一起带走',
+                    '单独拖拽物品可从家具上拿下来',
                 ],
                 time: '时间系统',
                 timeDesc: '拖动底部时间滑块可切换一天中的不同时段，灯光和天空颜色会随之变化。窗帘的开合也会影响室内光线。',
@@ -210,12 +234,16 @@ smallItems.forEach(item => {
                     'Drag furniture / character to move',
                     'Click curtain / door to open/close',
                     'Click lights to toggle on/off',
+                    'Q/E to rotate selected object 45°',
+                    'R to flip book vertically',
                 ],
                 nav: 'Character Movement',
                 navList: [
                     'Click on the floor to walk',
                     'Character avoids furniture obstacles',
                     'Character walks around open doors',
+                    'Moving shelf/table carries items on top',
+                    'Drag items off furniture to detach them',
                 ],
                 time: 'Time System',
                 timeDesc: 'Drag the time slider at the bottom to switch between times of day. Lighting and sky colors change accordingly. Curtain state also affects indoor lighting.',
