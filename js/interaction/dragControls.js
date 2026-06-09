@@ -146,6 +146,52 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         );
     }
 
+    // ── 地面家具碰撞检测 ──
+
+    /** 获取所有地面家具（排除指定物体） */
+    function getFloorMovables(exclude) {
+        return movables.filter(m =>
+            m !== exclude && (m.userData.surface || 'floor') === 'floor' && m.userData.movableType !== 'small-item'
+        );
+    }
+
+    /** 两个地面物体在 xz 平面的重叠量，无重叠返回 null */
+    function getOverlap(a, b) {
+        const heA = a.userData._he;
+        const heB = b.userData._he;
+        if (!heA || !heB) return null;
+
+        const dx = a.position.x - b.position.x;
+        const dz = a.position.z - b.position.z;
+        const overlapX = heA.x + heB.x - Math.abs(dx);
+        const overlapZ = heA.z + heB.z - Math.abs(dz);
+
+        if (overlapX <= 0 || overlapZ <= 0) return null;
+        return { overlapX, overlapZ, dx, dz };
+    }
+
+    /** 将 obj 与其他地面家具分离（最小平移向量） */
+    function resolveCollisions(obj) {
+        const others = getFloorMovables(obj);
+        for (let iter = 0; iter < 8; iter++) {
+            let resolved = true;
+            for (const other of others) {
+                const ov = getOverlap(obj, other);
+                if (!ov) continue;
+                resolved = false;
+                // 沿重叠较小的轴推开
+                if (ov.overlapX < ov.overlapZ) {
+                    const sign = ov.dx >= 0 ? 1 : -1;
+                    obj.position.x += sign * ov.overlapX;
+                } else {
+                    const sign = ov.dz >= 0 ? 1 : -1;
+                    obj.position.z += sign * ov.overlapZ;
+                }
+            }
+            if (resolved) break;
+        }
+    }
+
     function clampToRoom(obj) {
         const p = obj.position;
         const he = obj.userData._he || { x: 0, y: 0, z: 0 };
@@ -182,6 +228,8 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         activePlane = getPlaneForObject(selected);
         isDragging = true;
         cacheHalfExtents(selected);
+        // 缓存所有地面家具的半尺寸（碰撞检测用）
+        for (const m of getFloorMovables(selected)) cacheHalfExtents(m);
 
         const planeHit = raycastToPlane(event, activePlane);
         offset.copy(selected.position).sub(planeHit);
@@ -290,6 +338,11 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
             // 限制在房间范围内
             clampToRoom(selected);
+            // 地面家具碰撞分离
+            if ((selected.userData.surface || 'floor') === 'floor' && selected.userData.movableType !== 'small-item') {
+                resolveCollisions(selected);
+                clampToRoom(selected);
+            }
             return;
         }
 
