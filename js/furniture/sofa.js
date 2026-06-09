@@ -1,6 +1,7 @@
 /**
- * 家具：三人沙发（带靠枕）
+ * 家具：三人沙发 + 独立靠枕
  * 左侧靠墙摆放，面朝房间中央
+ * 靠枕作为独立小物件返回，可单独拖拽
  */
 import * as THREE from 'three';
 import { matFabric, matFabricA, matWood, matCushion } from '../materials.js';
@@ -39,6 +40,10 @@ const D = {
     posZ: 0.5,
 };
 
+/**
+ * 创建沙发和独立靠枕
+ * @returns {{ sofa: THREE.Group, cushions: THREE.Mesh[] }}
+ */
 export function createSofa() {
     const sofa = new THREE.Group();
 
@@ -72,20 +77,29 @@ export function createSofa() {
         sofa.add(leg);
     });
 
-    // 靠枕 ×2
-    const cGeo = new THREE.BoxGeometry(D.cushionSize, D.cushionSize, D.cushionDepth);
-    const c1 = new THREE.Mesh(cGeo, matCushion);
-    c1.position.set(D.cushionLeftX, D.cushionY, D.cushionZ);
-    c1.rotation.z = D.cushionRotL;
-    sofa.add(c1);
-
-    const c2 = new THREE.Mesh(cGeo, matFabricA);
-    c2.position.set(D.cushionRightX, D.cushionY, D.cushionZ);
-    c2.rotation.z = D.cushionRotR;
-    sofa.add(c2);
-
     // 位置：左侧靠墙，面朝中央
     sofa.position.set(D.posX, D.posY, D.posZ);
     sofa.rotation.y = Math.PI / 2;
-    return sofa;
+
+    // 靠枕：独立小物件（世界坐标，不挂在沙发下）
+    const sofaQuat = sofa.quaternion;
+    const sofaPos = sofa.position;
+    const cGeo = new THREE.BoxGeometry(D.cushionSize, D.cushionSize, D.cushionDepth);
+
+    function makeCushion(material, localX, localZ, rotZ) {
+        const c = new THREE.Mesh(cGeo, material);
+        // 将沙发局部坐标转为世界坐标
+        const local = new THREE.Vector3(localX, D.cushionY, localZ);
+        local.applyQuaternion(sofaQuat).add(sofaPos);
+        c.position.copy(local);
+        c.rotation.z = rotZ;
+        c.rotation.y = sofa.rotation.y;
+        c.castShadow = true;
+        return c;
+    }
+
+    const cushion1 = makeCushion(matCushion, D.cushionLeftX, D.cushionZ, D.cushionRotL);
+    const cushion2 = makeCushion(matFabricA, D.cushionRightX, D.cushionZ, D.cushionRotR);
+
+    return { sofa, cushions: [cushion1, cushion2] };
 }

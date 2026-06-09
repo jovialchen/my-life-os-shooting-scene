@@ -107,7 +107,7 @@ const curtains     = createCurtains();
 const plant        = createPlant();
 const rug          = createRug();
 const wallArt      = createWallArt();
-const sofa         = createSofa();
+const { sofa, cushions: sofaCushions } = createSofa();
 const chair        = createChair();
 const floorLamp    = createFloorLamp();
 const coffeeTable  = createCoffeeTable();
@@ -121,11 +121,11 @@ wallArt.userData.crossWall = true; // 画作可在不同墙面间拖拽
 
 scene.add(windowGroup, curtains, plant, rug, wallArt);
 scene.add(sofa, chair, floorLamp, coffeeTable, sideTable, bookshelf);
-scene.add(sideTableBook, ...shelfBooks);
+scene.add(sideTableBook, ...shelfBooks, ...sofaCushions);
 scene.add(humanoid);
 
 // 标记小物品（可放置在任意平面上）
-const smallItems = [plant, sideTableBook, ...shelfBooks];
+const smallItems = [plant, sideTableBook, ...shelfBooks, ...sofaCushions];
 smallItems.forEach(item => {
     item.userData.movableType = 'small-item';
     // 计算物品底部到中心的偏移（用于吸附时定位）
@@ -194,6 +194,8 @@ smallItems.forEach(item => {
         { obj: wallArt,     name: '装饰画',     cat: '挂画',   room: '客厅' },
         { obj: plant,       name: '窗台盆栽',   cat: '小物品', room: '客厅' },
         { obj: sideTableBook, name: '边桌书本', cat: '小物品', room: '客厅' },
+        { obj: sofaCushions[0], name: '靠枕（金）', cat: '小物品', room: '客厅' },
+        { obj: sofaCushions[1], name: '靠枕（绿）', cat: '小物品', room: '客厅' },
         { obj: humanoid,    name: '小人',       cat: '角色',   room: '客厅' },
     ];
     // 书架上的书
@@ -243,7 +245,7 @@ const movables = [
     wallArt, rug,
     sofa, chair, floorLamp, coffeeTable, sideTable, bookshelf,
     humanoid,
-    ...smallItems
+    ...smallItems,
 ];
 createDragControls(movables, camera, renderer, controls, scene);
 
