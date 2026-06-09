@@ -337,12 +337,12 @@ const fill = new THREE.DirectionalLight(FILL_LIGHT_COLOR, FILL_LIGHT_INTENSITY);
 fill.position.set(FILL_LIGHT_POSITION.x, FILL_LIGHT_POSITION.y, FILL_LIGHT_POSITION.z);
 scene.add(fill);
 
-// 窗外聚光 — 暖光从窗户打入
+// 窗外聚光 — 暖光从南面窗户打入（后墙 z=-ROOM_DEPTH/2）
 const windowLight = new THREE.SpotLight(
     WINDOW_SPOT_COLOR, WINDOW_SPOT_INTENSITY, WINDOW_SPOT_DISTANCE,
     WINDOW_SPOT_ANGLE, WINDOW_SPOT_PENUMBRA,
 );
-windowLight.position.set(ROOM_WIDTH / 2 + WINDOW_SPOT_POSITION.x, WINDOW_SPOT_POSITION.y, WINDOW_SPOT_POSITION.z);
+windowLight.position.set(WINDOW_SPOT_POSITION.x, WINDOW_SPOT_POSITION.y, -ROOM_DEPTH / 2 - 0.5);
 windowLight.target.position.set(0, 0, 0);
 windowLight.castShadow = true;
 windowLight.shadow.mapSize.set(WINDOW_SPOT_SHADOW_MAP_SIZE, WINDOW_SPOT_SHADOW_MAP_SIZE);
