@@ -147,10 +147,79 @@ smallItems.forEach(item => {
 });
 
 // ============================================================
-//  侧边栏：物品列表 + 缩略图
+//  侧边栏：Tab 式面板（物品 / 人物 / 规则 / 语言）
 // ============================================================
 (function initSidebar() {
-    // 缩略图渲染器
+    // ── i18n 文本 ──
+    const TEXTS = {
+        zh: {
+            tabs: ['物品', '人物', '规则', '语言'],
+            time: '时间',
+            timeNames: TIME_PRESETS.map(p => p.name),
+            rules: {
+                title: '游戏规则',
+                controls: '基本操作',
+                controlsList: [
+                    '拖拽旋转视角',
+                    '滚轮缩放',
+                    '右键平移视角',
+                    '拖拽移动家具 / 角色',
+                    '点击窗帘 / 门 开合',
+                ],
+                nav: '角色移动',
+                navList: [
+                    '点击地面，角色自动走向目标',
+                    '角色会绕开家具障碍物',
+                    '门打开时角色会绕行门板',
+                ],
+                time: '时间系统',
+                timeDesc: '拖动底部时间滑块可切换一天中的不同时段，灯光和天空颜色会随之变化。窗帘的开合也会影响室内光线。',
+            },
+            character: {
+                title: '场景角色',
+                name: '小人',
+                desc: '点击地面让她走动，她会自动避开家具。可以拖拽移动她的位置。',
+            },
+            langLabel: '语言 / Language',
+        },
+        en: {
+            tabs: ['Items', 'Cast', 'Rules', 'Language'],
+            time: 'Time',
+            timeNames: TIME_PRESETS.map(p => p.nameEn || p.name),
+            rules: {
+                title: 'Game Rules',
+                controls: 'Basic Controls',
+                controlsList: [
+                    'Drag to rotate view',
+                    'Scroll to zoom',
+                    'Right-click to pan',
+                    'Drag furniture / character to move',
+                    'Click curtain / door to open/close',
+                ],
+                nav: 'Character Movement',
+                navList: [
+                    'Click on the floor to walk',
+                    'Character avoids furniture obstacles',
+                    'Character walks around open doors',
+                ],
+                time: 'Time System',
+                timeDesc: 'Drag the time slider at the bottom to switch between times of day. Lighting and sky colors change accordingly. Curtain state also affects indoor lighting.',
+            },
+            character: {
+                title: 'Scene Characters',
+                name: 'Character',
+                desc: 'Click the floor to make her walk — she avoids furniture automatically. Drag to reposition.',
+            },
+            langLabel: '语言 / Language',
+        },
+    };
+
+    let lang = localStorage.getItem('scene-lang') || 'zh';
+    function t(key) {
+        return key.split('.').reduce((o, k) => o && o[k], TEXTS[lang]) || key;
+    }
+
+    // ── 缩略图渲染器 ──
     const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     thumbRenderer.setSize(THUMB_SIZE, THUMB_SIZE);
     thumbRenderer.setPixelRatio(1);
@@ -166,14 +235,12 @@ smallItems.forEach(item => {
     const thumbCam = new THREE.PerspectiveCamera(THUMB_CAMERA_FOV, THUMB_CAMERA_ASPECT, THUMB_CAMERA_NEAR, THUMB_CAMERA_FAR);
 
     function renderThumbnail(obj) {
-        // 计算包围盒
         const box = new THREE.Box3().setFromObject(obj);
         const center = new THREE.Vector3();
         const size = new THREE.Vector3();
         box.getCenter(center);
         box.getSize(size);
 
-        // 相机定位
         const maxDim = Math.max(size.x, size.y, size.z);
         const dist = maxDim * THUMB_DIST_MULTIPLIER;
         thumbCam.position.set(
@@ -184,7 +251,6 @@ smallItems.forEach(item => {
         thumbCam.lookAt(center);
         thumbCam.updateProjectionMatrix();
 
-        // 临时加入缩略图场景
         const parent = obj.parent;
         if (parent) parent.remove(obj);
         thumbScene.add(obj);
@@ -195,62 +261,191 @@ smallItems.forEach(item => {
         return url;
     }
 
-    // 物品清单
+    // ── 物品清单 ──
     const items = [
-        { obj: sofa,        name: '三人沙发',   cat: '家具',   room: '客厅' },
-        { obj: chair,       name: '单人椅',     cat: '家具',   room: '客厅' },
-        { obj: coffeeTable, name: '圆形茶几',   cat: '家具',   room: '客厅' },
-        { obj: sideTable,   name: '圆形边桌',   cat: '家具',   room: '客厅' },
-        { obj: floorLamp,   name: '落地灯',     cat: '家具',   room: '客厅' },
-        { obj: bookshelf,   name: '三层书架',   cat: '家具',   room: '客厅' },
-        { obj: wallArt,     name: '装饰画',     cat: '挂画',   room: '客厅' },
-        { obj: curtains,    name: '窗帘',       cat: '窗帘',   room: '客厅' },
-        { obj: rug,         name: '地毯',       cat: '地毯',   room: '客厅' },
-        { obj: plant,       name: '窗台盆栽',   cat: '小物品', room: '客厅' },
-        { obj: sideTableBook, name: '边桌书本', cat: '小物品', room: '客厅' },
-        { obj: sofaCushions[0], name: '靠枕（金）', cat: '小物品', room: '客厅' },
-        { obj: sofaCushions[1], name: '靠枕（绿）', cat: '小物品', room: '客厅' },
-        { obj: door,        name: '门',         cat: '家具',   room: '客厅' },
-        { obj: humanoid,    name: '小人',       cat: '角色',   room: '客厅' },
+        { obj: sofa,        name: '三人沙发',   nameEn: 'Sofa',            cat: '家具',   catEn: 'Furniture' },
+        { obj: chair,       name: '单人椅',     nameEn: 'Chair',           cat: '家具',   catEn: 'Furniture' },
+        { obj: coffeeTable, name: '圆形茶几',   nameEn: 'Coffee Table',    cat: '家具',   catEn: 'Furniture' },
+        { obj: sideTable,   name: '圆形边桌',   nameEn: 'Side Table',      cat: '家具',   catEn: 'Furniture' },
+        { obj: floorLamp,   name: '落地灯',     nameEn: 'Floor Lamp',      cat: '家具',   catEn: 'Furniture' },
+        { obj: bookshelf,   name: '三层书架',   nameEn: 'Bookshelf',       cat: '家具',   catEn: 'Furniture' },
+        { obj: wallArt,     name: '装饰画',     nameEn: 'Wall Art',        cat: '挂画',   catEn: 'Wall Art' },
+        { obj: curtains,    name: '窗帘',       nameEn: 'Curtains',        cat: '窗帘',   catEn: 'Curtains' },
+        { obj: rug,         name: '地毯',       nameEn: 'Rug',             cat: '地毯',   catEn: 'Rug' },
+        { obj: plant,       name: '窗台盆栽',   nameEn: 'Window Plant',    cat: '小物品', catEn: 'Small Items' },
+        { obj: sideTableBook, name: '边桌书本', nameEn: 'Side Table Book', cat: '小物品', catEn: 'Small Items' },
+        { obj: sofaCushions[0], name: '靠枕（金）', nameEn: 'Cushion (Gold)', cat: '小物品', catEn: 'Small Items' },
+        { obj: sofaCushions[1], name: '靠枕（绿）', nameEn: 'Cushion (Green)', cat: '小物品', catEn: 'Small Items' },
+        { obj: door,        name: '门',         nameEn: 'Door',            cat: '家具',   catEn: 'Furniture' },
+        { obj: humanoid,    name: '小人',       nameEn: 'Character',       cat: '角色',   catEn: 'Character' },
     ];
-    // 书架上的书
     shelfBooks.forEach((book, i) => {
-        items.push({ obj: book, name: `书架书本 ${i + 1}`, cat: '小物品', room: '客厅' });
+        items.push({ obj: book, name: `书架书本 ${i + 1}`, nameEn: `Shelf Book ${i + 1}`, cat: '小物品', catEn: 'Small Items' });
     });
 
-    // 渲染侧边栏
-    const sidebar = document.getElementById('sidebar');
-    const categories = ['家具', '挂画', '小物品', '窗帘', '地毯', '角色'];
+    // ── 渲染物品面板 ──
+    const itemsPanel = document.querySelector('[data-panel="items"]');
+    const categories = [
+        { zh: '家具', en: 'Furniture' },
+        { zh: '挂画', en: 'Wall Art' },
+        { zh: '小物品', en: 'Small Items' },
+        { zh: '窗帘', en: 'Curtains' },
+        { zh: '地毯', en: 'Rug' },
+        { zh: '角色', en: 'Character' },
+    ];
 
-    categories.forEach(cat => {
-        const catItems = items.filter(i => i.cat === cat);
-        if (catItems.length === 0) return;
+    function renderItems() {
+        itemsPanel.innerHTML = '';
+        categories.forEach(cat => {
+            const catItems = items.filter(i => i.cat === cat.zh);
+            if (catItems.length === 0) return;
 
-        const title = document.createElement('div');
-        title.className = 'sb-title';
-        title.textContent = `${cat}（${catItems.length}）`;
-        sidebar.appendChild(title);
+            const title = document.createElement('div');
+            title.className = 'sb-title';
+            title.textContent = `${lang === 'zh' ? cat.zh : cat.en}（${catItems.length}）`;
+            itemsPanel.appendChild(title);
 
-        catItems.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'sb-item';
+            catItems.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'sb-item';
 
-            const thumb = document.createElement('div');
-            thumb.className = 'sb-thumb';
-            const img = document.createElement('img');
-            img.src = renderThumbnail(item.obj);
-            img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
-            thumb.appendChild(img);
+                const thumb = document.createElement('div');
+                thumb.className = 'sb-thumb';
+                const img = document.createElement('img');
+                img.src = renderThumbnail(item.obj);
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+                thumb.appendChild(img);
 
-            const info = document.createElement('div');
-            info.className = 'sb-info';
-            info.innerHTML = `<div class="sb-name">${item.name}</div><div class="sb-meta">${item.room} · ${item.cat}</div>`;
+                const info = document.createElement('div');
+                info.className = 'sb-info';
+                const itemName = lang === 'zh' ? item.name : item.nameEn;
+                const itemCat  = lang === 'zh' ? item.cat  : item.catEn;
+                info.innerHTML = `<div class="sb-name">${itemName}</div><div class="sb-meta">${itemCat}</div>`;
 
-            div.appendChild(thumb);
-            div.appendChild(info);
-            sidebar.appendChild(div);
+                div.appendChild(thumb);
+                div.appendChild(info);
+                itemsPanel.appendChild(div);
+            });
+        });
+    }
+    renderItems();
+
+    // ── 渲染人物面板 ──
+    const charPanel = document.querySelector('[data-panel="characters"]');
+    function renderCharacters() {
+        charPanel.innerHTML = '';
+        const card = document.createElement('div');
+        card.className = 'char-card';
+
+        const thumb = document.createElement('div');
+        thumb.className = 'sb-thumb';
+        const img = document.createElement('img');
+        img.src = renderThumbnail(humanoid);
+        img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+        thumb.appendChild(img);
+
+        const info = document.createElement('div');
+        info.className = 'sb-info';
+        info.innerHTML = `<div class="char-name">${t('character.name')}</div><div class="char-desc">${t('character.desc')}</div>`;
+
+        card.appendChild(thumb);
+        card.appendChild(info);
+        charPanel.appendChild(card);
+    }
+    renderCharacters();
+
+    // ── 渲染规则面板 ──
+    const rulesPanel = document.querySelector('[data-panel="rules"]');
+    function renderRules() {
+        rulesPanel.innerHTML = '';
+        const r = TEXTS[lang].rules;
+
+        const secControls = document.createElement('div');
+        secControls.className = 'rules-section';
+        secControls.innerHTML = `<h3>${r.controls}</h3><ul>${r.controlsList.map(i => `<li>${i}</li>`).join('')}</ul>`;
+        rulesPanel.appendChild(secControls);
+
+        const secNav = document.createElement('div');
+        secNav.className = 'rules-section';
+        secNav.innerHTML = `<h3>${r.nav}</h3><ul>${r.navList.map(i => `<li>${i}</li>`).join('')}</ul>`;
+        rulesPanel.appendChild(secNav);
+
+        const secTime = document.createElement('div');
+        secTime.className = 'rules-section';
+        secTime.innerHTML = `<h3>${r.time}</h3><p>${r.timeDesc}</p>`;
+        rulesPanel.appendChild(secTime);
+    }
+    renderRules();
+
+    // ── 渲染语言面板 ──
+    const langPanel = document.querySelector('[data-panel="lang"]');
+    function renderLang() {
+        langPanel.innerHTML = '';
+        const label = document.createElement('div');
+        label.className = 'rules-section';
+        label.innerHTML = `<h3>${t('langLabel')}</h3>`;
+        langPanel.appendChild(label);
+
+        ['zh', 'en'].forEach(code => {
+            const btn = document.createElement('button');
+            btn.className = 'lang-btn' + (lang === code ? ' active' : '');
+            btn.textContent = code === 'zh' ? '中文' : 'English';
+            btn.addEventListener('click', () => {
+                if (lang === code) return;
+                lang = code;
+                localStorage.setItem('scene-lang', lang);
+                refreshAll();
+            });
+            langPanel.appendChild(btn);
+        });
+    }
+    renderLang();
+
+    // ── 刷新所有面板 + tab 文字 ──
+    function refreshAll() {
+        // 更新 tab 名称
+        document.querySelectorAll('.sb-tab').forEach((tab, i) => {
+            tab.textContent = TEXTS[lang].tabs[i];
+        });
+        // 更新时间标签
+        const timeBarLabel = document.querySelector('#time-bar label');
+        if (timeBarLabel) timeBarLabel.textContent = `☀ ${t('time')}`;
+        const slider = document.getElementById('time-slider');
+        const timeLabelEl = document.getElementById('time-label');
+        if (slider && timeLabelEl) {
+            timeLabelEl.textContent = t('timeNames')[Math.round(parseFloat(slider.value))] || '';
+        }
+        // 重新渲染各面板
+        renderItems();
+        renderCharacters();
+        renderRules();
+        renderLang();
+    }
+
+    // ── Tab 切换 ──
+    document.querySelectorAll('.sb-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.sb-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.sb-panel').forEach(p => p.classList.remove('active'));
+            tab.classList.add('active');
+            const panel = document.querySelector(`[data-panel="${tab.dataset.tab}"]`);
+            if (panel) panel.classList.add('active');
         });
     });
+
+    // ── 侧边栏收起/展开 ──
+    const sidebar = document.getElementById('sidebar');
+    const toggle  = document.getElementById('sb-toggle');
+    if (toggle && sidebar) {
+        toggle.addEventListener('click', () => {
+            sidebar.classList.toggle('closed');
+            toggle.textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
+        });
+    }
+
+    // ── 暴露 refreshAll 给时间滑块更新语言 ──
+    window._sidebarRefresh = refreshAll;
+    window._sidebarLang = () => lang;
 })();
 
 // ============================================================
@@ -422,7 +617,8 @@ if (timeSlider) {
     timeSlider.addEventListener('input', () => {
         const v = parseFloat(timeSlider.value);
         updateTimeOfDay(v);
-        if (timeLabel) timeLabel.textContent = TIME_PRESETS[Math.round(v)].name;
+        const preset = TIME_PRESETS[Math.round(v)];
+        if (timeLabel) timeLabel.textContent = (window._sidebarLang && window._sidebarLang() === 'en') ? preset.nameEn : preset.name;
     });
 }
 

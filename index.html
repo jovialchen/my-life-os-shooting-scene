@@ -8,30 +8,78 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { overflow: hidden; background: #1a1a2e; font-family: -apple-system, 'Segoe UI', sans-serif; }
         canvas { display: block; }
-        #info {
-            position: absolute;
-            bottom: 56px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(255,255,255,0.5);
-            font-size: 12px;
-            pointer-events: none;
-            user-select: none;
-        }
+        /* 侧边栏 */
         #sidebar {
             position: absolute;
             top: 0; right: 0;
-            width: 240px;
+            width: 260px;
             height: 100vh;
-            background: rgba(20, 15, 25, 0.85);
+            background: rgba(20, 15, 25, 0.88);
             backdrop-filter: blur(10px);
             border-left: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            transition: transform 0.3s ease;
+        }
+        #sidebar.closed { transform: translateX(100%); }
+        /* 收起/展开按钮（侧边栏收起时仍可见） */
+        #sb-toggle {
+            position: absolute;
+            left: -28px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 56px;
+            background: rgba(20, 15, 25, 0.75);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-right: none;
+            border-radius: 6px 0 0 6px;
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 11;
+            transition: color 0.15s;
+        }
+        #sb-toggle:hover { color: rgba(255,255,255,0.9); }
+        /* Tab 栏 */
+        #sb-tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            flex-shrink: 0;
+        }
+        .sb-tab {
+            flex: 1;
+            padding: 10px 4px;
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.45);
+            font-size: 11px;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+            border-bottom: 2px solid transparent;
+            white-space: nowrap;
+        }
+        .sb-tab:hover { color: rgba(255,255,255,0.7); }
+        .sb-tab.active {
+            color: rgba(255,255,255,0.9);
+            border-bottom-color: #ffcc77;
+        }
+        /* 内容区 */
+        #sb-panels {
+            flex: 1;
             overflow-y: auto;
             padding: 12px;
-            z-index: 10;
         }
-        #sidebar::-webkit-scrollbar { width: 4px; }
-        #sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+        #sb-panels::-webkit-scrollbar { width: 4px; }
+        #sb-panels::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+        .sb-panel { display: none; }
+        .sb-panel.active { display: block; }
+        /* 物品 tab */
         .sb-title { color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600; margin: 16px 0 8px; }
         .sb-title:first-child { margin-top: 0; }
         .sb-item {
@@ -49,6 +97,47 @@
         .sb-info { flex: 1; min-width: 0; }
         .sb-name { color: rgba(255,255,255,0.85); font-size: 12px; font-weight: 500; }
         .sb-meta { color: rgba(255,255,255,0.4); font-size: 10px; margin-top: 2px; }
+        /* 角色 tab */
+        .char-card {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px; border-radius: 6px; margin-bottom: 6px;
+            background: rgba(255,255,255,0.03);
+        }
+        .char-card .sb-thumb { width: 56px; height: 56px; }
+        .char-name { color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 600; }
+        .char-desc { color: rgba(255,255,255,0.45); font-size: 11px; margin-top: 4px; line-height: 1.5; }
+        /* 规则 tab */
+        .rules-section { margin-bottom: 16px; }
+        .rules-section h3 {
+            color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .rules-section p, .rules-section li {
+            color: rgba(255,255,255,0.55); font-size: 12px; line-height: 1.7;
+        }
+        .rules-section ul { padding-left: 16px; }
+        .rules-section li { margin-bottom: 2px; }
+        /* 语言 tab */
+        .lang-btn {
+            display: block;
+            width: 100%;
+            padding: 10px 14px;
+            margin-bottom: 6px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px;
+            color: rgba(255,255,255,0.7);
+            font-size: 13px;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .lang-btn:hover { background: rgba(255,255,255,0.08); }
+        .lang-btn.active {
+            border-color: #ffcc77;
+            color: rgba(255,255,255,0.9);
+            background: rgba(255,204,119,0.08);
+        }
         /* 指南针 */
         #compass {
             position: absolute;
@@ -137,8 +226,21 @@
 </head>
 <body>
 
-<div id="info">拖拽旋转 · 滚轮缩放 · 右键平移 · 拖拽移动家具/角色 · 点击窗帘/门开合</div>
-<div id="sidebar"></div>
+<div id="sidebar">
+    <div id="sb-toggle" title="收起/展开">◀</div>
+    <div id="sb-tabs">
+        <button class="sb-tab active" data-tab="items">物品</button>
+        <button class="sb-tab" data-tab="characters">人物</button>
+        <button class="sb-tab" data-tab="rules">规则</button>
+        <button class="sb-tab" data-tab="lang">语言</button>
+    </div>
+    <div id="sb-panels">
+        <div class="sb-panel active" data-panel="items"></div>
+        <div class="sb-panel" data-panel="characters"></div>
+        <div class="sb-panel" data-panel="rules"></div>
+        <div class="sb-panel" data-panel="lang"></div>
+    </div>
+</div>
 <div id="time-bar">
     <label>☀ 时间</label>
     <input id="time-slider" type="range" min="0" max="5" step="0.01" value="4">
