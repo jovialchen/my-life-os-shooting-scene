@@ -80,9 +80,9 @@ export function createHumanoid() {
                 }
             });
 
-            // 调整位置和朝向
-            vrm.scene.position.set(VRM.posX, VRM.posY, VRM.posZ);
-            vrm.scene.rotation.y = VRM.rotY;
+            // 调整位置和朝向（设在 group 上，vrm.scene 保持原点）
+            group.position.set(VRM.posX, VRM.posY, VRM.posZ);
+            group.rotation.y = VRM.rotY;
 
             group.add(vrm.scene);
 

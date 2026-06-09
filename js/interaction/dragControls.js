@@ -26,7 +26,7 @@ const PLANES = {
     'wall-back':  new THREE.Plane(new THREE.Vector3(0, 0, 1), ROOM_HALF_D),
 };
 
-export function createDragControls(movables, camera, renderer, orbitControls, scene) {
+export function createDragControls(movables, camera, renderer, orbitControls, scene, options = {}) {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     const intersectPoint = new THREE.Vector3();
@@ -288,6 +288,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             activePlane = null;
             orbitControls.enabled = true;
             renderer.domElement.style.cursor = '';
+            if (options.onDrop) options.onDrop();
         }
     }
 

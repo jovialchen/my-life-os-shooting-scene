@@ -1,28 +1,32 @@
 /**
- * 角色步行控制：点击地面 → 角色走过去
+ * 角色步行控制：点击地面 → 角色走过去（自动绕开家具）
  * 程序化走路动画（无外部 .vrma 文件）
  */
 import * as THREE from 'three';
-import { vrmInstance } from './humanoid.js';
+// humanoid.js exports used indirectly via humanoidGroup.userData.vrm
 import {
     ROOM_HALF_W, ROOM_HALF_D,
     CLICK_DRAG_THRESHOLD,
 } from '../config.js';
+import { buildGrid, findPath, smoothPath, isPathClear, isWalkableWorld, clampToRoomWorld } from './pathfinding.js';
 
 // ── 移动参数 ──────────────────────────────────────────
 const WALK = {
     speed: 1.2,             // 移动速度（米/秒）
     rotSpeed: 6.0,          // 转向速度（弧度/秒）
-    arriveThreshold: 0.08,  // 到达判定距离
+    arriveThreshold: 0.08,  // 到达路径点判定距离
+    targetThreshold: 0.15,  // 到达最终目标判定距离
     floorY: 0.01,           // 射线检测地板的 y 值
-    wallMargin: 0.3,        // 离墙最小距离
+    wallMargin: 0.35,       // 离墙最小距离（与 pathfinding.js WALL_MARGIN 一致）
+    stuckFrames: 30,        // 连续多少帧没有明显前进则视为卡住
+    stuckMinDist: 0.01,     // 卡住判定的最小移动距离
 };
 
 // ── 走路动画参数 ──────────────────────────────────────
 const ANIM = {
     frequency: 4.5,         // 步频（越大越快）
     legSwing: 0.5,          // 腿部前后摆动幅度（弧度）
-    kneeBend: 0.4,          // 膝盖弯曲幅度
+    kneeBend: 1.1,          // 膝盖弯曲幅度
     armSwing: 0.35,         // 手臂摆动幅度
     armBend: 0.2,           // 手臂弯曲
     bodyBob: 0.02,          // 身体上下起伏（米）
@@ -46,12 +50,19 @@ const BONE_NAMES = {
 
 // ── 状态 ──────────────────────────────────────────────
 let state = 'idle';         // 'idle' | 'walking'
-let targetPos = null;       // THREE.Vector3 目标位置
+let targetPos = null;       // THREE.Vector3 最终目标位置
+let waypoints = [];         // THREE.Vector3[] 路径点队列
 let walkPhase = 0;          // 走路相位 0~2π
 let walkBlend = 0;          // 动画混合权重 0=idle, 1=walk
 let boneNodes = null;       // 缓存骨骼节点引用
 let boneDefaults = null;    // 骨骼初始旋转备份
 let humanoidGroup = null;
+let furnitureList = null;   // 家具引用（用于寻路）
+let stuckCounter = 0;       // 卡住检测计数器
+let prevDistance = Infinity; // 上一帧到当前路径点的距离
+
+// 预分配向量（避免每帧分配）
+const _toTarget = new THREE.Vector3();
 
 // ── 点击标记 ──────────────────────────────────────────
 let marker = null;
@@ -75,24 +86,41 @@ let pointerDownPos = null;
  * @param {THREE.Camera} camera
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Scene} scene
+ * @param {THREE.Object3D[]} furniture - 主要家具列表（用于寻路避障）
  */
-export function initWalker(humanoid, camera, renderer, scene) {
+export function initWalker(humanoid, camera, renderer, scene, furniture) {
     humanoidGroup = humanoid;
+    furnitureList = furniture || [];
+
+    // 构建寻路网格
+    if (furnitureList.length > 0) {
+        buildGrid(furnitureList);
+    }
 
     // 创建点击标记
     marker = new THREE.Mesh(markerGeometry, markerMaterial);
     marker.visible = false;
     scene.add(marker);
 
-    // 收集可阻挡走路的物体（家具、角色等，不含地面）
+    // 收集可阻挡走路的物体（家具、角色等，不含地面和角色自身）
     let blockers = [];
+    const humanoids = new Set();
+    // 收集角色 group 及其所有子 mesh
+    humanoidGroup.traverse(child => {
+        if (child.isMesh) humanoids.add(child);
+    });
+
     scene.traverse(child => {
         if (child.isMesh && child !== marker) {
+            // 排除角色自身
+            if (humanoids.has(child)) return;
             // 排除地板（rotation.x = -PI/2 的 PlaneGeometry）
             const isFloor = child.geometry.type === 'PlaneGeometry'
                           && Math.abs(child.rotation.x + Math.PI / 2) < 0.01
-                          && child.position.y === 0;
-            if (!isFloor) blockers.push(child);
+                          && child.position.y < 0.02;
+            if (!isFloor) {
+                blockers.push(child);
+            }
         }
     });
 
@@ -106,7 +134,8 @@ export function initWalker(humanoid, camera, renderer, scene) {
         const dx = e.clientX - pointerDownPos.x;
         const dy = e.clientY - pointerDownPos.y;
         pointerDownPos = null;
-        if (Math.sqrt(dx * dx + dy * dy) > CLICK_DRAG_THRESHOLD) return;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > CLICK_DRAG_THRESHOLD) return;
 
         pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
         pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -114,23 +143,52 @@ export function initWalker(humanoid, camera, renderer, scene) {
 
         // 先检测是否点到了家具/角色等物体
         const hits = raycaster.intersectObjects(blockers, true);
-        if (hits.length > 0) return; // 点到物体，不触发走路
+        if (hits.length > 0) {
+            // 点到物体：停止走路，隐藏标记
+            finishWalking();
+            return;
+        }
 
         // 再检测地面平面
         const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
         const hit = new THREE.Vector3();
-        raycaster.ray.intersectPlane(floorPlane, hit);
+        const intersectResult = raycaster.ray.intersectPlane(floorPlane, hit);
 
-        if (hit) {
-            // 限制在房间内
-            const mx = ROOM_HALF_W - WALK.wallMargin;
-            const mz = ROOM_HALF_D - WALK.wallMargin;
-            hit.x = THREE.MathUtils.clamp(hit.x, -mx, mx);
-            hit.z = THREE.MathUtils.clamp(hit.z, -mz, mz);
+        if (intersectResult) {
+            // 限制在房间内（与寻路网格的边界对齐）
+            const clamped = clampToRoomWorld(hit.x, hit.z);
+            hit.x = clamped.x;
+            hit.z = clamped.z;
             hit.y = 0;
 
-            targetPos = hit;
+            // 点击位置不可行走，忽略
+            if (!isWalkableWorld(hit.x, hit.z)) return;
+
+            // 寻路：先算好完整路径，再让角色移动
+            const path = findPath(humanoidGroup.position, hit);
+            if (!path || path.length === 0) return; // 不可达
+
+            const smoothed = smoothPath(path);
+
+            // 尝试用实际点击位置替换最后一个路径点
+            const lastIdx = smoothed.length - 1;
+            const prevPt = lastIdx >= 1 ? smoothed[lastIdx - 1] : humanoidGroup.position;
+            if (isPathClear(prevPt.x, prevPt.z, hit.x, hit.z)) {
+                smoothed[lastIdx] = hit.clone(); // 确保使用点击位置
+            } else {
+                // 最后一段不畅通，保留寻路终点，但添加实际目标作为额外路径点尝试
+                const lastWP = smoothed[lastIdx];
+                if (isWalkableWorld(hit.x, hit.z)) {
+                    // 寻路终点和点击位置之间可能只差一点点，用寻路终点即可
+                    // 但我们仍然记录 targetPos 为实际点击位置
+                }
+            }
+
+            waypoints = smoothed;
+            targetPos = hit.clone();
             state = 'walking';
+            stuckCounter = 0;
+            prevDistance = Infinity;
 
             // 显示点击标记
             marker.position.copy(hit);
@@ -157,6 +215,34 @@ export function updateWalker(delta) {
     }
 
     updateWalkAnimation(delta);
+}
+
+/**
+ * 重建寻路网格（家具被拖拽后调用）
+ * 如果角色正在走路，会从当前位置重新寻路到目标点
+ */
+export function rebuildNavGrid() {
+    if (!furnitureList || furnitureList.length === 0) return;
+    buildGrid(furnitureList);
+
+    // 如果正在走路，从当前位置重新寻路
+    if (state === 'walking' && targetPos && humanoidGroup) {
+        const path = findPath(humanoidGroup.position, targetPos);
+        if (path && path.length > 0) {
+            const smoothed = smoothPath(path);
+            const lastIdx = smoothed.length - 1;
+            const prevPt = lastIdx >= 1 ? smoothed[lastIdx - 1] : humanoidGroup.position;
+            if (isPathClear(prevPt.x, prevPt.z, targetPos.x, targetPos.z)) {
+                smoothed[lastIdx] = targetPos.clone();
+            }
+            waypoints = smoothed;
+            stuckCounter = 0;
+            prevDistance = Infinity;
+        } else {
+            // 新位置不可达，停止走路
+            finishWalking();
+        }
+    }
 }
 
 // ── 内部函数 ──────────────────────────────────────────
@@ -187,8 +273,6 @@ function initBones() {
     for (const [key, node] of Object.entries(boneNodes)) {
         boneDefaults[key] = node.rotation.clone();
     }
-
-    console.log('Walker: bones initialized', Object.keys(boneNodes));
 }
 
 /**
@@ -219,39 +303,142 @@ function applyIdlePose() {
 }
 
 function updateMovement(delta) {
-    if (!targetPos || !humanoidGroup) return;
+    if (!humanoidGroup) return;
 
-    const pos = humanoidGroup.position;
-    const toTarget = new THREE.Vector3().subVectors(targetPos, pos);
-    toTarget.y = 0;
-    const dist = toTarget.length();
+    // 确定当前目标点：路径点队列的第一个
+    const currentTarget = waypoints.length > 0 ? waypoints[0] : null;
+    if (!currentTarget) {
+        // 所有路径点已走完，检查是否已到达最终目标
+        if (targetPos) {
+            _toTarget.subVectors(targetPos, humanoidGroup.position);
+            _toTarget.y = 0;
+            const distToTarget = _toTarget.length();
 
-    if (dist < WALK.arriveThreshold) {
-        // 到达
-        state = 'idle';
-        targetPos = null;
-        marker.visible = false;
+            if (distToTarget < WALK.targetThreshold) {
+                // 到达最终目标
+                finishWalking();
+                return;
+            }
+
+            // 路径走完了但还没到目标，尝试直接走过去
+            if (isWalkableWorld(targetPos.x, targetPos.z)) {
+                moveToward(targetPos, delta);
+                return;
+            }
+        }
+        finishWalking();
         return;
     }
 
-    // 转向目标
-    const targetAngle = Math.atan2(toTarget.x, toTarget.z);
+    const pos = humanoidGroup.position;
+    _toTarget.subVectors(currentTarget, pos);
+    _toTarget.y = 0;
+    const dist = _toTarget.length();
+
+    // ── 卡住检测 ──
+    if (dist > prevDistance - WALK.stuckMinDist) {
+        stuckCounter++;
+    } else {
+        stuckCounter = 0;
+    }
+    prevDistance = dist;
+
+    if (stuckCounter >= WALK.stuckFrames) {
+        // 卡住了，重新寻路
+        if (targetPos && furnitureList) {
+            const path = findPath(pos, targetPos);
+            if (path && path.length > 0) {
+                const smoothed = smoothPath(path);
+                const lastIdx = smoothed.length - 1;
+                const prevPt = lastIdx >= 1 ? smoothed[lastIdx - 1] : pos;
+                if (isPathClear(prevPt.x, prevPt.z, targetPos.x, targetPos.z)) {
+                    smoothed[lastIdx] = targetPos.clone();
+                }
+                waypoints = smoothed;
+                stuckCounter = 0;
+                prevDistance = Infinity;
+                return;
+            }
+        }
+        // 重新寻路失败，停止
+        finishWalking();
+        return;
+    }
+
+    // ── 到达当前路径点 ──
+    if (dist < WALK.arriveThreshold) {
+        waypoints.shift();
+        stuckCounter = 0;
+        prevDistance = Infinity;
+
+        // 没有更多路径点，进入最终目标检查
+        if (waypoints.length === 0) {
+            if (targetPos) {
+                _toTarget.subVectors(targetPos, pos);
+                _toTarget.y = 0;
+                if (_toTarget.length() < WALK.targetThreshold) {
+                    finishWalking();
+                    return;
+                }
+            } else {
+                finishWalking();
+                return;
+            }
+        }
+        return;
+    }
+
+    // ── 沿 A* 预计算路径移动（不再做逐帧碰撞检测 + 滑行）──
+    moveToward(currentTarget, delta);
+}
+
+/**
+ * 向目标点移动一步（转向 + 直线前进）
+ * 移动后将位置限制在房间可行走区域内
+ */
+function moveToward(target, delta) {
+    const pos = humanoidGroup.position;
+    _toTarget.subVectors(target, pos);
+    _toTarget.y = 0;
+    const dist = _toTarget.length();
+
+    if (dist < 0.001) return; // 已在目标位置
+
+    // ── 转向 ──
+    const targetAngle = Math.atan2(_toTarget.x, _toTarget.z);
     let currentAngle = humanoidGroup.rotation.y;
     let diff = targetAngle - currentAngle;
-    // 规范化到 [-π, π]
     diff = ((diff + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
-    const maxTurn = WALK.rotSpeed * delta;
-    if (Math.abs(diff) > maxTurn) {
-        diff = Math.sign(diff) * maxTurn;
-    }
-    humanoidGroup.rotation.y += diff;
+    humanoidGroup.rotation.y += diff * Math.min(1, WALK.rotSpeed * delta);
 
-    // 向前移动
+    // ── 移动：沿目标方向直线前进 ──
     const step = Math.min(WALK.speed * delta, dist);
-    const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(
-        new THREE.Vector3(0, 1, 0), humanoidGroup.rotation.y
-    );
-    pos.addScaledVector(forward, step);
+    const newX = pos.x + (_toTarget.x / dist) * step;
+    const newZ = pos.z + (_toTarget.z / dist) * step;
+
+    // 安全检查：目标位置是否可行走
+    if (isWalkableWorld(newX, newZ)) {
+        pos.x = newX;
+        pos.z = newZ;
+    }
+    // 如果不可行走，原地等待下一帧（路径点会引导绕行）
+
+    // ── 位置限制：确保不会离开房间 ──
+    const clamped = clampToRoomWorld(pos.x, pos.z);
+    pos.x = clamped.x;
+    pos.z = clamped.z;
+}
+
+/**
+ * 结束走路状态
+ */
+function finishWalking() {
+    state = 'idle';
+    targetPos = null;
+    waypoints = [];
+    stuckCounter = 0;
+    prevDistance = Infinity;
+    marker.visible = false;
 }
 
 function updateWalkAnimation(delta) {
@@ -274,7 +461,6 @@ function updateWalkAnimation(delta) {
 
     const t = walkBlend;
     const sin = Math.sin(walkPhase);
-    const cos = Math.cos(walkPhase);
 
     // ── 腿部 ──
     if (boneNodes.leftUpperLeg) {
@@ -284,13 +470,14 @@ function updateWalkAnimation(delta) {
         boneNodes.rightUpperLeg.rotation.x = boneDefaults.rightUpperLeg.x - sin * ANIM.legSwing * t;
     }
     if (boneNodes.leftLowerLeg) {
-        // 膝盖在腿向后时弯曲
-        const knee = Math.max(0, -sin) * ANIM.kneeBend * t;
-        boneNodes.leftLowerLeg.rotation.x = boneDefaults.leftLowerLeg.x - knee;
+        // 膝盖在腿向前摆时弯曲（抬脚离地）
+        const knee = Math.max(0, sin) * ANIM.kneeBend * t;
+        boneNodes.leftLowerLeg.rotation.x = boneDefaults.leftLowerLeg.x + knee;
     }
     if (boneNodes.rightLowerLeg) {
-        const knee = Math.max(0, sin) * ANIM.kneeBend * t;
-        boneNodes.rightLowerLeg.rotation.x = boneDefaults.rightLowerLeg.x - knee;
+        // 右腿与左腿反相
+        const knee = Math.max(0, -sin) * ANIM.kneeBend * t;
+        boneNodes.rightLowerLeg.rotation.x = boneDefaults.rightLowerLeg.x + knee;
     }
 
     // ── 手臂（与对侧腿同步）──

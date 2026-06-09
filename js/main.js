@@ -59,7 +59,7 @@ import { createBookshelf }  from './furniture/bookshelf.js';
 
 // ── 角色 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
-import { initWalker, updateWalker } from './character/walker.js';
+import { initWalker, updateWalker, rebuildNavGrid } from './character/walker.js';
 
 // ── 交互 ──
 import { createDragControls } from './interaction/dragControls.js';
@@ -252,12 +252,15 @@ const movables = [
     humanoid,
     ...smallItems,
 ];
-createDragControls(movables, camera, renderer, controls, scene);
+createDragControls(movables, camera, renderer, controls, scene, {
+    onDrop: rebuildNavGrid,
+});
 
 // ============================================================
-//  角色点击走动
+//  角色点击走动（自动绕开家具）
 // ============================================================
-initWalker(humanoid, camera, renderer, scene);
+const furnitureObstacles = [sofa, chair, coffeeTable, sideTable, bookshelf, floorLamp];
+initWalker(humanoid, camera, renderer, scene, furnitureObstacles);
 
 // ============================================================
 //  窗帘点击开合
@@ -382,6 +385,14 @@ function animate() {
 
     // 角色步行：点击地面 → 走过去
     updateWalker(delta);
+
+    // DEBUG: 打印角色和盆栽的世界坐标
+    const _debugPos = new THREE.Vector3();
+    humanoid.getWorldPosition(_debugPos);
+    console.log(
+        `角色: x=${_debugPos.x.toFixed(2)} y=${_debugPos.y.toFixed(2)} z=${_debugPos.z.toFixed(2)} | ` +
+        `盆栽: x=${plant.position.x.toFixed(2)} y=${plant.position.y.toFixed(2)} z=${plant.position.z.toFixed(2)}`
+    );
 
     // 窗帘开合动画（缓动 + 褶皱变形）
     curtainPanels.forEach(panel => {
