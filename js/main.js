@@ -270,7 +270,7 @@ createDragControls(movables, camera, renderer, controls, scene, {
 //  角色点击走动（自动绕开家具）
 // ============================================================
 const furnitureObstacles = [sofa, chair, coffeeTable, sideTable, bookshelf, floorLamp];
-initWalker(humanoid, camera, renderer, scene, furnitureObstacles);
+initWalker(humanoid, camera, renderer, scene, furnitureObstacles, door);
 
 // ============================================================
 //  窗帘点击开合
@@ -498,7 +498,10 @@ function animate() {
         if (Math.abs(doorDiff) > 0.005) {
             doorPivot.rotation.y += doorDiff * 0.08;
         } else {
-            doorPivot.rotation.y = door.userData.targetRotation;
+            if (doorPivot.rotation.y !== door.userData.targetRotation) {
+                doorPivot.rotation.y = door.userData.targetRotation;
+                rebuildNavGrid(); // 门动画结束，更新寻路网格
+            }
         }
     }
 

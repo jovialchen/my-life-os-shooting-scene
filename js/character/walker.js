@@ -8,7 +8,7 @@ import {
     ROOM_HALF_W, ROOM_HALF_D,
     CLICK_DRAG_THRESHOLD,
 } from '../config.js';
-import { buildGrid, findPath, smoothPath, isPathClear, isWalkableWorld, clampToRoomWorld } from './pathfinding.js';
+import { buildGrid, findPath, smoothPath, isPathClear, isWalkableWorld, clampToRoomWorld, setDoor } from './pathfinding.js';
 
 // ── 移动参数 ──────────────────────────────────────────
 const WALK = {
@@ -88,9 +88,12 @@ let pointerDownPos = null;
  * @param {THREE.Scene} scene
  * @param {THREE.Object3D[]} furniture - 主要家具列表（用于寻路避障）
  */
-export function initWalker(humanoid, camera, renderer, scene, furniture) {
+export function initWalker(humanoid, camera, renderer, scene, furniture, door) {
     humanoidGroup = humanoid;
     furnitureList = furniture || [];
+
+    // 设置门引用（开门时门板作为动态障碍）
+    if (door) setDoor(door);
 
     // 构建寻路网格
     if (furnitureList.length > 0) {

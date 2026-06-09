@@ -5,7 +5,7 @@
  * 用 A* 算法在网格上规划最短路径。
  */
 import * as THREE from 'three';
-import { ROOM_HALF_W, ROOM_HALF_D } from '../config.js';
+import { ROOM_HALF_W, ROOM_HALF_D, DOOR_WIDTH } from '../config.js';
 
 // ── 寻路参数 ──────────────────────────────────────────
 const CELL_SIZE     = 0.1;   // 网格分辨率（米/格）
@@ -23,6 +23,9 @@ const GRID_ORIGIN_Z = -ROOM_HALF_D;
 /** @type {Uint8Array} 0=可通行 1=障碍 */
 let grid = new Uint8Array(GRID_W * GRID_D);
 
+/** @type {THREE.Object3D|null} 门 group 引用（用于动态障碍） */
+let doorRef = null;
+
 // 预分配 A* 工作数组（避免每次 findPath 重新分配）
 let gScoreBuf   = new Float32Array(GRID_W * GRID_D);
 let cameFromBuf = new Int32Array(GRID_W * GRID_D);
@@ -35,6 +38,18 @@ let closedBuf   = new Uint8Array(GRID_W * GRID_D);
  * @param {THREE.Object3D[]} furnitureList - 主要家具 group 列表
  */
 export function buildGrid(furnitureList) {
+    _buildGridInternal(furnitureList);
+}
+
+/**
+ * 设置门引用，开门时门板会作为动态障碍加入网格
+ * @param {THREE.Object3D} door - 门 group
+ */
+export function setDoor(door) {
+    doorRef = door;
+}
+
+function _buildGridInternal(furnitureList) {
     grid.fill(0);
 
     const inflate = CHAR_RADIUS + OBSTACLE_PAD;
@@ -63,6 +78,20 @@ export function buildGrid(furnitureList) {
         }
     }
 
+    // 门打开时，门板甩入房间内部，作为动态障碍
+    if (doorRef && doorRef.userData.isOpen) {
+        box.setFromObject(doorRef);
+        const dgx0 = Math.max(0, Math.floor((box.min.x - inflate - GRID_ORIGIN_X) / CELL_SIZE));
+        const dgx1 = Math.min(GRID_W - 1, Math.ceil((box.max.x + inflate - GRID_ORIGIN_X) / CELL_SIZE));
+        const dgz0 = Math.max(0, Math.floor((box.min.z - inflate - GRID_ORIGIN_Z) / CELL_SIZE));
+        const dgz1 = Math.min(GRID_D - 1, Math.ceil((box.max.z + inflate - GRID_ORIGIN_Z) / CELL_SIZE));
+        for (let gz = dgz0; gz <= dgz1; gz++) {
+            for (let gx = dgx0; gx <= dgx1; gx++) {
+                grid[gz * GRID_W + gx] = 1;
+            }
+        }
+    }
+
     // 标记房间边界为障碍（防止角色贴墙或走出房间）
     // 四面墙全部标记，角色不得走出房间
     const wallCells = Math.floor(WALL_MARGIN / CELL_SIZE);
@@ -76,6 +105,16 @@ export function buildGrid(furnitureList) {
     for (let gz = GRID_D - wallCells; gz < GRID_D; gz++) {
         for (let gx = 0; gx < GRID_W; gx++) {
             grid[gz * GRID_W + gx] = 1;
+        }
+    }
+
+    // 前墙门洞：清除门宽范围内的障碍，让角色可以穿过门口
+    // 门居中于前墙 (x=0)，宽 DOOR_WIDTH
+    const doorLeft  = worldToGridX(-DOOR_WIDTH / 2);
+    const doorRight = worldToGridX( DOOR_WIDTH / 2);
+    for (let gz = GRID_D - wallCells; gz < GRID_D; gz++) {
+        for (let gx = doorLeft; gx <= doorRight; gx++) {
+            grid[gz * GRID_W + gx] = 0;
         }
     }
     // 左右边界（X 方向）
