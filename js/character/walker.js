@@ -108,9 +108,7 @@ export function initWalker(humanoid, camera, renderer, scene, furniture, door, a
         if (furnitureList.length > 0) {
             buildGrid(furnitureList);
         }
-
-        // 监听房间切换
-        apartment.onRoomSwitch = onRoomSwitch;
+        // 注意：onRoomSwitch 由 main.js 设置，不在这里设置
     } else {
         // 兼容单房间模式
         furnitureList = furniture || [];
@@ -225,8 +223,9 @@ export function initWalker(humanoid, camera, renderer, scene, furniture, door, a
  * 房间切换回调
  * @param {string} newRoomId
  * @param {string} oldRoomId
+ * @param {{ x: number, z: number }} entryPos - 传送到的位置
  */
-function onRoomSwitch(newRoomId, oldRoomId) {
+function onRoomSwitch(newRoomId, oldRoomId, entryPos) {
     if (!apartment) return;
 
     // 重新初始化寻路网格
@@ -243,7 +242,20 @@ function onRoomSwitch(newRoomId, oldRoomId) {
         buildGrid(furnitureList);
     }
 
-    // 停止当前走路（路径已失效）
+    // 如果正在走路且有目标，重新寻路到目标
+    if (state === 'walking' && targetPos && humanoidGroup) {
+        const path = findPath(humanoidGroup.position, targetPos);
+        if (path && path.length > 0) {
+            const smoothed = smoothPath(path);
+            waypoints = smoothed;
+            stuckCounter = 0;
+            prevDistance = Infinity;
+            // 继续走路，不调用 finishWalking()
+            return;
+        }
+    }
+
+    // 如果没有目标或寻路失败，停止走路
     finishWalking();
 }
 

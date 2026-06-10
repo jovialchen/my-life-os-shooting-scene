@@ -154,6 +154,9 @@ apartment.onRoomSwitch = (newRoomId, oldRoomId, entryPos) => {
         console.log(`[Room Switch] 传送到: x=${entryPos.x.toFixed(2)}, z=${entryPos.z.toFixed(2)}`);
     }
 
+    // 重建寻路网格并继续走向目标
+    rebuildNavGrid();
+
     // 更新拖拽控制器的可移动物体列表
     if (dragControlsInstance) {
         dragControlsInstance.updateMovables([...allMovables, humanoid]);
