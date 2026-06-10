@@ -139,15 +139,32 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         hidden.forEach(m => { m.visible = true; });
 
         // 找最高的、在物品下方的表面（世界坐标比较）
+        // 只接受严格在物品下方的表面（容差 0.01 用于浮点精度）
         let bestHitObj = null;
         let bestY = -Infinity;
         for (const hit of hits) {
             const surfaceY = hit.point.y;
-            if (surfaceY <= worldPos.y + SNAP_SURFACE_TOLERANCE && surfaceY > bestY) {
+            if (surfaceY <= worldPos.y + 0.01 && surfaceY > bestY) {
                 bestY = surfaceY;
                 bestHitObj = hit.object;
             }
         }
+
+        console.log('[findParentBelow]', {
+            worldY: worldPos.y.toFixed(4),
+            rawHits: hits.length,
+            bestY: bestY === -Infinity ? '-Inf' : bestY.toFixed(4),
+            bestHitName: bestHitObj?.parent?.userData?.name || bestHitObj?.name || 'none',
+            foundParent: (() => {
+                if (!bestHitObj) return 'no-hit';
+                let c = bestHitObj;
+                while (c) {
+                    if (movables.includes(c) && c !== obj && c.userData.movableType !== 'small-item') return c.userData?.name || 'unnamed';
+                    c = c.parent;
+                }
+                return 'no-movable-parent';
+            })(),
+        });
 
         // 清除旧的父子关系
         if (obj.userData.parentGroup) {
@@ -668,28 +685,40 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 // ── 旋转后：重算包围盒和底面偏移（世界坐标） ──
                 selected.updateMatrixWorld(true);
                 const bbAfter = new THREE.Box3().setFromObject(selected);
-                const newItemBottom = worldBefore.y - bbAfter.min.y; // 暂用旋转前的世界Y
+                const newItemBottom = worldBefore.y - bbAfter.min.y;
                 selected.userData.itemBottomOffset = newItemBottom;
 
                 // ── 关键：以底面为锚点修正位置 ──
-                // 新世界Y = 旧底面世界Y + 新底面偏移
                 const newWorldY = bottomWorldY + newItemBottom;
-                // 转换回父物体局部坐标
-                if (selected.parent) {
+                const hasParent = !!selected.parent;
+                if (hasParent) {
                     const parentWorldInv = new THREE.Matrix4().copy(selected.parent.matrixWorld).invert();
-                    const worldPos = new THREE.Vector3();
-                    selected.getWorldPosition(worldPos);
-                    worldPos.y = newWorldY;
-                    worldPos.applyMatrix4(parentWorldInv);
-                    selected.position.copy(worldPos);
+                    const wp = new THREE.Vector3();
+                    selected.getWorldPosition(wp);
+                    wp.y = newWorldY;
+                    wp.applyMatrix4(parentWorldInv);
+                    selected.position.copy(wp);
                 } else {
                     selected.position.y = newWorldY;
                 }
                 selected.updateMatrixWorld(true);
-                // 更新 itemBottomOffset 为最终值
                 const bbFinal = new THREE.Box3().setFromObject(selected);
                 selected.userData.itemBottomOffset = selected.position.y - bbFinal.min.y;
                 storeSurfaceY(selected);
+
+                const worldAfter = new THREE.Vector3();
+                selected.getWorldPosition(worldAfter);
+                console.log('[R pressed]', {
+                    hasParent,
+                    parentName: selected.parent?.userData?.name || 'none',
+                    worldBeforeY: worldBefore.y.toFixed(4),
+                    bottomWorldY: bottomWorldY.toFixed(4),
+                    bbAfterMinY: bbAfter.min.y.toFixed(4),
+                    newWorldY: newWorldY.toFixed(4),
+                    worldAfterY: worldAfter.y.toFixed(4),
+                    localPosY: selected.position.y.toFixed(4),
+                    itemBottomOffset: selected.userData.itemBottomOffset.toFixed(4),
+                });
 
                 // 重建父子关系（只找 parent，不改位置）
                 findParentBelow(selected);
