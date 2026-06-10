@@ -9,6 +9,7 @@ export const ROOM_HEIGHT = 3.5;
 export const ROOM_DEPTH  = 7;
 export const ROOM_HALF_W = ROOM_WIDTH / 2;   // 4
 export const ROOM_HALF_D = ROOM_DEPTH / 2;    // 3.5
+export const WALL_T      = 0.12;              // 墙壁厚度
 
 // 门洞尺寸
 export const DOOR_WIDTH  = 1.2;
