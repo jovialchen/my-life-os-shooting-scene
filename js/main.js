@@ -42,6 +42,11 @@ import {
 // ── 零件库 + 房间配置 ──
 import { buildRoom } from './elements/index.js';
 import { livingRoom } from './rooms/living-room.js';
+import { centralHall } from './rooms/central-hall.js';
+import { bedroom1, bedroom2, bedroom3, masterBedroom } from './rooms/bedroom.js';
+
+// ── 公寓系统 ──
+import { Apartment } from './apartment.js';
 
 // ── 角色 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
@@ -86,18 +91,85 @@ const clock = new THREE.Clock();
 let lookAtBound = false;
 
 // ============================================================
-//  构建房间（配置驱动）
+//  构建公寓（多房间系统）
 // ============================================================
-const roomResult = buildRoom(livingRoom);
-scene.add(roomResult.group);
+const apartment = new Apartment();
 
-const door         = roomResult.door;
-const curtains     = roomResult.curtains;
-const ceilingLight = roomResult.ceilingLight;
-const floorLamp    = roomResult.floorLamp;
-const allMovables  = roomResult.allMovables;
-const allSmallItems = roomResult.smallItems;
-const furnitureList = roomResult.furniture;
+// 注册所有房间
+apartment.addRoom('living-room', livingRoom, { x: 0, z: 0 });
+apartment.addRoom('central-hall', centralHall, { x: 0, z: 5 });
+apartment.addRoom('bedroom-1', bedroom1, { x: -4.9, z: 8.5 });
+apartment.addRoom('bedroom-2', bedroom2, { x: -2.1, z: 8.5 });
+apartment.addRoom('bedroom-3', bedroom3, { x: 2.25, z: 8.5 });
+apartment.addRoom('master-bedroom', masterBedroom, { x: 5.0, z: 8.5 });
+
+// 建立房间连接
+apartment.addConnection('living-room', 'central-hall', { x: 0, z: 3.5 });
+apartment.addConnection('central-hall', 'bedroom-1', { x: -4.9, z: 6.5 });
+apartment.addConnection('central-hall', 'bedroom-2', { x: -2.1, z: 6.5 });
+apartment.addConnection('central-hall', 'bedroom-3', { x: 2.25, z: 6.5 });
+apartment.addConnection('central-hall', 'master-bedroom', { x: 5.0, z: 6.5 });
+
+// 构建并显示客厅
+apartment.build(scene, 'living-room');
+
+// ── 当前房间的可变引用 ──
+let currentRoomResult = apartment.getCurrentRoom().result;
+let door         = currentRoomResult.door;
+let curtains     = currentRoomResult.curtains;
+let ceilingLight = currentRoomResult.ceilingLight;
+let floorLamp    = currentRoomResult.floorLamp;
+let allMovables  = currentRoomResult.allMovables;
+let allSmallItems = currentRoomResult.smallItems;
+let furnitureList = currentRoomResult.furniture;
+
+// ── 房间切换回调 ──
+apartment.onRoomSwitch = (newRoomId, oldRoomId, entryPos) => {
+    const newRoom = apartment.getCurrentRoom();
+    currentRoomResult = newRoom.result;
+    door         = currentRoomResult.door;
+    curtains     = currentRoomResult.curtains;
+    ceilingLight = currentRoomResult.ceilingLight;
+    floorLamp    = currentRoomResult.floorLamp;
+    allMovables  = currentRoomResult.allMovables;
+    allSmallItems = currentRoomResult.smallItems;
+    furnitureList = currentRoomResult.furniture;
+
+    // 更新灯具状态
+    const newCeilingBulb = ceilingLight?.userData.lightRef;
+    const newFloorLampBulb = floorLamp?.userData.lightRef;
+    if (ceilingLight && newCeilingBulb) {
+        newCeilingBulb.userData.on = true;
+        newCeilingBulb.userData.baseIntensity = newCeilingBulb.intensity;
+    }
+    if (floorLamp && newFloorLampBulb) {
+        newFloorLampBulb.userData.on = true;
+        newFloorLampBulb.userData.baseIntensity = newFloorLampBulb.intensity;
+    }
+
+    // 传送角色到新房间门口
+    if (entryPos) {
+        humanoid.position.x = entryPos.x;
+        humanoid.position.z = entryPos.z;
+        console.log(`[Room Switch] 传送到: x=${entryPos.x.toFixed(2)}, z=${entryPos.z.toFixed(2)}`);
+    }
+
+    // 更新拖拽控制器的可移动物体列表
+    if (dragControlsInstance) {
+        dragControlsInstance.updateMovables([...allMovables, humanoid]);
+    }
+
+    // 重建窗帘面板引用
+    rebuildCurtainPanels();
+
+    // 重建侧边栏物品列表
+    rebuildSidebarItems();
+
+    // 刷新侧边栏 UI
+    if (window._sidebarRefresh) window._sidebarRefresh();
+
+    console.log(`[Room Switch] ${oldRoomId} → ${newRoomId}`);
+};
 
 // 角色
 const humanoid = createHumanoid();
@@ -123,33 +195,54 @@ if (floorLamp && floorLampBulb) {
 }
 
 // 侧边栏物品列表
-const sidebarItems = [
-    { obj: sofa,        name: '三人沙发',   nameEn: 'Sofa',            cat: '家具',   catEn: 'Furniture' },
-    { obj: chair,       name: '单人椅',     nameEn: 'Chair',           cat: '家具',   catEn: 'Furniture' },
-    { obj: coffeeTable, name: '圆形茶几',   nameEn: 'Coffee Table',    cat: '家具',   catEn: 'Furniture' },
-    { obj: sideTable,   name: '圆形边桌',   nameEn: 'Side Table',      cat: '家具',   catEn: 'Furniture' },
-    { obj: floorLamp,   name: '落地灯',     nameEn: 'Floor Lamp',      cat: '家具',   catEn: 'Furniture' },
-    { obj: ceilingLight, name: '顶灯',     nameEn: 'Ceiling Light',   cat: '灯具',   catEn: 'Lighting' },
-    { obj: bookshelf,   name: '三层书架',   nameEn: 'Bookshelf',       cat: '家具',   catEn: 'Furniture' },
-].filter(i => i.obj); // 过滤掉 undefined
+let sidebarItems = [];
 
-// 添加装饰和小物品到侧边栏
-const rug = roomResult.group.children.find(c => c.userData?.noCollision);
-const wallArt = roomResult.group.children.find(c => c.userData?.crossWall);
-if (wallArt) sidebarItems.push({ obj: wallArt, name: '装饰画', nameEn: 'Wall Art', cat: '挂画', catEn: 'Wall Art' });
-if (curtains) sidebarItems.push({ obj: curtains, name: '窗帘', nameEn: 'Curtains', cat: '窗帘', catEn: 'Curtains' });
-if (rug) sidebarItems.push({ obj: rug, name: '地毯', nameEn: 'Rug', cat: '地毯', catEn: 'Rug' });
+function rebuildSidebarItems() {
+    sidebarItems.length = 0;
 
-// 小物品
-allSmallItems.forEach((item, i) => {
-    const type = item.userData.rotationConstraint === 'any' ? 'book' : (item.children?.length > 1 ? 'plant' : 'cushion');
-    const names = { book: `书本 ${i + 1}`, plant: '窗台盆栽', cushion: '靠枕' };
-    const namesEn = { book: `Book ${i + 1}`, plant: 'Window Plant', cushion: 'Cushion' };
-    sidebarItems.push({ obj: item, name: names[type] || '小物品', nameEn: namesEn[type] || 'Item', cat: '小物品', catEn: 'Small Items' });
-});
+    // 从当前房间提取家具引用
+    const curFurniture = furnitureList;
+    const curSofa        = curFurniture.find(f => f.type === 'sofa')?.group;
+    const curChair       = curFurniture.find(f => f.type === 'chair')?.group;
+    const curCoffeeTable = curFurniture.find(f => f.type === 'coffeeTable')?.group;
+    const curSideTable   = curFurniture.find(f => f.type === 'sideTable')?.group;
+    const curBookshelf   = curFurniture.find(f => f.type === 'bookshelf')?.group;
+    const curFloorLamp   = floorLamp;
+    const curCeilingLight = ceilingLight;
+    const curCurtains    = curtains;
 
-// 门
-if (door) sidebarItems.push({ obj: door, name: '门', nameEn: 'Door', cat: '家具', catEn: 'Furniture' });
+    if (curSofa)        sidebarItems.push({ obj: curSofa,        name: '三人沙发',   nameEn: 'Sofa',            cat: '家具',   catEn: 'Furniture' });
+    if (curChair)       sidebarItems.push({ obj: curChair,       name: '单人椅',     nameEn: 'Chair',           cat: '家具',   catEn: 'Furniture' });
+    if (curCoffeeTable) sidebarItems.push({ obj: curCoffeeTable, name: '圆形茶几',   nameEn: 'Coffee Table',    cat: '家具',   catEn: 'Furniture' });
+    if (curSideTable)   sidebarItems.push({ obj: curSideTable,   name: '圆形边桌',   nameEn: 'Side Table',      cat: '家具',   catEn: 'Furniture' });
+    if (curFloorLamp)   sidebarItems.push({ obj: curFloorLamp,   name: '落地灯',     nameEn: 'Floor Lamp',      cat: '家具',   catEn: 'Furniture' });
+    if (curCeilingLight) sidebarItems.push({ obj: curCeilingLight, name: '顶灯',     nameEn: 'Ceiling Light',   cat: '灯具',   catEn: 'Lighting' });
+    if (curBookshelf)   sidebarItems.push({ obj: curBookshelf,   name: '三层书架',   nameEn: 'Bookshelf',       cat: '家具',   catEn: 'Furniture' });
+
+    // 添加装饰和小物品到侧边栏
+    const roomGroup = apartment.getCurrentRoom()?.result?.group;
+    if (roomGroup) {
+        const rug = roomGroup.children.find(c => c.userData?.noCollision);
+        const wallArt = roomGroup.children.find(c => c.userData?.crossWall);
+        if (wallArt) sidebarItems.push({ obj: wallArt, name: '装饰画', nameEn: 'Wall Art', cat: '挂画', catEn: 'Wall Art' });
+        if (curCurtains) sidebarItems.push({ obj: curCurtains, name: '窗帘', nameEn: 'Curtains', cat: '窗帘', catEn: 'Curtains' });
+        if (rug) sidebarItems.push({ obj: rug, name: '地毯', nameEn: 'Rug', cat: '地毯', catEn: 'Rug' });
+    }
+
+    // 小物品
+    allSmallItems.forEach((item, i) => {
+        const type = item.userData.rotationConstraint === 'any' ? 'book' : (item.children?.length > 1 ? 'plant' : 'cushion');
+        const names = { book: `书本 ${i + 1}`, plant: '窗台盆栽', cushion: '靠枕' };
+        const namesEn = { book: `Book ${i + 1}`, plant: 'Window Plant', cushion: 'Cushion' };
+        sidebarItems.push({ obj: item, name: names[type] || '小物品', nameEn: namesEn[type] || 'Item', cat: '小物品', catEn: 'Small Items' });
+    });
+
+    // 门
+    if (door) sidebarItems.push({ obj: door, name: '门', nameEn: 'Door', cat: '家具', catEn: 'Furniture' });
+}
+
+// 初始构建侧边栏
+rebuildSidebarItems();
 
 // ============================================================
 //  侧边栏：Tab 式面板（物品 / 人物 / 规则 / 语言）
@@ -410,35 +503,39 @@ if (door) sidebarItems.push({ obj: door, name: '门', nameEn: 'Door', cat: '家�
 // ============================================================
 //  拖拽交互
 // ============================================================
-createDragControls([...allMovables, humanoid], camera, renderer, controls, scene, {
+const dragControlsInstance = createDragControls([...allMovables, humanoid], camera, renderer, controls, scene, {
     onDrop: rebuildNavGrid,
+    apartment: apartment,
 });
 
 // ============================================================
 //  角色点击走动
 // ============================================================
 const furnitureObstacles = [sofa, chair, coffeeTable, sideTable, bookshelf, floorLamp].filter(Boolean);
-initWalker(humanoid, camera, renderer, scene, furnitureObstacles, door);
+initWalker(humanoid, camera, renderer, scene, furnitureObstacles, door, apartment);
 
 // ============================================================
 //  窗帘点击开合
 // ============================================================
-const curtainPanels = [];
-if (curtains) {
-    curtains.children.forEach(child => {
-        if (child.isMesh && child.geometry.type === 'PlaneGeometry') {
-            curtainPanels.push(child);
-        }
-    });
-}
-
+let curtainPanels = [];
 let curtainOpen = true;
 let curtainTargetX = CURTAIN_OPEN_X;
 
-// 初始窗帘打开
-curtainPanels.forEach(panel => {
-    panel.position.x = panel.userData.side * CURTAIN_OPEN_X;
-});
+function rebuildCurtainPanels() {
+    curtainPanels = [];
+    if (curtains) {
+        curtains.children.forEach(child => {
+            if (child.isMesh && child.geometry.type === 'PlaneGeometry') {
+                curtainPanels.push(child);
+            }
+        });
+    }
+    // 初始窗帘打开
+    curtainPanels.forEach(panel => {
+        panel.position.x = panel.userData.side * CURTAIN_OPEN_X;
+    });
+}
+rebuildCurtainPanels();
 
 // 点击检测（区分点击与拖拽）
 const clickRaycaster = new THREE.Raycaster();
@@ -475,6 +572,8 @@ renderer.domElement.addEventListener('pointerup', e => {
         if (doorHits.length > 0) {
             door.userData.isOpen = !door.userData.isOpen;
             door.userData.targetRotation = door.userData.isOpen ? Math.PI / 2 : 0;
+            // 更新房间可见性（门打开时显示相邻房间）
+            apartment.updateVisibility();
         }
     }
 

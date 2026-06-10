@@ -15,24 +15,46 @@
  *   .rotationConstraint — 'any'（水平+垂直）| 'horizontal'（仅水平）
  *   .children          — [THREE.Group] 父物体携带的子物体列表
  *   .parentGroup       — THREE.Group 子物体所属的父物体
+ *
+ * 支持多房间：通过 Apartment 管理器获取当前房间的边界
  */
 import * as THREE from 'three';
-import { ROOM_HEIGHT, ROOM_HALF_W, ROOM_HALF_D } from '../config.js';
+import { ROOM_HEIGHT } from '../config.js';
 
 // ── 小物品吸附检测参数 ────────────────────────────────
 const SNAP_RAY_Y_OFFSET = 1;   // raycast 起点在物体上方的偏移
 const SNAP_SURFACE_TOLERANCE = 0.1; // 表面必须在物体下方 + 此容差内
 
-// ── 拖拽吸附平面 ──────────────────────────────────────
-const PLANES = {
-    'floor':      new THREE.Plane(new THREE.Vector3(0, 1, 0), 0),
-    'wall-left':  new THREE.Plane(new THREE.Vector3(1, 0, 0), ROOM_HALF_W),
-    'wall-right': new THREE.Plane(new THREE.Vector3(-1, 0, 0), ROOM_HALF_W),
-    'wall-back':  new THREE.Plane(new THREE.Vector3(0, 0, 1), ROOM_HALF_D),
-    'wall-front': new THREE.Plane(new THREE.Vector3(0, 0, -1), ROOM_HALF_D),
-};
+/** @type {import('../apartment.js').Apartment|null} */
+let _apartment = null;
+
+// ── 动态房间边界 ──────────────────────────────────────
+function getRoomBounds() {
+    if (_apartment) {
+        return _apartment.getCurrentRoomBounds();
+    }
+    // 兼容单房间模式：从 config.js 导入
+    return { halfW: 4, halfD: 3.5, centerX: 0, centerZ: 0 };
+}
+
+// ── 拖拽吸附平面（动态计算） ──────────────────────────
+function getPlanes() {
+    const { halfW, halfD, centerX, centerZ } = getRoomBounds();
+    return {
+        'floor':      new THREE.Plane(new THREE.Vector3(0, 1, 0), 0),
+        'wall-left':  new THREE.Plane(new THREE.Vector3(1, 0, 0), halfW + centerX),
+        'wall-right': new THREE.Plane(new THREE.Vector3(-1, 0, 0), halfW - centerX),
+        'wall-back':  new THREE.Plane(new THREE.Vector3(0, 0, 1), halfD + centerZ),
+        'wall-front': new THREE.Plane(new THREE.Vector3(0, 0, -1), halfD - centerZ),
+    };
+}
 
 export function createDragControls(movables, camera, renderer, orbitControls, scene, options = {}) {
+    // 如果提供了公寓管理器，保存引用
+    if (options.apartment) {
+        _apartment = options.apartment;
+    }
+
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     const intersectPoint = new THREE.Vector3();
@@ -72,7 +94,8 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
     function getPlaneForObject(obj) {
         const surface = obj.userData.surface || 'floor';
-        return PLANES[surface] || PLANES['floor'];
+        const planes = getPlanes();
+        return planes[surface] || planes['floor'];
     }
 
     function findMovableUnderMouse(event) {
@@ -93,12 +116,13 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
     /** 松开时将 crossWall 物体吸附到最近的墙面，并旋转朝向 */
     function snapToNearestWall(obj) {
+        const { halfW, halfD, centerX, centerZ } = getRoomBounds();
         const p = obj.position;
         const dists = [
-            { wall: 'wall-left',  dist: Math.abs(p.x + ROOM_HALF_W), setPos: () => { p.x = -ROOM_HALF_W; }, rotY: Math.PI / 2 },
-            { wall: 'wall-right', dist: Math.abs(p.x - ROOM_HALF_W), setPos: () => { p.x =  ROOM_HALF_W; }, rotY: -Math.PI / 2 },
-            { wall: 'wall-back',  dist: Math.abs(p.z + ROOM_HALF_D), setPos: () => { p.z = -ROOM_HALF_D; }, rotY: 0 },
-            { wall: 'wall-front', dist: Math.abs(p.z - ROOM_HALF_D), setPos: () => { p.z =  ROOM_HALF_D; }, rotY: Math.PI },
+            { wall: 'wall-left',  dist: Math.abs(p.x - (centerX - halfW)), setPos: () => { p.x = centerX - halfW; }, rotY: Math.PI / 2 },
+            { wall: 'wall-right', dist: Math.abs(p.x - (centerX + halfW)), setPos: () => { p.x = centerX + halfW; }, rotY: -Math.PI / 2 },
+            { wall: 'wall-back',  dist: Math.abs(p.z - (centerZ - halfD)), setPos: () => { p.z = centerZ - halfD; }, rotY: 0 },
+            { wall: 'wall-front', dist: Math.abs(p.z - (centerZ + halfD)), setPos: () => { p.z = centerZ + halfD; }, rotY: Math.PI },
         ];
         dists.sort((a, b) => a.dist - b.dist);
         const nearest = dists[0];
@@ -309,11 +333,12 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
     /** 将 obj 与其他地面家具分离（最小平移向量） */
     function resolveCollisions(obj) {
+        const { halfW, halfD, centerX, centerZ } = getRoomBounds();
         const others = getFloorMovables(obj);
         const he = obj.userData._he;
         // 房间边界（obj 能到达的最小/最大坐标）
-        const minX = -ROOM_HALF_W + he.x, maxX = ROOM_HALF_W - he.x;
-        const minZ = -ROOM_HALF_D + he.z, maxZ = ROOM_HALF_D - he.z;
+        const minX = centerX - halfW + he.x, maxX = centerX + halfW - he.x;
+        const minZ = centerZ - halfD + he.z, maxZ = centerZ + halfD - he.z;
 
         for (let iter = 0; iter < 8; iter++) {
             let resolved = true;
@@ -348,26 +373,27 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
     }
 
     function clampToRoom(obj) {
+        const { halfW, halfD, centerX, centerZ } = getRoomBounds();
         const p = obj.position;
         const he = obj.userData._he || { x: 0, y: 0, z: 0 };
         const surface = obj.userData.surface || 'floor';
 
         if (obj.userData.movableType === 'small-item') {
             const bottom = obj.userData.itemBottomOffset || 0;
-            p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
-            p.z = Math.max(-ROOM_HALF_D + he.z, Math.min(ROOM_HALF_D - he.z, p.z));
+            p.x = Math.max(centerX - halfW + he.x, Math.min(centerX + halfW - he.x, p.x));
+            p.z = Math.max(centerZ - halfD + he.z, Math.min(centerZ + halfD - he.z, p.z));
             p.y = Math.max(bottom, Math.min(ROOM_HEIGHT - he.y, p.y));
         } else if (surface === 'floor') {
-            p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
-            p.z = Math.max(-ROOM_HALF_D + he.z, Math.min(ROOM_HALF_D - he.z, p.z));
+            p.x = Math.max(centerX - halfW + he.x, Math.min(centerX + halfW - he.x, p.x));
+            p.z = Math.max(centerZ - halfD + he.z, Math.min(centerZ + halfD - he.z, p.z));
         } else if (surface === 'wall-left' || surface === 'wall-right') {
             p.y = Math.max(he.y, Math.min(ROOM_HEIGHT - he.y, p.y));
-            p.z = Math.max(-ROOM_HALF_D + he.z, Math.min(ROOM_HALF_D - he.z, p.z));
+            p.z = Math.max(centerZ - halfD + he.z, Math.min(centerZ + halfD - he.z, p.z));
         } else if (surface === 'wall-back') {
-            p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
+            p.x = Math.max(centerX - halfW + he.x, Math.min(centerX + halfW - he.x, p.x));
             p.y = Math.max(he.y, Math.min(ROOM_HEIGHT - he.y, p.y));
         } else if (surface === 'wall-front') {
-            p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
+            p.x = Math.max(centerX - halfW + he.x, Math.min(centerX + halfW - he.x, p.x));
             p.y = Math.max(he.y, Math.min(ROOM_HEIGHT - he.y, p.y));
         }
     }
@@ -432,7 +458,8 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             if (selected.userData.movableType === 'small-item') {
                 // 小物品：用向下 raycast 找鼠标下方的实际表面
                 // 1. 从鼠标位置算出地面 XZ 坐标
-                const floorHit = raycastToPlane(event, PLANES['floor']);
+                const planes = getPlanes();
+                const floorHit = raycastToPlane(event, planes['floor']);
                 if (!floorHit) return;
 
                 // 2. 从正上方向下 raycast
@@ -483,16 +510,19 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 selected.position.z = planeHit.z + offset.z;
 
                 if (selected.userData.crossWall) {
-                    if (selected.position.z >= ROOM_HALF_D) {
-                        selected.position.z = ROOM_HALF_D;
+                    const { halfD, centerZ } = getRoomBounds();
+                    if (selected.position.z >= centerZ + halfD) {
+                        selected.position.z = centerZ + halfD;
                         selected.userData.surface = 'wall-front';
-                        activePlane = PLANES['wall-front'];
+                        const planes = getPlanes();
+                        activePlane = planes['wall-front'];
                         const newHit = raycastToPlane(event, activePlane);
                         offset.copy(selected.position).sub(newHit);
-                    } else if (selected.position.z <= -ROOM_HALF_D) {
-                        selected.position.z = -ROOM_HALF_D;
+                    } else if (selected.position.z <= centerZ - halfD) {
+                        selected.position.z = centerZ - halfD;
                         selected.userData.surface = 'wall-back';
-                        activePlane = PLANES['wall-back'];
+                        const planes = getPlanes();
+                        activePlane = planes['wall-back'];
                         const newHit = raycastToPlane(event, activePlane);
                         offset.copy(selected.position).sub(newHit);
                     }
@@ -502,16 +532,19 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 selected.position.y = planeHit.y + offset.y;
 
                 if (selected.userData.crossWall) {
-                    if (selected.position.x >= ROOM_HALF_W) {
-                        selected.position.x = ROOM_HALF_W;
+                    const { halfW, centerX } = getRoomBounds();
+                    if (selected.position.x >= centerX + halfW) {
+                        selected.position.x = centerX + halfW;
                         selected.userData.surface = 'wall-right';
-                        activePlane = PLANES['wall-right'];
+                        const planes = getPlanes();
+                        activePlane = planes['wall-right'];
                         const newHit = raycastToPlane(event, activePlane);
                         offset.copy(selected.position).sub(newHit);
-                    } else if (selected.position.x <= -ROOM_HALF_W) {
-                        selected.position.x = -ROOM_HALF_W;
+                    } else if (selected.position.x <= centerX - halfW) {
+                        selected.position.x = centerX - halfW;
                         selected.userData.surface = 'wall-left';
-                        activePlane = PLANES['wall-left'];
+                        const planes = getPlanes();
+                        activePlane = planes['wall-left'];
                         const newHit = raycastToPlane(event, activePlane);
                         offset.copy(selected.position).sub(newHit);
                     }
@@ -521,16 +554,19 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 selected.position.y = planeHit.y + offset.y;
 
                 if (selected.userData.crossWall) {
-                    if (selected.position.x >= ROOM_HALF_W) {
-                        selected.position.x = ROOM_HALF_W;
+                    const { halfW, centerX } = getRoomBounds();
+                    if (selected.position.x >= centerX + halfW) {
+                        selected.position.x = centerX + halfW;
                         selected.userData.surface = 'wall-right';
-                        activePlane = PLANES['wall-right'];
+                        const planes = getPlanes();
+                        activePlane = planes['wall-right'];
                         const newHit = raycastToPlane(event, activePlane);
                         offset.copy(selected.position).sub(newHit);
-                    } else if (selected.position.x <= -ROOM_HALF_W) {
-                        selected.position.x = -ROOM_HALF_W;
+                    } else if (selected.position.x <= centerX - halfW) {
+                        selected.position.x = centerX - halfW;
                         selected.userData.surface = 'wall-left';
-                        activePlane = PLANES['wall-left'];
+                        const planes = getPlanes();
+                        activePlane = planes['wall-left'];
                         const newHit = raycastToPlane(event, activePlane);
                         offset.copy(selected.position).sub(newHit);
                     }
@@ -576,11 +612,6 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             const dy = event.clientY - downScreenPos.y;
             const didDrag = Math.sqrt(dx * dx + dy * dy) > 3; // 3px 阈值
 
-            console.log('[onPointerUp]', {
-                didDrag,
-                selected: selected?.userData?.name || 'none',
-                parent: selected?.userData?.parentGroup?.userData?.name || 'none',
-            });
             if (selected && didDrag) {
                 if (selected.userData.crossWall) {
                     snapToNearestWall(selected);

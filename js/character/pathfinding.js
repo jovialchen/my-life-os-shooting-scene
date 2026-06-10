@@ -3,21 +3,27 @@
  *
  * 在房间地板上覆盖一个 2D 网格，标记被家具占据的格子为不可通行，
  * 用 A* 算法在网格上规划最短路径。
+ *
+ * 支持动态房间尺寸：调用 initGrid() 可切换到不同大小的房间。
  */
 import * as THREE from 'three';
-import { ROOM_HALF_W, ROOM_HALF_D, DOOR_WIDTH } from '../config.js';
 
 // ── 寻路参数 ──────────────────────────────────────────
 const CELL_SIZE     = 0.1;   // 网格分辨率（米/格）
 const CHAR_RADIUS   = 0.25;  // 角色碰撞半径（膨胀量）
 const OBSTACLE_PAD  = 0.05;  // 家具额外边距
 const WALL_MARGIN   = 0.35;  // 离墙最小距离（角色中心到墙的距离）
+const DOOR_WIDTH    = 1.2;   // 门宽（米）
 
-// ── 网格尺寸 ──────────────────────────────────────────
-const GRID_W = Math.ceil(ROOM_HALF_W * 2 / CELL_SIZE);   // 80
-const GRID_D = Math.ceil(ROOM_HALF_D * 2 / CELL_SIZE);   // 70
-const GRID_ORIGIN_X = -ROOM_HALF_W;
-const GRID_ORIGIN_Z = -ROOM_HALF_D;
+// ── 网格尺寸（动态，由 initGrid 设置）──────────────────
+let GRID_W = 80;
+let GRID_D = 70;
+let GRID_ORIGIN_X = -4;
+let GRID_ORIGIN_Z = -3.5;
+let ROOM_HALF_W = 4;
+let ROOM_HALF_D = 3.5;
+let ROOM_CENTER_X = 0;
+let ROOM_CENTER_Z = 0;
 
 // ── 内部状态 ──────────────────────────────────────────
 /** @type {Uint8Array} 0=可通行 1=障碍 */
@@ -32,6 +38,31 @@ let cameFromBuf = new Int32Array(GRID_W * GRID_D);
 let closedBuf   = new Uint8Array(GRID_W * GRID_D);
 
 // ── 公开 API ──────────────────────────────────────────
+
+/**
+ * 初始化/切换寻路网格到新的房间尺寸
+ * @param {number} halfW - 房间半宽（米）
+ * @param {number} halfD - 房间半深（米）
+ * @param {number} centerX - 房间中心 X（世界坐标）
+ * @param {number} centerZ - 房间中心 Z（世界坐标）
+ */
+export function initGrid(halfW, halfD, centerX = 0, centerZ = 0) {
+    ROOM_HALF_W = halfW;
+    ROOM_HALF_D = halfD;
+    ROOM_CENTER_X = centerX;
+    ROOM_CENTER_Z = centerZ;
+
+    GRID_W = Math.ceil(halfW * 2 / CELL_SIZE);
+    GRID_D = Math.ceil(halfD * 2 / CELL_SIZE);
+    GRID_ORIGIN_X = centerX - halfW;
+    GRID_ORIGIN_Z = centerZ - halfD;
+
+    // 重新分配网格和工作数组
+    grid = new Uint8Array(GRID_W * GRID_D);
+    gScoreBuf = new Float32Array(GRID_W * GRID_D);
+    cameFromBuf = new Int32Array(GRID_W * GRID_D);
+    closedBuf = new Uint8Array(GRID_W * GRID_D);
+}
 
 /**
  * 根据家具列表重建障碍网格
@@ -109,9 +140,10 @@ function _buildGridInternal(furnitureList) {
     }
 
     // 前墙门洞：清除门宽范围内的障碍，让角色可以穿过门口
-    // 门居中于前墙 (x=0)，宽 DOOR_WIDTH
-    const doorLeft  = worldToGridX(-DOOR_WIDTH / 2);
-    const doorRight = worldToGridX( DOOR_WIDTH / 2);
+    // 门居中于前墙 (x=房间中心)，宽 DOOR_WIDTH
+    const doorCenterX = ROOM_CENTER_X; // 门在房间中心 X
+    const doorLeft  = worldToGridX(doorCenterX - DOOR_WIDTH / 2);
+    const doorRight = worldToGridX(doorCenterX + DOOR_WIDTH / 2);
     for (let gz = GRID_D - wallCells; gz < GRID_D; gz++) {
         for (let gx = doorLeft; gx <= doorRight; gx++) {
             grid[gz * GRID_W + gx] = 0;
@@ -246,6 +278,7 @@ export function smoothPath(path) {
 export function isWalkableWorld(wx, wz) {
     const gx = worldToGridX(wx);
     const gz = worldToGridZ(wz);
+    if (gx < 0 || gx >= GRID_W || gz < 0 || gz >= GRID_D) return false;
     return grid[gz * GRID_W + gx] === 0;
 }
 
@@ -259,8 +292,8 @@ export function clampToRoomWorld(wx, wz) {
     const mx = ROOM_HALF_W - WALL_MARGIN;
     const mz = ROOM_HALF_D - WALL_MARGIN;
     return {
-        x: Math.max(-mx, Math.min(mx, wx)),
-        z: Math.max(-mz, Math.min(mz, wz)),
+        x: Math.max(ROOM_CENTER_X - mx, Math.min(ROOM_CENTER_X + mx, wx)),
+        z: Math.max(ROOM_CENTER_Z - mz, Math.min(ROOM_CENTER_Z + mz, wz)),
     };
 }
 

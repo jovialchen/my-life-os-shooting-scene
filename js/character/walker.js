@@ -1,14 +1,12 @@
 /**
  * 角色步行控制：点击地面 → 角色走过去（自动绕开家具）
  * 程序化走路动画（无外部 .vrma 文件）
+ *
+ * 支持多房间切换：通过 Apartment 管理器检测门口并切换房间
  */
 import * as THREE from 'three';
-// humanoid.js exports used indirectly via humanoidGroup.userData.vrm
-import {
-    ROOM_HALF_W, ROOM_HALF_D,
-    CLICK_DRAG_THRESHOLD,
-} from '../config.js';
-import { buildGrid, findPath, smoothPath, isPathClear, isWalkableWorld, clampToRoomWorld, setDoor } from './pathfinding.js';
+import { CLICK_DRAG_THRESHOLD } from '../config.js';
+import { buildGrid, findPath, smoothPath, isPathClear, isWalkableWorld, clampToRoomWorld, setDoor, initGrid } from './pathfinding.js';
 
 // ── 移动参数 ──────────────────────────────────────────
 const WALK = {
@@ -60,6 +58,10 @@ let humanoidGroup = null;
 let furnitureList = null;   // 家具引用（用于寻路）
 let stuckCounter = 0;       // 卡住检测计数器
 let prevDistance = Infinity; // 上一帧到当前路径点的距离
+let frameCount = 0;         // 帧计数器（调试用）
+
+/** @type {import('../apartment.js').Apartment|null} */
+let apartment = null;
 
 // 预分配向量（避免每帧分配）
 const _toTarget = new THREE.Vector3();
@@ -87,17 +89,35 @@ let pointerDownPos = null;
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Scene} scene
  * @param {THREE.Object3D[]} furniture - 主要家具列表（用于寻路避障）
+ * @param {THREE.Object3D|null} door - 门 group
+ * @param {import('../apartment.js').Apartment|null} apt - 公寓管理器
  */
-export function initWalker(humanoid, camera, renderer, scene, furniture, door) {
+export function initWalker(humanoid, camera, renderer, scene, furniture, door, apt) {
     humanoidGroup = humanoid;
-    furnitureList = furniture || [];
+    apartment = apt;
 
-    // 设置门引用（开门时门板作为动态障碍）
-    if (door) setDoor(door);
+    // 从公寓管理器获取当前房间的家具和门
+    if (apartment) {
+        furnitureList = apartment.getCurrentFurniture();
+        const currentDoor = apartment.getCurrentDoor();
+        if (currentDoor) setDoor(currentDoor);
 
-    // 构建寻路网格
-    if (furnitureList.length > 0) {
-        buildGrid(furnitureList);
+        // 初始化寻路网格（使用当前房间尺寸）
+        const bounds = apartment.getCurrentRoomBounds();
+        initGrid(bounds.halfW, bounds.halfD, bounds.centerX, bounds.centerZ);
+        if (furnitureList.length > 0) {
+            buildGrid(furnitureList);
+        }
+
+        // 监听房间切换
+        apartment.onRoomSwitch = onRoomSwitch;
+    } else {
+        // 兼容单房间模式
+        furnitureList = furniture || [];
+        if (door) setDoor(door);
+        if (furnitureList.length > 0) {
+            buildGrid(furnitureList);
+        }
     }
 
     // 创建点击标记
@@ -202,6 +222,32 @@ export function initWalker(humanoid, camera, renderer, scene, furniture, door) {
 }
 
 /**
+ * 房间切换回调
+ * @param {string} newRoomId
+ * @param {string} oldRoomId
+ */
+function onRoomSwitch(newRoomId, oldRoomId) {
+    if (!apartment) return;
+
+    // 重新初始化寻路网格
+    const bounds = apartment.getCurrentRoomBounds();
+    initGrid(bounds.halfW, bounds.halfD, bounds.centerX, bounds.centerZ);
+
+    // 更新家具列表和门引用
+    furnitureList = apartment.getCurrentFurniture();
+    const currentDoor = apartment.getCurrentDoor();
+    if (currentDoor) setDoor(currentDoor);
+
+    // 重建寻路网格
+    if (furnitureList.length > 0) {
+        buildGrid(furnitureList);
+    }
+
+    // 停止当前走路（路径已失效）
+    finishWalking();
+}
+
+/**
  * 每帧更新（在 animate 中调用）
  * @param {number} delta - 帧间隔秒数
  */
@@ -211,6 +257,17 @@ export function updateWalker(delta) {
     // 延迟初始化骨骼（VRM 异步加载）
     if (!boneNodes && humanoidGroup.userData.vrm) {
         initBones();
+    }
+
+    // 每帧检测门口切换（无论角色是否在走路）
+    if (apartment && humanoidGroup.position) {
+        // 每60帧打印一次角色位置（调试用）
+        if (frameCount % 60 === 0) {
+            const p = humanoidGroup.position;
+            console.log(`[Walker] 角色位置: x=${p.x.toFixed(2)}, z=${p.z.toFixed(2)}`);
+        }
+        frameCount++;
+        apartment.checkDoorTransition(humanoidGroup.position);
     }
 
     if (state === 'walking') {
