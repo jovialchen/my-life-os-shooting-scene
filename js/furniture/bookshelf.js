@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { ROOM_DEPTH } from '../config.js';
 import { matWood, matWall, matBook1, matBook2, matBook3 } from '../materials.js';
+import { createBook } from './book.js';
 
 // ── 书架尺寸 ──────────────────────────────────────────
 const D = {
@@ -70,20 +71,18 @@ export function createBookshelf() {
         for (let b = 0; b < count; b++) {
             const bw = D.bookMinWidth + Math.random() * D.bookRandomWidth;
             const bh = D.bookMinHeight + Math.random() * D.bookRandomHeight;
-            const bookGroup = new THREE.Group();
-            const bookMesh = new THREE.Mesh(
-                new THREE.BoxGeometry(bw, bh, D.bookDepth),
-                bookMats[b % 3]
-            );
-            bookMesh.castShadow = true;
-            bookGroup.add(bookMesh);
-            // 世界坐标 = 书架位置 + 本地偏移
-            bookGroup.position.set(
-                shelfPos.x + x + bw / 2,
-                shelfPos.y + y + bh / 2,
-                shelfPos.z
-            );
-            books.push(bookGroup);
+            // width=第二长边(D.bookDepth), height=最短边(bw), depth=最长边(bh)
+            // rotation.x=0 时平躺, π/2 时站立 → 书架书初始 π/2（站立）
+            books.push(createBook({
+                width: D.bookDepth,
+                height: bw,
+                depth: bh,
+                material: bookMats[b % 3],
+                x: shelfPos.x + x + bw / 2,
+                y: shelfPos.y + y + bh / 2,
+                z: shelfPos.z,
+                rotationX: Math.PI / 2,
+            }));
             x += bw + D.bookGap;
         }
     }

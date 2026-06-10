@@ -490,22 +490,25 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         }
 
         if (key === 'r' && selected.userData.movableType === 'small-item') {
-            // 垂直翻转（x 轴旋转 +90°：封面朝下平躺）
+            // 垂直翻转：在"平躺"和"站立"两个状态间切换
+            // BoxGeometry 参数约定：width=第二长边, height=最短边, depth=最长边
+            // rotation.x = nπ     → 最短边(height)沿 Y → 平躺（最大面朝上下）
+            // rotation.x = nπ+π/2 → 最长边(depth)沿 Y → 站立（最小面朝上下）
             const constraint = selected.userData.rotationConstraint || 'horizontal';
             if (constraint === 'any') {
                 selected.rotation.x += Math.PI / 2;
-                // 用几何尺寸重算偏移（不依赖当前 y 位置，避免漂移）
+                // 用几何尺寸重算偏移（旋转后需要重新计算包围盒）
                 selected.updateMatrixWorld(true);
-                const bb = new THREE.Box3().setFromObject(selected);
+                const bbAfter = new THREE.Box3().setFromObject(selected);
                 const size = new THREE.Vector3();
-                bb.getSize(size);
+                bbAfter.getSize(size);
                 selected.userData.itemBottomOffset = size.y / 2;
                 // DEBUG
                 console.log('[R pressed]', {
                     rotX: (selected.rotation.x * 180 / Math.PI).toFixed(0) + '°',
                     posY: selected.position.y.toFixed(3),
-                    bbMinY: bb.min.y.toFixed(3),
-                    bbMaxY: bb.max.y.toFixed(3),
+                    bbMinY: bbAfter.min.y.toFixed(3),
+                    bbMaxY: bbAfter.max.y.toFixed(3),
                     sizeY: size.y.toFixed(3),
                     offset: (size.y / 2).toFixed(3),
                 });

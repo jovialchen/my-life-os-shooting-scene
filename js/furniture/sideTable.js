@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { matWood, matMetal, matBook1 } from '../materials.js';
+import { createBook } from './book.js';
 
 // ── 边桌尺寸 ──────────────────────────────────────────
 const D = {
@@ -20,10 +21,10 @@ const D = {
     footThick: 0.03,    // 底盘厚度
     footSegments: 24,   // 底盘径向分段
     footY: 0.015,       // 底盘中心 y
-    // 书本尺寸
-    bookWidth: 0.2,
+    // 书本尺寸（width=中间边, height=最短边, depth=最长边）
+    bookWidth: 0.15,
     bookHeight: 0.06,
-    bookDepth: 0.15,
+    bookDepth: 0.2,
     bookOffsetX: 0.05,  // 书相对桌面中心 x 偏移
     bookOffsetY: 0.7,   // 书 y 偏移（桌面顶部）
     bookRotY: 0.3,      // 书 y 旋转
@@ -64,12 +65,16 @@ export function createSideTable() {
     table.add(foot);
 
     // 书本 — 独立小物品
-    const bookGroup = new THREE.Group();
-    const bookMesh = new THREE.Mesh(new THREE.BoxGeometry(D.bookWidth, D.bookHeight, D.bookDepth), matBook1);
-    bookMesh.castShadow = true;
-    bookGroup.add(bookMesh);
-    bookGroup.position.set(D.posX + D.bookOffsetX, D.posY + D.bookOffsetY, D.posZ);
-    bookGroup.rotation.y = D.bookRotY;
+    const bookGroup = createBook({
+        width: D.bookWidth,
+        height: D.bookHeight,
+        depth: D.bookDepth,
+        material: matBook1,
+        x: D.posX + D.bookOffsetX,
+        y: D.posY + D.bookOffsetY,
+        z: D.posZ,
+        rotationY: D.bookRotY,
+    });
 
     table.position.set(D.posX, D.posY, D.posZ);
     return { table, book: bookGroup };
