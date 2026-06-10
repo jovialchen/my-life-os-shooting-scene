@@ -10,6 +10,7 @@ import { createCeilingLight } from './lights.js';
 import { createRug, createWallArt } from './decoration.js';
 import { createPlant, createCushion, createBook } from './smallItems.js';
 import { matCushion, matFabricA, matBook1, matBook2, matBook3 } from '../materials.js';
+import { applyDefaults } from './categories.js';
 
 // ── 材质字符串映射 ──
 const MATERIAL_MAP = {
@@ -158,10 +159,12 @@ export function buildRoom(config) {
             floorLamp = result.group;
             furnitureList.push({ type: 'floorLamp', group: result.group });
             allMovables.push(result.group);
+            applyDefaults(result.group, 'furniture');
         } else {
             room.add(result);
             furnitureList.push({ type: fDef.type, group: result });
             allMovables.push(result);
+            applyDefaults(result, 'furniture');
         }
     });
 
@@ -171,6 +174,7 @@ export function buildRoom(config) {
         if (!factory) return;
         const result = factory(lDef.pos, size);
         room.add(result.group);
+        applyDefaults(result.group, 'light');
         if (lDef.type === 'ceilingLight') {
             ceilingLight = result.group;
         }
@@ -187,12 +191,7 @@ export function buildRoom(config) {
             depth: dDef.depth,
         });
         room.add(result);
-
-        if (dDef.type === 'rug') {
-            result.userData.surface = 'floor';
-        } else if (dDef.type === 'wallArt') {
-            result.userData.surface = 'wall-left';
-        }
+        applyDefaults(result, 'decoration', dDef.type);
         allMovables.push(result);
     });
 
@@ -221,7 +220,6 @@ export function buildRoom(config) {
         switch (sDef.type) {
             case 'plant':
                 item = createPlant({ position: pos, leafCount: sDef.leafCount });
-                item.userData.rotationConstraint = 'horizontal';
                 break;
             case 'cushion':
                 item = createCushion({
@@ -232,7 +230,6 @@ export function buildRoom(config) {
                 if (sDef.parent && furnitureGroupMap[sDef.parent]) {
                     item.rotation.y = furnitureGroupMap[sDef.parent].rotation.y;
                 }
-                item.userData.rotationConstraint = 'horizontal';
                 break;
             case 'book':
                 item = createBook({
@@ -244,7 +241,6 @@ export function buildRoom(config) {
                     depth: sDef.depth,
                     material: resolveMaterial(sDef.material),
                 });
-                item.userData.rotationConstraint = 'any';
                 break;
             case 'bookshelfBooks': {
                 const parentGroup = furnitureGroupMap[sDef.parent];
@@ -271,8 +267,7 @@ export function buildRoom(config) {
                         room.add(book);
                         smallItemList.push(book);
                         allMovables.push(book);
-                        book.userData.movableType = 'small-item';
-                        book.userData.rotationConstraint = 'any';
+                        applyDefaults(book, 'small-item', 'bookshelfBooks');
                         book.userData.parentGroup = parentGroup;
                         parentGroup.userData.children = parentGroup.userData.children || [];
                         parentGroup.userData.children.push(book);
@@ -287,7 +282,7 @@ export function buildRoom(config) {
             room.add(item);
             smallItemList.push(item);
             allMovables.push(item);
-            item.userData.movableType = 'small-item';
+            applyDefaults(item, 'small-item', sDef.type);
             // 有 parent 字段时直接绑定携带关系
             if (sDef.parent) {
                 const parentGroup = furnitureGroupMap[sDef.parent];

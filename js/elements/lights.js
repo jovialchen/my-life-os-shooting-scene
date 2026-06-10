@@ -1,10 +1,8 @@
 /**
  * 灯具工厂：顶灯
  *
- * 灯具特征：
- *   - 不可移动（notMovable = true）
- *   - 可点击开关（toggleType = 'light'）
- *   - 固定在天花板上
+ * 行为属性（notMovable、toggleType）由 categories.js 统一管理，
+ * 工厂只负责构建几何体和设置 lightRef。
  */
 import * as THREE from 'three';
 import { matMetal, matLampSh } from '../materials.js';
@@ -65,8 +63,6 @@ export function createCeilingLight({ position, roomHeight = 3.5 } = {}) {
     bulb.shadow.radius = D.bulbShadowRadius;
     group.add(bulb);
 
-    group.userData.notMovable = true;
-    group.userData.toggleType = 'light';
     group.userData.lightRef = bulb;
 
     return { group, light: bulb };

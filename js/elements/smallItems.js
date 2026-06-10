@@ -1,11 +1,8 @@
 /**
  * 小物品工厂：盆栽 / 抱枕 / 书本
  *
- * 小物品特征：
- *   - 可放在家具上，也可单独拖拽
- *   - movableType = 'small-item'
- *   - 书本特殊：Q/E 旋转 + R 放倒/立起
- *   - 抱枕/盆栽：只能水平旋转
+ * 行为属性（movableType、rotationConstraint）由 categories.js 统一管理，
+ * 工厂只负责构建几何体。
  */
 import * as THREE from 'three';
 import { matPot, matLeaf, matCushion, matFabricA, matBook1, matBook2, matBook3 } from '../materials.js';
@@ -145,6 +142,5 @@ export function createBook({ position, rotation, rotationX, state = 'standing', 
         book.rotation.y = rotation;
     }
 
-    book.userData.rotationConstraint = 'any';
     return book;
 }

@@ -1,9 +1,8 @@
 /**
  * 装饰工厂：地毯 / 装饰画
  *
- * 装饰特征：
- *   - 地毯：noCollision，shift 抓取
- *   - 装饰画：crossWall，可跨墙拖拽
+ * 行为属性（noCollision、crossWall、surface）由 categories.js 统一管理，
+ * 工厂只负责构建几何体。
  */
 import * as THREE from 'three';
 import { matRug, matFrame } from '../materials.js';
@@ -51,7 +50,6 @@ export function createRug({ width, depth, position } = {}) {
     rug.rotation.x = -Math.PI / 2;
     rug.position.y = RUG_DEFAULTS.yOffset;
     rug.receiveShadow = true;
-    rug.userData.noCollision = true;
 
     if (position) {
         rug.position.x = position.x || 0;
@@ -105,6 +103,5 @@ export function createWallArt({ position, rotation } = {}) {
     if (position) art.position.set(position.x || 0, position.y || 2.0, position.z || 0);
     if (rotation != null) art.rotation.y = rotation;
 
-    art.userData.crossWall = true;
     return art;
 }

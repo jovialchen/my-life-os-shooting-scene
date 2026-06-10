@@ -442,26 +442,40 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             const surface = selected.userData.surface || 'floor';
 
             if (selected.userData.movableType === 'small-item') {
-                // 小物品：从相机 raycast 检测鼠标下方的表面，直接放置
-                getMouseNDC(event);
-                raycaster.setFromCamera(mouse, camera);
+                // 小物品：用向下 raycast 找鼠标下方的实际表面
+                // 1. 从鼠标位置算出地面 XZ 坐标
+                const floorHit = raycastToPlane(event, PLANES['floor']);
+                if (!floorHit) return;
+
+                // 2. 从正上方向下 raycast
+                const downOrigin = new THREE.Vector3(floorHit.x, SNAP_RAY_Y_OFFSET + 2, floorHit.z);
+                const downRay = new THREE.Raycaster(downOrigin, new THREE.Vector3(0, -1, 0));
 
                 // 临时隐藏被拖拽物品
                 const hidden = [];
                 selected.traverse(c => { if (c.isMesh) { c.visible = false; hidden.push(c); } });
-                const hits = raycaster.intersectObjects(scene.children, true);
+                const hits = downRay.intersectObjects(scene.children, true);
                 hidden.forEach(m => { m.visible = true; });
 
-                // 过滤掉被拖拽物品的 mesh
+                // 3. 过滤：排除自身 mesh、墙面、天花板
                 const validHits = hits.filter(h => {
+                    // 排除被拖拽物品
                     let obj = h.object;
                     while (obj) { if (obj === selected) return false; obj = obj.parent; }
+                    // 排除墙面和天花板
+                    let p = h.object;
+                    while (p) {
+                        if (p.userData?.wallType) return false;
+                        p = p.parent;
+                    }
+                    // 排除天花板（Y 接近房间高度的水平面）
+                    if (h.point.y > ROOM_HEIGHT - 0.1) return false;
                     return true;
                 });
 
                 if (validHits.length > 0) {
                     const itemBottom = selected.userData.itemBottomOffset || 0;
-                    // 找最高的命中点（鼠标指向的最近表面）
+                    // 取最高 Y 的命中（鼠标下方最近的表面）
                     let bestPoint = validHits[0].point;
                     let bestObj = validHits[0].object;
                     for (const h of validHits) {
