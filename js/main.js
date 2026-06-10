@@ -186,7 +186,7 @@ sideTableBook.userData.parentGroup = sideTable;
     // ── i18n 文本 ──
     const TEXTS = {
         zh: {
-            tabs: ['物品', '人物', '规则', '语言'],
+            tabs: ['物品', '人物', '规则'],
             time: '时间',
             timeNames: TIME_PRESETS.map(p => p.name),
             rules: {
@@ -221,7 +221,7 @@ sideTableBook.userData.parentGroup = sideTable;
             langLabel: '语言 / Language',
         },
         en: {
-            tabs: ['Items', 'Cast', 'Rules', 'Language'],
+            tabs: ['Items', 'Cast', 'Rules'],
             time: 'Time',
             timeNames: TIME_PRESETS.map(p => p.nameEn || p.name),
             rules: {
@@ -279,6 +279,12 @@ sideTableBook.userData.parentGroup = sideTable;
 
     function renderThumbnail(obj) {
         const box = new THREE.Box3().setFromObject(obj);
+        // 空 group（如异步加载中的 VRM）会返回无穷大 box，跳过渲染
+        if (!isFinite(box.min.x) || !isFinite(box.max.x)) {
+            const fallback = document.createElement('canvas');
+            fallback.width = fallback.height = THUMB_SIZE;
+            return fallback.toDataURL();
+        }
         const center = new THREE.Vector3();
         const size = new THREE.Vector3();
         box.getCenter(center);
@@ -321,7 +327,6 @@ sideTableBook.userData.parentGroup = sideTable;
         { obj: sofaCushions[0], name: '靠枕（金）', nameEn: 'Cushion (Gold)', cat: '小物品', catEn: 'Small Items' },
         { obj: sofaCushions[1], name: '靠枕（绿）', nameEn: 'Cushion (Green)', cat: '小物品', catEn: 'Small Items' },
         { obj: door,        name: '门',         nameEn: 'Door',            cat: '家具',   catEn: 'Furniture' },
-        { obj: humanoid,    name: '小人',       nameEn: 'Character',       cat: '角色',   catEn: 'Character' },
     ];
     shelfBooks.forEach((book, i) => {
         items.push({ obj: book, name: `书架书本 ${i + 1}`, nameEn: `Shelf Book ${i + 1}`, cat: '小物品', catEn: 'Small Items' });
@@ -336,7 +341,6 @@ sideTableBook.userData.parentGroup = sideTable;
         { zh: '小物品', en: 'Small Items' },
         { zh: '窗帘', en: 'Curtains' },
         { zh: '地毯', en: 'Rug' },
-        { zh: '角色', en: 'Character' },
     ];
 
     function renderItems() {
@@ -422,29 +426,31 @@ sideTableBook.userData.parentGroup = sideTable;
     }
     renderRules();
 
-    // ── 渲染语言面板 ──
-    const langPanel = document.querySelector('[data-panel="lang"]');
-    function renderLang() {
-        langPanel.innerHTML = '';
-        const label = document.createElement('div');
-        label.className = 'rules-section';
-        label.innerHTML = `<h3>${t('langLabel')}</h3>`;
-        langPanel.appendChild(label);
-
-        ['zh', 'en'].forEach(code => {
-            const btn = document.createElement('button');
-            btn.className = 'lang-btn' + (lang === code ? ' active' : '');
-            btn.textContent = code === 'zh' ? '中文' : 'English';
-            btn.addEventListener('click', () => {
-                if (lang === code) return;
+    // ── 语言切换球 ──
+    const langGlobe = document.getElementById('lang-globe');
+    function updateGlobeOpts() {
+        langGlobe.querySelectorAll('.lang-opt').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.lang === lang);
+        });
+    }
+    langGlobe.addEventListener('click', (e) => {
+        const opt = e.target.closest('.lang-opt');
+        if (opt) {
+            const code = opt.dataset.lang;
+            if (lang !== code) {
                 lang = code;
                 localStorage.setItem('scene-lang', lang);
                 refreshAll();
-            });
-            langPanel.appendChild(btn);
-        });
-    }
-    renderLang();
+            }
+            langGlobe.classList.remove('open');
+            return;
+        }
+        langGlobe.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+        if (!langGlobe.contains(e.target)) langGlobe.classList.remove('open');
+    });
+    updateGlobeOpts();
 
     // ── 刷新所有面板 + tab 文字 ──
     function refreshAll() {
@@ -464,7 +470,7 @@ sideTableBook.userData.parentGroup = sideTable;
         renderItems();
         renderCharacters();
         renderRules();
-        renderLang();
+        updateGlobeOpts();
     }
 
     // ── Tab 切换 ──

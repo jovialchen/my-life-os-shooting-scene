@@ -117,27 +117,6 @@
         }
         .rules-section ul { padding-left: 16px; }
         .rules-section li { margin-bottom: 2px; }
-        /* 语言 tab */
-        .lang-btn {
-            display: block;
-            width: 100%;
-            padding: 10px 14px;
-            margin-bottom: 6px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 6px;
-            color: rgba(255,255,255,0.7);
-            font-size: 13px;
-            cursor: pointer;
-            text-align: left;
-            transition: background 0.15s, border-color 0.15s;
-        }
-        .lang-btn:hover { background: rgba(255,255,255,0.08); }
-        .lang-btn.active {
-            border-color: #ffcc77;
-            color: rgba(255,255,255,0.9);
-            background: rgba(255,204,119,0.08);
-        }
         /* 指南针 */
         #compass {
             position: absolute;
@@ -211,6 +190,55 @@
             min-width: 28px;
             text-align: center;
         }
+        /* 语言切换球 */
+        #lang-globe {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 36px;
+            height: 36px;
+            background: rgba(20, 15, 25, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            z-index: 30;
+            transition: background 0.15s, color 0.15s;
+            user-select: none;
+        }
+        #lang-globe:hover { background: rgba(20, 15, 25, 0.85); color: rgba(255,255,255,0.95); }
+        #lang-globe svg { pointer-events: none; }
+        #lang-dropdown {
+            display: none;
+            position: absolute;
+            top: 40px;
+            left: 0;
+            background: rgba(20, 15, 25, 0.88);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            overflow: hidden;
+            min-width: 90px;
+        }
+        #lang-globe.open #lang-dropdown { display: block; }
+        .lang-opt {
+            display: block;
+            width: 100%;
+            padding: 8px 14px;
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.12s, color 0.12s;
+        }
+        .lang-opt:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
+        .lang-opt.active { color: #ffcc77; }
     </style>
 
     <!-- Three.js r160 CDN (ES Modules) -->
@@ -226,19 +254,30 @@
 </head>
 <body>
 
+<div id="lang-globe" title="语言 / Language">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <ellipse cx="12" cy="12" rx="4" ry="10"/>
+        <path d="M2 12h20"/>
+        <path d="M12 2c2.5 2.5 4 6 4 10s-1.5 7.5-4 10"/>
+        <path d="M12 2c-2.5 2.5-4 6-4 10s1.5 7.5 4 10"/>
+    </svg>
+    <div id="lang-dropdown">
+        <button class="lang-opt" data-lang="zh">中文</button>
+        <button class="lang-opt" data-lang="en">English</button>
+    </div>
+</div>
 <div id="sidebar">
     <div id="sb-toggle" title="收起/展开">◀</div>
     <div id="sb-tabs">
         <button class="sb-tab active" data-tab="items">物品</button>
         <button class="sb-tab" data-tab="characters">人物</button>
         <button class="sb-tab" data-tab="rules">规则</button>
-        <button class="sb-tab" data-tab="lang">语言</button>
     </div>
     <div id="sb-panels">
         <div class="sb-panel active" data-panel="items"></div>
         <div class="sb-panel" data-panel="characters"></div>
         <div class="sb-panel" data-panel="rules"></div>
-        <div class="sb-panel" data-panel="lang"></div>
     </div>
 </div>
 <div id="time-bar">
