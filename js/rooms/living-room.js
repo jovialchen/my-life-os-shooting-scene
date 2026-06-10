@@ -51,11 +51,19 @@ export const livingRoom = {
         { type: 'wallArt', pos: { x: -3.97, y: 2.0, z: -1.0 }, rot: Math.PI / 2 },
     ],
 
-    // ── 小物品（独立于家具的） ──
-    // 注意：靠枕由 sofa 工厂内部创建，边桌书本由 sideTable 工厂内部创建，
-    //       书架书本由 bookshelf 工厂随机生成，此处只定义独立的小物品
+    // ── 小物品 ──
     smallItems: [
         // 窗台盆栽
         { type: 'plant', pos: { x: -2.9, y: 0.28, z: -3.1 } },
+
+        // 沙发靠枕（相对于沙发局部坐标）
+        { type: 'cushion', parent: 'sofa', relPos: { x: -0.7, y: 0.8, z: -0.2 }, rotZ: 0.15, material: 'cushion' },
+        { type: 'cushion', parent: 'sofa', relPos: { x: 0.7, y: 0.8, z: -0.2 }, rotZ: -0.1, material: 'fabricA' },
+
+        // 边桌书本（相对于边桌局部坐标）
+        { type: 'book', parent: 'sideTable', relPos: { x: 0.05, y: 0.7, z: 0 }, rot: 0.3, width: 0.15, height: 0.06, depth: 0.2, material: 'book1' },
+
+        // 书架书本（随机生成，每层 3~5 本）
+        { type: 'bookshelfBooks', parent: 'bookshelf' },
     ],
 };

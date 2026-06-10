@@ -2,15 +2,13 @@
  * 家具工厂：沙沙/椅子/茶几/边桌/书架/落地灯
  *
  * 所有家具统一接口：
- *   createXXX({ position?, rotation?, ... }) → THREE.Group | { group, children, light }
+ *   createXXX({ position?, rotation?, ... }) → THREE.Group | { group, light }
  *
  * 工厂只管"建"，不管"放"。位置和旋转由配置层决定。
  * 不读取任何全局房间常量。
  */
 import * as THREE from 'three';
-import { matFabric, matFabricA, matWood, matMetal, matCushion, matLampSh, matWall, matBook1, matBook2, matBook3 } from '../materials.js';
-import { createBook } from './smallItems.js';
-import { createCushion } from './smallItems.js';
+import { matFabric, matFabricA, matWood, matMetal, matLampSh, matWall } from '../materials.js';
 
 
 // ============================================================
@@ -25,14 +23,9 @@ const SOFA = {
     legRadius: 0.04, legHeight: 0.15, legScaleX: 1.05, legY: 0.075, legX: 1.0, legZ: 0.3,
 };
 
-const SOFA_CUSHION = {
-    size: 0.4, depth: 0.15, y: 0.8, z: -0.2,
-    leftX: -0.7, rightX: 0.7, rotL: 0.15, rotR: -0.1,
-};
-
 /**
  * @param {{ position?: {x,y,z}, rotation?: number }} opts
- * @returns {{ sofa: THREE.Group, cushions: THREE.Group[] }}
+ * @returns {THREE.Group}
  */
 export function createSofa({ position, rotation } = {}) {
     const sofa = new THREE.Group();
@@ -69,26 +62,7 @@ export function createSofa({ position, rotation } = {}) {
 
     if (position) sofa.position.set(position.x, position.y || 0, position.z);
     if (rotation != null) sofa.rotation.y = rotation;
-
-    // 靠枕（独立小物品，世界坐标）
-    const sofaQuat = sofa.quaternion;
-    const sofaPos = sofa.position;
-    const c = SOFA_CUSHION;
-
-    function makeCushion(material, localX, localZ, rotZ) {
-        const group = createCushion({ material });
-        const local = new THREE.Vector3(localX, c.y, localZ);
-        local.applyQuaternion(sofaQuat).add(sofaPos);
-        group.position.copy(local);
-        group.rotation.z = rotZ;
-        group.rotation.y = sofa.rotation.y;
-        return group;
-    }
-
-    const cushion1 = makeCushion(matCushion, c.leftX, c.z, c.rotL);
-    const cushion2 = makeCushion(matFabricA, c.rightX, c.z, c.rotR);
-
-    return { sofa, cushions: [cushion1, cushion2] };
+    return sofa;
 }
 
 
@@ -187,7 +161,7 @@ const SIDE_TABLE = {
 
 /**
  * @param {{ position?: {x,y,z}, rotation?: number }} opts
- * @returns {{ table: THREE.Group, book: THREE.Group }}
+ * @returns {THREE.Group}
  */
 export function createSideTable({ position, rotation } = {}) {
     const table = new THREE.Group();
@@ -216,19 +190,9 @@ export function createSideTable({ position, rotation } = {}) {
     foot.position.y = SIDE_TABLE.footY;
     table.add(foot);
 
-    const pos = position || { x: 0, y: 0, z: 0 };
-    table.position.set(pos.x, pos.y || 0, pos.z);
+    if (position) table.position.set(position.x, position.y || 0, position.z);
     if (rotation != null) table.rotation.y = rotation;
-
-    // 书本 — 独立小物品，世界坐标
-    const book = createBook({
-        position: { x: pos.x + 0.05, y: (pos.y || 0) + 0.7, z: pos.z },
-        rotation: 0.3,
-        width: 0.15, height: 0.06, depth: 0.2,
-        material: matBook1,
-    });
-
-    return { table, book };
+    return table;
 }
 
 
@@ -236,7 +200,7 @@ export function createSideTable({ position, rotation } = {}) {
 //  书架
 // ============================================================
 
-const BOOKSHELF = {
+export const BOOKSHELF = {
     width: 1.2, height: 2.0, depth: 0.35,
     plankThick: 0.04, shelfCount: 3, backThick: 0.02, backOffset: 0.01,
     bookMinCount: 3, bookRandomCount: 3,
@@ -248,14 +212,12 @@ const BOOKSHELF = {
 
 /**
  * @param {{ position?: {x,y,z}, rotation?: number }} opts
- * @returns {{ shelf: THREE.Group, books: THREE.Group[] }}
+ * @returns {THREE.Group}
  */
 export function createBookshelf({ position, rotation } = {}) {
     const shelf = new THREE.Group();
-    const books = [];
 
     const D = BOOKSHELF;
-    const pos = position || { x: 0, y: 0, z: 0 };
 
     // 侧板 ×2
     [-1, 1].forEach(side => {
@@ -279,34 +241,9 @@ export function createBookshelf({ position, rotation } = {}) {
     backPanel.position.set(0, D.height / 2, -D.depth / 2 + D.backOffset);
     shelf.add(backPanel);
 
-    shelf.position.set(pos.x, pos.y || 0, pos.z);
+    if (position) shelf.position.set(position.x, position.y || 0, position.z);
     if (rotation != null) shelf.rotation.y = rotation;
-
-    // 随机书本（每层 3~5 本）— 独立小物品
-    const bookMats = [matBook1, matBook2, matBook3];
-    for (let row = 0; row < D.shelfCount; row++) {
-        const y = row * (D.height / D.shelfCount) + D.plankThick + D.bookYOffset;
-        const count = D.bookMinCount + Math.floor(Math.random() * D.bookRandomCount);
-        let localX = -D.width / 2 + D.bookStartX;
-        for (let b = 0; b < count; b++) {
-            const bw = D.bookMinWidth + Math.random() * D.bookRandomWidth;
-            const bh = D.bookMinHeight + Math.random() * D.bookRandomHeight;
-            // 书架旋转后坐标变换
-            const bookX = pos.x;
-            const bookY = (pos.y || 0) + y + bh / 2;
-            const bookZ = pos.z - (localX + bw / 2);
-            books.push(createBook({
-                position: { x: bookX, y: bookY, z: bookZ },
-                rotationX: Math.PI / 2,
-                width: D.bookDepth, height: bw, depth: bh,
-                material: bookMats[b % 3],
-                state: 'standing',
-            }));
-            localX += bw + D.bookGap;
-        }
-    }
-
-    return { shelf, books };
+    return shelf;
 }
 
 
