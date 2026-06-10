@@ -395,6 +395,9 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         const hit = findMovableUnderMouse(event);
         if (!hit) return;
 
+        // 地毯需要按住 Shift 才能抓取，防止误触
+        if (hit.userData.noCollision && !event.shiftKey) return;
+
         selected = hit;
         activePlane = getPlaneForObject(selected);
         isDragging = true;
@@ -556,7 +559,11 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         }
 
         const hit = findMovableUnderMouse(event);
-        renderer.domElement.style.cursor = hit ? 'grab' : '';
+        if (hit && hit.userData.noCollision && !event.shiftKey) {
+            renderer.domElement.style.cursor = 'default'; // 地毯：需要 Shift
+        } else {
+            renderer.domElement.style.cursor = hit ? 'grab' : '';
+        }
     }
 
     function onPointerUp(event) {
@@ -597,9 +604,10 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         const key = event.key.toLowerCase();
 
         if (key === 'q' || key === 'e') {
-            // 水平旋转 45°
+            // 水平旋转 45°（绕世界 Y 轴，确保平躺物体如地毯在地面旋转）
             const angle = (key === 'e' ? 1 : -1) * Math.PI / 4;
-            selected.rotation.y += angle;
+            const worldY = new THREE.Vector3(0, 1, 0);
+            selected.rotateOnWorldAxis(worldY, angle);
             // 旋转后更新子物体偏移
             if (childOffsets) {
                 for (const co of childOffsets) {
