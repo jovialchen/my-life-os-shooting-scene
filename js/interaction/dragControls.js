@@ -204,9 +204,8 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             obj.userData.parentGroup = null;
         }
 
-        // ── 模式 A：拖拽放下 — 用拖拽时缓存的 hit 对象找 parent，不改位置 ──
+        // ── 模式 A：拖拽放下 — 用向下 raycast 找 parent，不改位置 ──
         if (lastDragHitObj) {
-            const hitObj = lastDragHitObj;
             lastDragHitObj = null;
 
             // 更新 itemBottomOffset（group 原点到包围盒底部的距离）
@@ -215,28 +214,8 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             obj.userData.itemBottomOffset = obj.position.y - box.min.y;
             storeSurfaceY(obj);
 
-            // 向上查找命中 mesh 所属的可移动家具 Group
-            let parentCandidate = hitObj;
-            while (parentCandidate) {
-                if (movables.includes(parentCandidate) && parentCandidate !== obj
-                    && parentCandidate.userData.movableType !== 'small-item') {
-                    obj.userData.parentGroup = parentCandidate;
-                    if (!parentCandidate.userData.children) parentCandidate.userData.children = [];
-                    if (!parentCandidate.userData.children.includes(obj)) {
-                        parentCandidate.userData.children.push(obj);
-                    }
-                    break;
-                }
-                parentCandidate = parentCandidate.parent;
-            }
-
-            console.log('[snapToSurface:drag]', {
-                finalY: p.y.toFixed(4),
-                boxMinY: box.min.y.toFixed(4),
-                itemBottomOffset: obj.userData.itemBottomOffset.toFixed(4),
-                hitName: hitObj?.parent?.userData?.name || hitObj?.name || 'unknown',
-                parent: obj.userData.parentGroup?.userData?.name || 'none',
-            });
+            // 用可靠的向下 raycast 找父物体（不依赖拖拽最后一帧的命中）
+            findParentBelow(obj);
             return;
         }
 
