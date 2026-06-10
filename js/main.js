@@ -178,6 +178,9 @@ shelfBooks.forEach(book => { book.userData.parentGroup = bookshelf; });
 // 边桌 → 书本
 sideTable.userData.children = [sideTableBook];
 sideTableBook.userData.parentGroup = sideTable;
+// 沙发 → 靠枕
+sofa.userData.children = [...sofaCushions];
+sofaCushions.forEach(c => { c.userData.parentGroup = sofa; });
 
 // ============================================================
 //  侧边栏：Tab 式面板（物品 / 人物 / 规则 / 语言）
