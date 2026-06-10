@@ -118,7 +118,9 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
      * 不改变物品位置，只建立 parent ↔ children 关系
      */
     function findParentBelow(obj) {
-        const p = obj.position;
+        // 用世界坐标做 raycast（obj.position 可能是父物体的局部坐标）
+        const worldPos = new THREE.Vector3();
+        obj.getWorldPosition(worldPos);
 
         // 临时隐藏自身 mesh
         const hidden = [];
@@ -127,7 +129,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         });
 
         const downRay = new THREE.Raycaster(
-            new THREE.Vector3(p.x, p.y + SNAP_RAY_Y_OFFSET, p.z),
+            new THREE.Vector3(worldPos.x, worldPos.y + SNAP_RAY_Y_OFFSET, worldPos.z),
             new THREE.Vector3(0, -1, 0),
         );
         const allMeshes = [];
@@ -136,12 +138,12 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
         hidden.forEach(m => { m.visible = true; });
 
-        // 找最高的、在物品下方的表面
+        // 找最高的、在物品下方的表面（世界坐标比较）
         let bestHitObj = null;
         let bestY = -Infinity;
         for (const hit of hits) {
             const surfaceY = hit.point.y;
-            if (surfaceY <= p.y + SNAP_SURFACE_TOLERANCE && surfaceY > bestY) {
+            if (surfaceY <= worldPos.y + SNAP_SURFACE_TOLERANCE && surfaceY > bestY) {
                 bestY = surfaceY;
                 bestHitObj = hit.object;
             }
@@ -675,38 +677,43 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             const constraint = selected.userData.rotationConstraint || 'horizontal';
             if (constraint === 'any') {
                 // ── 旋转前：记录底面在世界坐标中的 Y ──
+                selected.updateMatrixWorld(true);
+                const worldBefore = new THREE.Vector3();
+                selected.getWorldPosition(worldBefore);
                 const oldItemBottom = selected.userData.itemBottomOffset || 0;
-                const bottomWorldY = selected.position.y - oldItemBottom;
+                const bottomWorldY = worldBefore.y - oldItemBottom;
 
                 // ── 执行旋转 ──
                 selected.rotation.x += Math.PI / 2;
 
-                // ── 旋转后：重算包围盒和底面偏移 ──
+                // ── 旋转后：重算包围盒和底面偏移（世界坐标） ──
                 selected.updateMatrixWorld(true);
                 const bbAfter = new THREE.Box3().setFromObject(selected);
-                const newItemBottom = selected.position.y - bbAfter.min.y;
+                const newItemBottom = worldBefore.y - bbAfter.min.y; // 暂用旋转前的世界Y
                 selected.userData.itemBottomOffset = newItemBottom;
 
-                // ── 关键：以底面为锚点修正位置，而不是以质心 ──
-                // 旋转轴是质心，旋转后质心位置不变，但底面偏移变了
-                // 新中心 = 旧底面Y + 新底面偏移
-                selected.position.y = bottomWorldY + newItemBottom;
+                // ── 关键：以底面为锚点修正位置 ──
+                // 新世界Y = 旧底面世界Y + 新底面偏移
+                const newWorldY = bottomWorldY + newItemBottom;
+                // 转换回父物体局部坐标
+                if (selected.parent) {
+                    const parentWorldInv = new THREE.Matrix4().copy(selected.parent.matrixWorld).invert();
+                    const worldPos = new THREE.Vector3();
+                    selected.getWorldPosition(worldPos);
+                    worldPos.y = newWorldY;
+                    worldPos.applyMatrix4(parentWorldInv);
+                    selected.position.copy(worldPos);
+                } else {
+                    selected.position.y = newWorldY;
+                }
+                selected.updateMatrixWorld(true);
+                // 更新 itemBottomOffset 为最终值
+                const bbFinal = new THREE.Box3().setFromObject(selected);
+                selected.userData.itemBottomOffset = selected.position.y - bbFinal.min.y;
                 storeSurfaceY(selected);
 
                 // 重建父子关系（只找 parent，不改位置）
                 findParentBelow(selected);
-
-                // DEBUG
-                console.log('[R pressed]', {
-                    rotX: (selected.rotation.x * 180 / Math.PI).toFixed(0) + '°',
-                    bottomWorldY: bottomWorldY.toFixed(4),
-                    oldItemBottom: oldItemBottom.toFixed(4),
-                    newItemBottom: newItemBottom.toFixed(4),
-                    oldPosY: (bottomWorldY + oldItemBottom).toFixed(4),
-                    newPosY: selected.position.y.toFixed(4),
-                    delta_Y: (newItemBottom - oldItemBottom).toFixed(4),
-                    parent: selected.userData.parentGroup?.userData?.name || 'none',
-                });
             }
             // 'horizontal' 约束的物品（如盆栽）按 R 无反应
         }
