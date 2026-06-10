@@ -341,19 +341,37 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
     /** 将 obj 与其他地面家具分离（最小平移向量） */
     function resolveCollisions(obj) {
         const others = getFloorMovables(obj);
+        const he = obj.userData._he;
+        // 房间边界（obj 能到达的最小/最大坐标）
+        const minX = -ROOM_HALF_W + he.x, maxX = ROOM_HALF_W - he.x;
+        const minZ = -ROOM_HALF_D + he.z, maxZ = ROOM_HALF_D - he.z;
+
         for (let iter = 0; iter < 8; iter++) {
             let resolved = true;
             for (const other of others) {
                 const ov = getOverlap(obj, other);
                 if (!ov) continue;
                 resolved = false;
-                // 沿重叠较小的轴推开
+
                 if (ov.overlapX < ov.overlapZ) {
                     const sign = ov.dx >= 0 ? 1 : -1;
-                    obj.position.x += sign * ov.overlapX;
+                    const desired = obj.position.x + sign * ov.overlapX;
+                    const clamped = Math.max(minX, Math.min(maxX, desired));
+                    obj.position.x = clamped;
+                    // 如果被墙挡住了（clamped != desired），剩余推力转给对方
+                    const remainder = desired - clamped;
+                    if (Math.abs(remainder) > 0.001) {
+                        other.position.x -= remainder;
+                    }
                 } else {
                     const sign = ov.dz >= 0 ? 1 : -1;
-                    obj.position.z += sign * ov.overlapZ;
+                    const desired = obj.position.z + sign * ov.overlapZ;
+                    const clamped = Math.max(minZ, Math.min(maxZ, desired));
+                    obj.position.z = clamped;
+                    const remainder = desired - clamped;
+                    if (Math.abs(remainder) > 0.001) {
+                        other.position.z -= remainder;
+                    }
                 }
             }
             if (resolved) break;
