@@ -1,10 +1,9 @@
 /**
  * 家具：三层书架（含随机书本）
  * 书本作为独立小物品返回，可拖拽放置
- * 靠后墙摆放
+ * 靠东墙摆放（远离窗户）
  */
 import * as THREE from 'three';
-import { ROOM_DEPTH } from '../config.js';
 import { matWood, matWall, matBook1, matBook2, matBook3 } from '../materials.js';
 import { createBook } from './book.js';
 
@@ -29,16 +28,17 @@ const D = {
     bookDepth: 0.18,        // 书本深度
     bookGap: 0.01,          // 书本间距
     bookYOffset: 0.04,      // 书本 y 偏移（层板顶部）
-    // 摆放位置
-    posX: 1.0,
+    // 摆放位置（靠东墙，远离窗户）
+    posX: -3.625,   // -ROOM_WIDTH/2 + depth/2 + wallOffset = -4 + 0.175 + 0.2
     posY: 0,
+    posZ: 0,
 };
 
 export function createBookshelf() {
     const shelf = new THREE.Group();
     const books = [];
 
-    const shelfPos = { x: D.posX, y: D.posY, z: -ROOM_DEPTH / 2 + D.wallOffset };
+    const shelfPos = { x: D.posX, y: D.posY, z: D.posZ ?? 0 };
 
     // 侧板 ×2
     [-1, 1].forEach(side => {
@@ -63,30 +63,35 @@ export function createBookshelf() {
     shelf.add(backPanel);
 
     // 随机书本（每层 3~5 本）— 作为独立 Group 返回，位置转为世界坐标
+    // 书架已旋转 90°（rotation.y = π/2），书本坐标需相应变换：
+    //   局部 x → 世界 -z,  局部 z → 世界 x
     const bookMats = [matBook1, matBook2, matBook3];
     for (let row = 0; row < D.shelfCount; row++) {
         const y = row * (D.height / D.shelfCount) + D.plankThick + D.bookYOffset;
         const count = D.bookMinCount + Math.floor(Math.random() * D.bookRandomCount);
-        let x = -D.width / 2 + D.bookStartX;
+        let localX = -D.width / 2 + D.bookStartX;
         for (let b = 0; b < count; b++) {
             const bw = D.bookMinWidth + Math.random() * D.bookRandomWidth;
             const bh = D.bookMinHeight + Math.random() * D.bookRandomHeight;
             // width=第二长边(D.bookDepth), height=最短边(bw), depth=最长边(bh)
             // rotation.x=0 时平躺, π/2 时站立 → 书架书初始 π/2（站立）
+            // 旋转后：世界 x = shelfPos.x, 世界 z = shelfPos.z - (localX + bw/2)
             books.push(createBook({
                 width: D.bookDepth,
                 height: bw,
                 depth: bh,
                 material: bookMats[b % 3],
-                x: shelfPos.x + x + bw / 2,
+                x: shelfPos.x,
                 y: shelfPos.y + y + bh / 2,
-                z: shelfPos.z,
+                z: shelfPos.z - (localX + bw / 2),
                 rotationX: Math.PI / 2,
             }));
-            x += bw + D.bookGap;
+            localX += bw + D.bookGap;
         }
     }
 
+    // 靠东墙：旋转 90° 使背面朝向墙壁
+    shelf.rotation.y = Math.PI / 2;
     shelf.position.set(shelfPos.x, shelfPos.y, shelfPos.z);
     return { shelf, books };
 }

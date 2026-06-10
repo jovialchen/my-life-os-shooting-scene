@@ -15,7 +15,7 @@ export const DOOR_WIDTH  = 1.2;
 export const DOOR_HEIGHT = 2.4;
 
 // 背景与雾效
-export const BG_COLOR    = 0x6b4455;   // 暖紫黄昏天空
+export const BG_COLOR    = 0x87a5c0;   // 中午明亮天空
 export const FOG_NEAR    = 8;
 export const FOG_FAR     = 25;
 

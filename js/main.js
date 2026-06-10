@@ -522,8 +522,8 @@ curtains.children.forEach(child => {
     }
 });
 
-let curtainOpen = false;
-let curtainTargetX = CURTAIN_CLOSED_X;
+let curtainOpen = true;
+let curtainTargetX = CURTAIN_OPEN_X;
 
 // 点击检测（区分点击与拖拽）
 const curtainRaycaster = new THREE.Raycaster();
@@ -666,8 +666,8 @@ function updateTimeOfDay(value) {
     scene.fog.color.copy(bgColor);
 }
 
-// 初始应用傍晚（slider 默认 value=4）
-updateTimeOfDay(4);
+// 初始应用中午（slider 默认 value=2）
+updateTimeOfDay(2);
 
 // 时间滑块事件
 const timeSlider = document.getElementById('time-slider');

@@ -1,0 +1,2 @@
+cd /root/projects/my-life-os-shooting-scene
+python3 -m http.server 8000
