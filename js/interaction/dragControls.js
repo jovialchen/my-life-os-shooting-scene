@@ -150,22 +150,6 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             }
         }
 
-        console.log('[findParentBelow]', {
-            worldY: worldPos.y.toFixed(4),
-            rawHits: hits.length,
-            bestY: bestY === -Infinity ? '-Inf' : bestY.toFixed(4),
-            bestHitName: bestHitObj?.parent?.userData?.name || bestHitObj?.name || 'none',
-            foundParent: (() => {
-                if (!bestHitObj) return 'no-hit';
-                let c = bestHitObj;
-                while (c) {
-                    if (movables.includes(c) && c !== obj && c.userData.movableType !== 'small-item') return c.userData?.name || 'unnamed';
-                    c = c.parent;
-                }
-                return 'no-movable-parent';
-            })(),
-        });
-
         // 清除旧的父子关系
         if (obj.userData.parentGroup) {
             const oldParent = obj.userData.parentGroup;
@@ -193,13 +177,6 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 parentCandidate = parentCandidate.parent;
             }
         }
-
-        console.log('[findParentBelow]', {
-            bestY: bestY.toFixed(3),
-            bestHitObj: bestHitObj?.type || 'none',
-            foundParent: foundParent?.userData?.name || 'none',
-            bookPos: obj.position.y.toFixed(3),
-        });
 
         return foundParent;
     }
@@ -275,16 +252,6 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
         p.y = bestY + itemBottom;
         storeSurfaceY(obj);
-
-        console.log('[snapToSurface:raycast]', {
-            posBefore: posBefore.toFixed(4),
-            boxMinY: box.min.y.toFixed(4),
-            itemBottomOffset: obj.userData.itemBottomOffset.toFixed(4),
-            bestY: bestY.toFixed(4),
-            finalY: p.y.toFixed(4),
-            usedFallback: !bestHitObj,
-            hitName: bestHitObj?.parent?.userData?.name || bestHitObj?.name || 'none',
-        });
 
         // 向上查找命中 mesh 所属的可移动家具 Group
         if (bestHitObj) {
@@ -705,20 +672,6 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 const bbFinal = new THREE.Box3().setFromObject(selected);
                 selected.userData.itemBottomOffset = selected.position.y - bbFinal.min.y;
                 storeSurfaceY(selected);
-
-                const worldAfter = new THREE.Vector3();
-                selected.getWorldPosition(worldAfter);
-                console.log('[R pressed]', {
-                    hasParent,
-                    parentName: selected.parent?.userData?.name || 'none',
-                    worldBeforeY: worldBefore.y.toFixed(4),
-                    bottomWorldY: bottomWorldY.toFixed(4),
-                    bbAfterMinY: bbAfter.min.y.toFixed(4),
-                    newWorldY: newWorldY.toFixed(4),
-                    worldAfterY: worldAfter.y.toFixed(4),
-                    localPosY: selected.position.y.toFixed(4),
-                    itemBottomOffset: selected.userData.itemBottomOffset.toFixed(4),
-                });
 
                 // 重建父子关系（只找 parent，不改位置）
                 findParentBelow(selected);
