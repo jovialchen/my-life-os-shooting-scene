@@ -53,8 +53,8 @@ export const livingRoom = {
 
     // ── 小物品 ──
     smallItems: [
-        // 窗台盆栽
-        { type: 'plant', pos: { x: -2.9, y: 0.28, z: -3.1 } },
+        // 地面盆栽
+        { type: 'plant', pos: { x: -2.9, y: 0, z: -3.1 } },
 
         // 沙发靠枕（相对于沙发局部坐标）
         { type: 'cushion', parent: 'sofa', relPos: { x: -0.7, y: 0.8, z: -0.2 }, rotZ: 0.15, material: 'cushion' },

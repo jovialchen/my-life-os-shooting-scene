@@ -283,6 +283,11 @@ export function buildRoom(config) {
             smallItemList.push(item);
             allMovables.push(item);
             applyDefaults(item, 'small-item', sDef.type);
+            // 预计算 itemBottomOffset（group 原点到包围盒底部的距离）
+            // 避免第一次拖拽时偏移为 0 导致盆栽等物体悬空
+            item.updateMatrixWorld(true);
+            const initBox = new THREE.Box3().setFromObject(item);
+            item.userData.itemBottomOffset = item.position.y - initBox.min.y;
             // 有 parent 字段时直接绑定携带关系
             if (sDef.parent) {
                 const parentGroup = furnitureGroupMap[sDef.parent];

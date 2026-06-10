@@ -138,7 +138,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
         // 找最高的、在物品下方的表面
         let bestHitObj = null;
-        let bestY = 0;
+        let bestY = -Infinity;
         for (const hit of hits) {
             const surfaceY = hit.point.y;
             if (surfaceY <= p.y + SNAP_SURFACE_TOLERANCE && surfaceY > bestY) {
@@ -207,12 +207,10 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             const hitObj = lastDragHitObj;
             lastDragHitObj = null;
 
-            // 更新 itemBottomOffset
+            // 更新 itemBottomOffset（group 原点到包围盒底部的距离）
             obj.updateMatrixWorld(true);
             const box = new THREE.Box3().setFromObject(obj);
-            const size = new THREE.Vector3();
-            box.getSize(size);
-            obj.userData.itemBottomOffset = size.y / 2;
+            obj.userData.itemBottomOffset = obj.position.y - box.min.y;
             storeSurfaceY(obj);
 
             // 向上查找命中 mesh 所属的可移动家具 Group
@@ -231,7 +229,9 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             }
 
             console.log('[snapToSurface:drag]', {
-                pos: p.y.toFixed(4),
+                finalY: p.y.toFixed(4),
+                boxMinY: box.min.y.toFixed(4),
+                itemBottomOffset: obj.userData.itemBottomOffset.toFixed(4),
                 hitName: hitObj?.parent?.userData?.name || hitObj?.name || 'unknown',
                 parent: obj.userData.parentGroup?.userData?.name || 'none',
             });
@@ -243,9 +243,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
         obj.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(obj);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        obj.userData.itemBottomOffset = size.y / 2;
+        obj.userData.itemBottomOffset = obj.position.y - box.min.y;
         const itemBottom = obj.userData.itemBottomOffset;
 
         // 临时隐藏自身，避免 raycast 命中自己
@@ -264,7 +262,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
         hidden.forEach(m => { m.visible = true; });
 
-        let bestY = 0;
+        let bestY = -Infinity;
         let bestHitObj = null;
         for (const hit of hits) {
             const surfaceY = hit.point.y;
@@ -274,13 +272,19 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             }
         }
 
+        // 如果没找到任何表面（如地板 Y=0 被遗漏），用地面数学平面兜底
+        if (!bestHitObj) bestY = 0;
+
         p.y = bestY + itemBottom;
         storeSurfaceY(obj);
 
         console.log('[snapToSurface:raycast]', {
             posBefore: posBefore.toFixed(4),
+            boxMinY: box.min.y.toFixed(4),
+            itemBottomOffset: obj.userData.itemBottomOffset.toFixed(4),
             bestY: bestY.toFixed(4),
             finalY: p.y.toFixed(4),
+            usedFallback: !bestHitObj,
             hitName: bestHitObj?.parent?.userData?.name || bestHitObj?.name || 'none',
         });
 
@@ -384,9 +388,10 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         const surface = obj.userData.surface || 'floor';
 
         if (obj.userData.movableType === 'small-item') {
+            const bottom = obj.userData.itemBottomOffset || 0;
             p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
             p.z = Math.max(-ROOM_HALF_D + he.z, Math.min(ROOM_HALF_D - he.z, p.z));
-            p.y = Math.max(he.y, Math.min(ROOM_HEIGHT - he.y, p.y));
+            p.y = Math.max(bottom, Math.min(ROOM_HEIGHT - he.y, p.y));
         } else if (surface === 'floor') {
             p.x = Math.max(-ROOM_HALF_W + he.x, Math.min(ROOM_HALF_W - he.x, p.x));
             p.z = Math.max(-ROOM_HALF_D + he.z, Math.min(ROOM_HALF_D - he.z, p.z));
@@ -658,9 +663,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             if (selected.userData.movableType === 'small-item') {
                 selected.updateMatrixWorld(true);
                 const box = new THREE.Box3().setFromObject(selected);
-                const size = new THREE.Vector3();
-                box.getSize(size);
-                selected.userData.itemBottomOffset = size.y / 2;
+                selected.userData.itemBottomOffset = selected.position.y - box.min.y;
             }
         }
 
@@ -681,9 +684,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 // ── 旋转后：重算包围盒和底面偏移 ──
                 selected.updateMatrixWorld(true);
                 const bbAfter = new THREE.Box3().setFromObject(selected);
-                const size = new THREE.Vector3();
-                bbAfter.getSize(size);
-                const newItemBottom = size.y / 2;
+                const newItemBottom = selected.position.y - bbAfter.min.y;
                 selected.userData.itemBottomOffset = newItemBottom;
 
                 // ── 关键：以底面为锚点修正位置，而不是以质心 ──
