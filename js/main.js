@@ -525,6 +525,11 @@ curtains.children.forEach(child => {
 let curtainOpen = true;
 let curtainTargetX = CURTAIN_OPEN_X;
 
+// 初始窗帘打开：直接设置面板位置，避免从暗到亮渐变
+curtainPanels.forEach(panel => {
+    panel.position.x = panel.userData.side * CURTAIN_OPEN_X;
+});
+
 // 点击检测（区分点击与拖拽）
 const curtainRaycaster = new THREE.Raycaster();
 const curtainMouse = new THREE.Vector2();
