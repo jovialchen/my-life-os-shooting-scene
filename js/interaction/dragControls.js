@@ -107,25 +107,25 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         obj.userData.surface = nearest.wall;
     }
 
-    /** 松开时将小物品吸附到最近的表面（向下 raycast），并建立父子关系 */
-    function snapToSurface(obj) {
+    /** 记录书本所在的表面 Y 坐标（旋转时用来避免重复 raycast） */
+    function storeSurfaceY(obj) {
+        const bottom = obj.position.y - (obj.userData.itemBottomOffset || 0);
+        obj.userData._surfaceY = bottom;
+    }
+
+    /**
+     * 从小物品当前位置向下 raycast，找到下方的家具并建立父子关系
+     * 不改变物品位置，只建立 parent ↔ children 关系
+     */
+    function findParentBelow(obj) {
         const p = obj.position;
 
-        // 用几何尺寸计算偏移（与位置无关，避免漂移）
-        obj.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(obj);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        obj.userData.itemBottomOffset = size.y / 2;
-        const itemBottom = obj.userData.itemBottomOffset;
-
-        // 临时隐藏被拖拽物品自身，避免 raycast 命中自己
+        // 临时隐藏自身 mesh
         const hidden = [];
         obj.traverse(child => {
             if (child.isMesh) { child.visible = false; hidden.push(child); }
         });
 
-        // 从物品位置向下 raycast
         const downRay = new THREE.Raycaster(
             new THREE.Vector3(p.x, p.y + SNAP_RAY_Y_OFFSET, p.z),
             new THREE.Vector3(0, -1, 0),
@@ -134,12 +134,11 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         scene.traverse(child => { if (child.isMesh) allMeshes.push(child); });
         const hits = downRay.intersectObjects(allMeshes, false);
 
-        // 恢复显示
         hidden.forEach(m => { m.visible = true; });
 
-        // 找最高的、在物品下方的表面，并记录命中的物体
-        let bestY = 0; // 默认地面
-        let bestHitObj = null; // 命中的家具
+        // 找最高的、在物品下方的表面
+        let bestHitObj = null;
+        let bestY = 0;
         for (const hit of hits) {
             const surfaceY = hit.point.y;
             if (surfaceY <= p.y + SNAP_SURFACE_TOLERANCE && surfaceY > bestY) {
@@ -148,18 +147,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             }
         }
 
-        p.y = bestY + itemBottom;
-
-        // DEBUG
-        console.log('[snapToSurface]', {
-            bestY: bestY.toFixed(3),
-            itemBottom: itemBottom.toFixed(3),
-            finalY: p.y.toFixed(3),
-            bestHitObj: bestHitObj?.type || 'none',
-        });
-
-        // ── 动态父子关系：找到小物品下方的家具，建立携带关系 ──
-        // 先清除旧的父子关系
+        // 清除旧的父子关系
         if (obj.userData.parentGroup) {
             const oldParent = obj.userData.parentGroup;
             if (oldParent.userData.children) {
@@ -169,12 +157,139 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         }
 
         // 向上查找命中 mesh 所属的可移动家具 Group
+        let foundParent = null;
         if (bestHitObj) {
             let parentCandidate = bestHitObj;
             while (parentCandidate) {
                 if (movables.includes(parentCandidate) && parentCandidate !== obj
                     && parentCandidate.userData.movableType !== 'small-item') {
-                    // 找到父家具，建立关系
+                    obj.userData.parentGroup = parentCandidate;
+                    if (!parentCandidate.userData.children) parentCandidate.userData.children = [];
+                    if (!parentCandidate.userData.children.includes(obj)) {
+                        parentCandidate.userData.children.push(obj);
+                    }
+                    foundParent = parentCandidate;
+                    break;
+                }
+                parentCandidate = parentCandidate.parent;
+            }
+        }
+
+        console.log('[findParentBelow]', {
+            bestY: bestY.toFixed(3),
+            bestHitObj: bestHitObj?.type || 'none',
+            foundParent: foundParent?.userData?.name || 'none',
+            bookPos: obj.position.y.toFixed(3),
+        });
+
+        return foundParent;
+    }
+
+    /**
+     * 松开时将小物品吸附到最近的表面，并建立父子关系
+     * 如果 lastDragHitObj 存在（拖拽放下），直接用它找 parent，不重新定位
+     * 如果不存在（R 键等），走完整 raycast 流程
+     */
+    function snapToSurface(obj) {
+        const p = obj.position;
+
+        // ── 清除旧的父子关系 ──
+        if (obj.userData.parentGroup) {
+            const oldParent = obj.userData.parentGroup;
+            if (oldParent.userData.children) {
+                oldParent.userData.children = oldParent.userData.children.filter(c => c !== obj);
+            }
+            obj.userData.parentGroup = null;
+        }
+
+        // ── 模式 A：拖拽放下 — 用拖拽时缓存的 hit 对象找 parent，不改位置 ──
+        if (lastDragHitObj) {
+            const hitObj = lastDragHitObj;
+            lastDragHitObj = null;
+
+            // 更新 itemBottomOffset
+            obj.updateMatrixWorld(true);
+            const box = new THREE.Box3().setFromObject(obj);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            obj.userData.itemBottomOffset = size.y / 2;
+            storeSurfaceY(obj);
+
+            // 向上查找命中 mesh 所属的可移动家具 Group
+            let parentCandidate = hitObj;
+            while (parentCandidate) {
+                if (movables.includes(parentCandidate) && parentCandidate !== obj
+                    && parentCandidate.userData.movableType !== 'small-item') {
+                    obj.userData.parentGroup = parentCandidate;
+                    if (!parentCandidate.userData.children) parentCandidate.userData.children = [];
+                    if (!parentCandidate.userData.children.includes(obj)) {
+                        parentCandidate.userData.children.push(obj);
+                    }
+                    break;
+                }
+                parentCandidate = parentCandidate.parent;
+            }
+
+            console.log('[snapToSurface:drag]', {
+                pos: p.y.toFixed(4),
+                hitName: hitObj?.parent?.userData?.name || hitObj?.name || 'unknown',
+                parent: obj.userData.parentGroup?.userData?.name || 'none',
+            });
+            return;
+        }
+
+        // ── 模式 B：非拖拽（R 键等）— 向下 raycast 找表面并重新定位 ──
+        const posBefore = p.y;
+
+        obj.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        obj.userData.itemBottomOffset = size.y / 2;
+        const itemBottom = obj.userData.itemBottomOffset;
+
+        // 临时隐藏自身，避免 raycast 命中自己
+        const hidden = [];
+        obj.traverse(child => {
+            if (child.isMesh) { child.visible = false; hidden.push(child); }
+        });
+
+        const downRay = new THREE.Raycaster(
+            new THREE.Vector3(p.x, p.y + SNAP_RAY_Y_OFFSET, p.z),
+            new THREE.Vector3(0, -1, 0),
+        );
+        const allMeshes = [];
+        scene.traverse(child => { if (child.isMesh) allMeshes.push(child); });
+        const hits = downRay.intersectObjects(allMeshes, false);
+
+        hidden.forEach(m => { m.visible = true; });
+
+        let bestY = 0;
+        let bestHitObj = null;
+        for (const hit of hits) {
+            const surfaceY = hit.point.y;
+            if (surfaceY <= p.y + SNAP_SURFACE_TOLERANCE && surfaceY > bestY) {
+                bestY = surfaceY;
+                bestHitObj = hit.object;
+            }
+        }
+
+        p.y = bestY + itemBottom;
+        storeSurfaceY(obj);
+
+        console.log('[snapToSurface:raycast]', {
+            posBefore: posBefore.toFixed(4),
+            bestY: bestY.toFixed(4),
+            finalY: p.y.toFixed(4),
+            hitName: bestHitObj?.parent?.userData?.name || bestHitObj?.name || 'none',
+        });
+
+        // 向上查找命中 mesh 所属的可移动家具 Group
+        if (bestHitObj) {
+            let parentCandidate = bestHitObj;
+            while (parentCandidate) {
+                if (movables.includes(parentCandidate) && parentCandidate !== obj
+                    && parentCandidate.userData.movableType !== 'small-item') {
                     obj.userData.parentGroup = parentCandidate;
                     if (!parentCandidate.userData.children) parentCandidate.userData.children = [];
                     if (!parentCandidate.userData.children.includes(obj)) {
@@ -271,6 +386,9 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
 
     // ── 事件处理 ──
 
+    let downScreenPos = { x: 0, y: 0 }; // pointerdown 时的屏幕坐标
+    let lastDragHitObj = null; // 拖拽时命中的 mesh（用于 snapToSurface 建立 parent）
+
     function onPointerDown(event) {
         if (event.button !== 0) return;
 
@@ -280,6 +398,8 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
         selected = hit;
         activePlane = getPlaneForObject(selected);
         isDragging = true;
+        downScreenPos = { x: event.clientX, y: event.clientY };
+        lastDragHitObj = null;
         cacheHalfExtents(selected);
         // 缓存所有地面家具的半尺寸（碰撞检测用）
         for (const m of getFloorMovables(selected)) cacheHalfExtents(m);
@@ -291,6 +411,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 parent.userData.children = parent.userData.children.filter(c => c !== selected);
             }
             selected.userData.parentGroup = null;
+            selected.userData._surfaceY = null; // 清除旧表面记录，防止残留值干扰旋转
         }
 
         // ── 父物体：缓存子物体相对偏移 ──
@@ -339,12 +460,15 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                     const itemBottom = selected.userData.itemBottomOffset || 0;
                     // 找最高的命中点（鼠标指向的最近表面）
                     let bestPoint = validHits[0].point;
+                    let bestObj = validHits[0].object;
                     for (const h of validHits) {
-                        if (h.point.y > bestPoint.y) bestPoint = h.point;
+                        if (h.point.y > bestPoint.y) { bestPoint = h.point; bestObj = h.object; }
                     }
                     selected.position.x = bestPoint.x;
                     selected.position.y = bestPoint.y + itemBottom;
                     selected.position.z = bestPoint.z;
+                    storeSurfaceY(selected);
+                    lastDragHitObj = bestObj; // 缓存命中的 mesh
                 }
             } else if (surface === 'floor') {
                 selected.position.x = planeHit.x + offset.x;
@@ -438,7 +562,17 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
     function onPointerUp(event) {
         if (event.button !== 0) return;
         if (isDragging) {
-            if (selected) {
+            // 用屏幕像素距离判断是否有实际拖拽（避免微小移动误判）
+            const dx = event.clientX - downScreenPos.x;
+            const dy = event.clientY - downScreenPos.y;
+            const didDrag = Math.sqrt(dx * dx + dy * dy) > 3; // 3px 阈值
+
+            console.log('[onPointerUp]', {
+                didDrag,
+                selected: selected?.userData?.name || 'none',
+                parent: selected?.userData?.parentGroup?.userData?.name || 'none',
+            });
+            if (selected && didDrag) {
                 if (selected.userData.crossWall) {
                     snapToNearestWall(selected);
                 } else if (selected.userData.movableType === 'small-item') {
@@ -446,6 +580,7 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
                 }
             }
             isDragging = false;
+            lastDragHitObj = null; // 清除拖拽缓存
             selected = null;
             activePlane = null;
             childOffsets = null;
@@ -496,24 +631,41 @@ export function createDragControls(movables, camera, renderer, orbitControls, sc
             // rotation.x = nπ+π/2 → 最长边(depth)沿 Y → 站立（最小面朝上下）
             const constraint = selected.userData.rotationConstraint || 'horizontal';
             if (constraint === 'any') {
+                // ── 旋转前：记录底面在世界坐标中的 Y ──
+                const oldItemBottom = selected.userData.itemBottomOffset || 0;
+                const bottomWorldY = selected.position.y - oldItemBottom;
+
+                // ── 执行旋转 ──
                 selected.rotation.x += Math.PI / 2;
-                // 用几何尺寸重算偏移（旋转后需要重新计算包围盒）
+
+                // ── 旋转后：重算包围盒和底面偏移 ──
                 selected.updateMatrixWorld(true);
                 const bbAfter = new THREE.Box3().setFromObject(selected);
                 const size = new THREE.Vector3();
                 bbAfter.getSize(size);
-                selected.userData.itemBottomOffset = size.y / 2;
+                const newItemBottom = size.y / 2;
+                selected.userData.itemBottomOffset = newItemBottom;
+
+                // ── 关键：以底面为锚点修正位置，而不是以质心 ──
+                // 旋转轴是质心，旋转后质心位置不变，但底面偏移变了
+                // 新中心 = 旧底面Y + 新底面偏移
+                selected.position.y = bottomWorldY + newItemBottom;
+                storeSurfaceY(selected);
+
+                // 重建父子关系（只找 parent，不改位置）
+                findParentBelow(selected);
+
                 // DEBUG
                 console.log('[R pressed]', {
                     rotX: (selected.rotation.x * 180 / Math.PI).toFixed(0) + '°',
-                    posY: selected.position.y.toFixed(3),
-                    bbMinY: bbAfter.min.y.toFixed(3),
-                    bbMaxY: bbAfter.max.y.toFixed(3),
-                    sizeY: size.y.toFixed(3),
-                    offset: (size.y / 2).toFixed(3),
+                    bottomWorldY: bottomWorldY.toFixed(4),
+                    oldItemBottom: oldItemBottom.toFixed(4),
+                    newItemBottom: newItemBottom.toFixed(4),
+                    oldPosY: (bottomWorldY + oldItemBottom).toFixed(4),
+                    newPosY: selected.position.y.toFixed(4),
+                    delta_Y: (newItemBottom - oldItemBottom).toFixed(4),
+                    parent: selected.userData.parentGroup?.userData?.name || 'none',
                 });
-                // 非拖拽状态下立即重新吸附到表面
-                if (!isDragging) snapToSurface(selected);
             }
             // 'horizontal' 约束的物品（如盆栽）按 R 无反应
         }
