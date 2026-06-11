@@ -189,7 +189,7 @@ apartment.build(scene, 'room-f');
 
 // ── 初始化统一寻路网格（覆盖所有房间 + 走廊） ──
 initApartmentGrid(apartment.rooms, apartment.corridorBounds);
-rebuildGrid(apartment.rooms, apartment.corridorBounds);
+rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
 
 // ── 当前房间的可变引用 ──
 let currentRoomResult = apartment.getCurrentRoom().result;
@@ -670,7 +670,7 @@ renderer.domElement.addEventListener('pointerup', e => {
             // 更新房间可见性（门打开时显示相邻房间）
             apartment.updateVisibility();
             // 重建寻路网格（门口开合状态变化）
-            rebuildGrid(apartment.rooms, apartment.corridorBounds);
+            rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
             break;
         }
     }
@@ -848,7 +848,20 @@ function animate() {
 
     // 门开合动画
     if (apartment.currentRoomId === 'corridor') {
-        // 走廊模式：动画所有可见门墙
+        // 走廊模式：动画公寓出口门
+        if (door) {
+            const exitPivot = door.userData.doorPivot;
+            if (exitPivot) {
+                const exitDiff = door.userData.targetRotation - exitPivot.rotation.y;
+                if (Math.abs(exitDiff) > 0.005) {
+                    exitPivot.rotation.y += exitDiff * 0.08;
+                } else if (exitPivot.rotation.y !== door.userData.targetRotation) {
+                    exitPivot.rotation.y = door.userData.targetRotation;
+                    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
+                }
+            }
+        }
+        // 走廊模式：动画所有可见房间门墙
         for (const [, doorWall] of apartment.corridorDoorWalls) {
             if (!doorWall.visible) continue;
             const pivot = doorWall.userData.doorPivot;
@@ -858,7 +871,7 @@ function animate() {
                 pivot.rotation.y += diff * 0.08;
             } else if (pivot.rotation.y !== doorWall.userData.targetRotation) {
                 pivot.rotation.y = doorWall.userData.targetRotation;
-                rebuildGrid(apartment.rooms, apartment.corridorBounds);
+                rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
             }
         }
     } else if (door) {
@@ -871,7 +884,7 @@ function animate() {
                 if (doorPivot.rotation.y !== door.userData.targetRotation) {
                     doorPivot.rotation.y = door.userData.targetRotation;
                     // 门动画结束，重建寻路网格
-                    rebuildGrid(apartment.rooms, apartment.corridorBounds);
+                    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
                 }
             }
         }

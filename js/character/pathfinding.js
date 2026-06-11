@@ -67,15 +67,16 @@ export function initApartmentGrid(rooms, corridorBounds) {
  * 重建寻路网格（房间可见性或门状态变化时调用）
  * @param {Map<string, object>} rooms - Apartment.rooms
  * @param {object|null} corridorBounds - 走廊边界 {minX, maxX, minZ, maxZ}
+ * @param {object|null} corridorExitDoor - 走廊尽头出口门（用于判断开合状态）
  */
-export function rebuildGrid(rooms, corridorBounds) {
+export function rebuildGrid(rooms, corridorBounds, corridorExitDoor) {
     grid.fill(0);
     const inflate = CHAR_RADIUS + OBSTACLE_PAD;
     const box = new THREE.Box3();
 
     // 标记走廊墙壁（东西两端）
     if (corridorBounds) {
-        _markCorridorWalls(corridorBounds);
+        _markCorridorWalls(corridorBounds, corridorExitDoor);
     }
 
     for (const [id, room] of rooms) {
@@ -103,6 +104,15 @@ export function rebuildGrid(rooms, corridorBounds) {
                 box.setFromObject(doorPivot);
                 _markBox(box, inflate);
             }
+        }
+    }
+
+    // 走廊出口门打开时，门板也作为动态障碍
+    if (corridorExitDoor && corridorExitDoor.userData.isOpen) {
+        const exitPivot = corridorExitDoor.userData.doorPivot;
+        if (exitPivot) {
+            box.setFromObject(exitPivot);
+            _markBox(box, inflate);
         }
     }
 }
@@ -399,8 +409,9 @@ function _markRoomWalls(room) {
 /**
  * 标记走廊东西两端墙壁为障碍
  * @param {object} bounds - {minX, maxX, minZ, maxZ}
+ * @param {object|null} corridorExitDoor - 走廊尽头出口门
  */
-function _markCorridorWalls(bounds) {
+function _markCorridorWalls(bounds, corridorExitDoor) {
     const marginCells = Math.floor(WALL_MARGIN / CELL_SIZE);
 
     // 西墙 (x = minX)：有出口门，门口区域不标记
@@ -416,16 +427,19 @@ function _markCorridorWalls(bounds) {
             }
         }
     }
-    // 出口门在走廊西墙中心 (z=5)，宽 1.2m，清除门口障碍
-    const doorCenterZ = 5;
-    const gzDoor0 = worldToGridZ(doorCenterZ - DOOR_WIDTH / 2);
-    const gzDoor1 = worldToGridZ(doorCenterZ + DOOR_WIDTH / 2);
-    for (let i = -marginCells; i <= marginCells; i++) {
-        const gx = gxWest + i;
-        if (gx < 0 || gx >= GRID_W) continue;
-        for (let gz = gzDoor0; gz <= gzDoor1; gz++) {
-            if (gz >= 0 && gz < GRID_D) {
-                grid[gz * GRID_W + gx] = 0;
+    // 出口门在走廊西墙中心 (z=5)，宽 1.2m，仅门打开时清除门口障碍
+    const isExitDoorOpen = corridorExitDoor && corridorExitDoor.userData.isOpen;
+    if (isExitDoorOpen) {
+        const doorCenterZ = 5;
+        const gzDoor0 = worldToGridZ(doorCenterZ - DOOR_WIDTH / 2);
+        const gzDoor1 = worldToGridZ(doorCenterZ + DOOR_WIDTH / 2);
+        for (let i = -marginCells; i <= marginCells; i++) {
+            const gx = gxWest + i;
+            if (gx < 0 || gx >= GRID_W) continue;
+            for (let gz = gzDoor0; gz <= gzDoor1; gz++) {
+                if (gz >= 0 && gz < GRID_D) {
+                    grid[gz * GRID_W + gx] = 0;
+                }
             }
         }
     }

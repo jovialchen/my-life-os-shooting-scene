@@ -161,7 +161,7 @@ export function initWalker(humanoid, camera, renderer, scene, apt) {
  */
 export function rebuildNavGrid() {
     if (!apartment) return;
-    rebuildGrid(apartment.rooms, apartment.corridorBounds);
+    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
 }
 
 /**
