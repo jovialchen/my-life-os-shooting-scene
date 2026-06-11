@@ -225,7 +225,9 @@ export function createFloor({ width, depth }) {
  * @param {{ width: number, depth: number, height: number }} opts
  */
 export function createCeiling({ width, depth, height }) {
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), matCeiling);
+    const ceilMat = matCeiling.clone();
+    ceilMat.side = THREE.DoubleSide;
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), ceilMat);
     ceil.rotation.x = Math.PI / 2;
     ceil.position.y = height;
     return ceil;

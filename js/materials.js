@@ -49,3 +49,9 @@ export const matBook3   = new THREE.MeshStandardMaterial({ color: 0x191970, roug
 export const matPot     = new THREE.MeshStandardMaterial({ color: 0xb5651d, roughness: ROUGHNESS_SATIN });
 export const matLeaf    = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: ROUGHNESS_MATTE });
 export const matCurtain = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: ROUGHNESS_SMOOTH, side: THREE.DoubleSide });
+
+// ── 外壳房子 ─────────────────────────────────────────
+export const matSiding  = new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: ROUGHNESS_MATTE });        // 白色外墙
+export const matTrim    = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: ROUGHNESS_SEMI_MATT });     // 装饰线条
+export const matRoof    = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: ROUGHNESS_SATIN });         // 深灰屋顶
+export const matGrass   = new THREE.MeshStandardMaterial({ color: 0x5a8f3c, roughness: 1.0, side: THREE.DoubleSide }); // 草地

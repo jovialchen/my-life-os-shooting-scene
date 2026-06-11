@@ -59,6 +59,9 @@ import { initApartmentGrid, rebuildGrid } from './character/pathfinding.js';
 // ── 交互 ──
 import { createDragControls } from './interaction/dragControls.js';
 
+// ── 外壳房子 ──
+import { createHouseShell } from './elements/houseShell.js';
+
 // ============================================================
 //  场景 / 相机 / 渲染器
 // ============================================================
@@ -185,6 +188,9 @@ apartment.setCorridorBounds({
 
 // ── 构建所有房间并显示客厅 ──
 apartment.build(scene, 'room-f');
+
+// ── 外壳房子（永远可见）──
+scene.add(createHouseShell());
 
 // ── 初始化统一寻路网格（覆盖所有房间 + 走廊） ──
 initApartmentGrid(apartment.rooms, apartment.corridorBounds);
