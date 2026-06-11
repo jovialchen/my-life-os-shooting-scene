@@ -1,28 +1,28 @@
 /**
- * 客厅配置文件
+ * Room F 配置文件（原客厅）
  *
- * 定义客厅的所有元素：墙壁、家具、灯具、装饰、小物品
- * 由 buildRoom() 读取此配置来构建完整的 Three.js 场景
+ * 南排第二间，8×7
+ * 北墙有门（连接走廊），南墙有窗（采光面），东墙实心，西墙实心
  */
 
 export const livingRoom = {
-    id: 'living-room',
+    id: 'room-f',
     size: { width: 8, depth: 7, height: 3.5 },
 
     // ── 墙壁 ──
     walls: [
+        // 北墙：门（连接走廊）
+        {
+            type: 'door',
+            facing: 'north',
+            door: { width: 1.2, height: 2.4, openDirection: 'left' },
+        },
         // 南墙：大窗 + 窗帘
         {
             type: 'window',
             facing: 'south',
             window: { width: 5, sillHeight: 0.25, topHeight: 3.25 },
             curtain: { rodLength: 6.0 },
-        },
-        // 北墙：门
-        {
-            type: 'door',
-            facing: 'north',
-            door: { width: 1.2, height: 2.4, openDirection: 'left' },
         },
         // 东墙：实心
         { type: 'solid', facing: 'east' },

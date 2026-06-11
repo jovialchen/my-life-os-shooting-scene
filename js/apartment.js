@@ -21,6 +21,29 @@ export class Apartment {
         this.scene = null;
         /** @type {Function|null} 当前房间变化回调（用于更新 UI 引用） */
         this.onRoomChange = null;
+        /** @type {object|null} 走廊边界 {minX, maxX, minZ, maxZ} */
+        this.corridorBounds = null;
+        /** @type {Map<string, THREE.Group>} roomId → 走廊面门墙引用 */
+        this.corridorDoorWalls = new Map();
+        /** @type {THREE.Group} 门墙独立组（从房间 group 中拆出，可独立控制可见性） */
+        this.doorWallsGroup = new THREE.Group();
+        /** @type {THREE.Group|null} 走廊 group 引用 */
+        this._corridorGroup = null;
+        /** @type {THREE.Mesh|null} 走廊地板 */
+        this._corridorFloor = null;
+        /** @type {THREE.Mesh|null} 走廊天花板 */
+        this._corridorCeiling = null;
+        /** @type {THREE.Group|null} 走廊西墙（出口门） */
+        this._corridorWestWall = null;
+        /** @type {THREE.Group|null} 走廊东墙 */
+        this._corridorEastWall = null;
+    }
+
+    /**
+     * 设置走廊边界（用于角色检测）
+     */
+    setCorridorBounds(bounds) {
+        this.corridorBounds = bounds;
     }
 
     /**
@@ -45,14 +68,18 @@ export class Apartment {
 
     /**
      * 设置房间之间的连接关系
+     * 支持 'corridor' 作为虚拟目标（走廊不在 rooms map 中）
      */
     addConnection(fromRoomId, toRoomId, doorWorldPos) {
         const from = this.rooms.get(fromRoomId);
         const to = this.rooms.get(toRoomId);
-        if (!from || !to) return;
 
-        from.connections.push({ targetRoom: toRoomId, doorPos: doorWorldPos });
-        to.connections.push({ targetRoom: fromRoomId, doorPos: doorWorldPos });
+        if (from) {
+            from.connections.push({ targetRoom: toRoomId, doorPos: doorWorldPos });
+        }
+        if (to) {
+            to.connections.push({ targetRoom: fromRoomId, doorPos: doorWorldPos });
+        }
     }
 
     /**
@@ -65,8 +92,48 @@ export class Apartment {
             scene.add(room.result.group);
         }
 
+        // 将门墙从房间 group 拆出，放入独立的 doorWallsGroup
+        scene.add(this.doorWallsGroup);
+        this._extractCorridorDoorWalls();
+
         this.currentRoomId = initialRoomId;
         this.updateVisibility();
+    }
+
+    /**
+     * 将每间房的走廊面门墙从房间 group 拆出，移入 doorWallsGroup
+     * 这样门墙的可见性可以独立于房间 group 控制
+     */
+    _extractCorridorDoorWalls() {
+        for (const [id, room] of this.rooms) {
+            const conn = room.connections.find(c => c.targetRoom === 'corridor');
+            if (!conn) continue;
+
+            // 判断走廊在房间的哪一侧
+            const corridorFacing = conn.doorPos.z > room.position.z ? 'north' : 'south';
+
+            // 找到门墙
+            const doorWall = room.result.group.children.find(
+                child => child.userData?.wallFacing === corridorFacing
+            );
+            if (doorWall) {
+                // 先计算世界坐标（相对于 scene）
+                const worldPos = new THREE.Vector3();
+                const worldQuat = new THREE.Quaternion();
+                doorWall.getWorldPosition(worldPos);
+                doorWall.getWorldQuaternion(worldQuat);
+
+                // 从房间 group 移到 doorWallsGroup
+                room.result.group.remove(doorWall);
+                this.doorWallsGroup.add(doorWall);
+
+                // 用世界坐标设置位置（doorWallsGroup 在 scene 原点，无偏移）
+                doorWall.position.copy(worldPos);
+                doorWall.quaternion.copy(worldQuat);
+
+                this.corridorDoorWalls.set(id, doorWall);
+            }
+        }
     }
 
     /**
@@ -79,17 +146,24 @@ export class Apartment {
     /**
      * 根据角色位置检测当前所在房间
      * @param {THREE.Vector3} charPos
-     * @returns {string|null} 房间 ID
+     * @returns {string|null} 房间 ID，或 'corridor'（走廊）
      */
     detectCurrentRoom(charPos) {
         for (const [id, room] of this.rooms) {
-            if (!room.result.group.visible) continue;
             const p = room.position;
             const hw = room.bounds.halfW;
             const hd = room.bounds.halfD;
             if (charPos.x >= p.x - hw && charPos.x <= p.x + hw &&
                 charPos.z >= p.z - hd && charPos.z <= p.z + hd) {
                 return id;
+            }
+        }
+        // 检查走廊
+        if (this.corridorBounds) {
+            const b = this.corridorBounds;
+            if (charPos.x >= b.minX && charPos.x <= b.maxX &&
+                charPos.z >= b.minZ && charPos.z <= b.maxZ) {
+                return 'corridor';
             }
         }
         return null;
@@ -105,6 +179,7 @@ export class Apartment {
         if (newRoomId && newRoomId !== this.currentRoomId) {
             const prevRoomId = this.currentRoomId;
             this.currentRoomId = newRoomId;
+
             this.updateVisibility();
 
             // 触发回调
@@ -117,38 +192,85 @@ export class Apartment {
     }
 
     /**
-     * 更新房间可见性：当前房间 + 门打开的相邻房间都显示
+     * 进入走廊：走廊全部 + 所有房间门墙 + 开门房间全貌
      */
-    updateVisibility() {
+    _showCorridorView() {
+        // 走廊全部显示
+        this._setCorridorVisible(true);
+
+        // 所有门墙显示
+        this.doorWallsGroup.visible = true;
+        for (const [, doorWall] of this.corridorDoorWalls) {
+            doorWall.visible = true;
+        }
+
+        // 隐藏所有房间
+        for (const [, r] of this.rooms) {
+            r.result.group.visible = false;
+            // 重置 mesh 可见性（为开门房间做准备）
+            r.result.group.traverse(child => {
+                if (child.isMesh) child.visible = true;
+            });
+        }
+
+        // 开门的房间 → 全部显示
+        for (const [id, r] of this.rooms) {
+            const doorWall = this.corridorDoorWalls.get(id);
+            if (doorWall && doorWall.userData.isOpen) {
+                r.result.group.visible = true;
+            }
+        }
+    }
+
+    /**
+     * 进入房间：当前房间全部 + 走廊地板
+     */
+    _showRoomView() {
         const room = this.getCurrentRoom();
         if (!room) return;
 
-        // 先隐藏所有房间
+        // 走廊：只显示地板（隐藏墙、天花板）
+        this._setCorridorVisible(false);
+
+        // 隐藏所有房间
         for (const [, r] of this.rooms) {
             r.result.group.visible = false;
+        }
+        // 重置所有 mesh 可见性
+        for (const [, r] of this.rooms) {
+            r.result.group.traverse(child => {
+                if (child.isMesh) child.visible = true;
+            });
         }
 
         // 显示当前房间
         room.result.group.visible = true;
 
-        // 显示门打开的相邻房间
-        if (room.connections) {
-            const door = room.result.door;
-            for (const conn of room.connections) {
-                const adjacentRoom = this.rooms.get(conn.targetRoom);
-                if (!adjacentRoom) continue;
+        // 门墙：只显示当前房间的门墙，隐藏其他
+        for (const [id, doorWall] of this.corridorDoorWalls) {
+            doorWall.visible = (id === this.currentRoomId);
+        }
+    }
 
-                if (door) {
-                    if (door.userData.isOpen) {
-                        adjacentRoom.result.group.visible = true;
-                    }
-                } else {
-                    const adjDoor = adjacentRoom.result.door;
-                    if (!adjDoor || adjDoor.userData.isOpen) {
-                        adjacentRoom.result.group.visible = true;
-                    }
-                }
-            }
+    /**
+     * 控制走廊部件可见性
+     * @param {boolean} full - true=全部显示，false=只显示地板
+     */
+    _setCorridorVisible(full) {
+        if (this._corridorFloor)    this._corridorFloor.visible = true;
+        if (this._corridorCeiling)  this._corridorCeiling.visible = full;
+        if (this._corridorWestWall) this._corridorWestWall.visible = full;
+        if (this._corridorEastWall) this._corridorEastWall.visible = full;
+    }
+
+    /**
+     * 更新房间可见性
+     */
+    updateVisibility() {
+        if (this.currentRoomId === 'corridor') {
+            this._showCorridorView();
+        } else {
+            this._showRoomView();
         }
     }
 

@@ -27,7 +27,7 @@ import {
     SUN_SHADOW_NEAR, SUN_SHADOW_FAR, SUN_SHADOW_RADIUS, SUN_SHADOW_BIAS,
     FILL_LIGHT_COLOR, FILL_LIGHT_INTENSITY, FILL_LIGHT_POSITION,
     WINDOW_SPOT_COLOR, WINDOW_SPOT_INTENSITY, WINDOW_SPOT_DISTANCE, WINDOW_SPOT_ANGLE, WINDOW_SPOT_PENUMBRA,
-    WINDOW_SPOT_POSITION, WINDOW_SPOT_SHADOW_MAP_SIZE,
+    WINDOW_SPOT_POSITION,
     CURTAIN_CLOSED_X, CURTAIN_OPEN_X, CURTAIN_SNAP_THRESH, CURTAIN_EASE_FACTOR,
     CURTAIN_ROD_HALF, CURTAIN_PLEAT_COMPRESSION, CURTAIN_PLEAT_FREQ_OX, CURTAIN_PLEAT_FREQ_T, CURTAIN_PLEAT_AMPLITUDE,
     TIME_PRESETS, SUN_ORBIT_RADIUS,
@@ -40,10 +40,12 @@ import {
 } from './config.js';
 
 // ── 零件库 + 房间配置 ──
-import { buildRoom } from './elements/index.js';
+import { createSolidWall, createDoorWall, createFloor, createCeiling } from './elements/walls.js';
 import { livingRoom } from './rooms/living-room.js';
-import { centralHall } from './rooms/central-hall.js';
-import { bedroom1, bedroom2, bedroom3, masterBedroom } from './rooms/bedroom.js';
+import { roomE } from './rooms/room-e.js';
+import { roomG } from './rooms/room-g.js';
+import { roomH } from './rooms/room-h.js';
+import { roomA, roomB, roomC, roomD } from './rooms/bedroom.js';
 
 // ── 公寓系统 ──
 import { Apartment } from './apartment.js';
@@ -96,27 +98,96 @@ let lookAtBound = false;
 // ============================================================
 const apartment = new Apartment();
 
-// 注册所有房间
-apartment.addRoom('living-room', livingRoom, { x: 0, z: 0 });
-apartment.addRoom('central-hall', centralHall, { x: 0, z: 5 });
-apartment.addRoom('bedroom-1', bedroom1, { x: -4.9, z: 8.5 });
-apartment.addRoom('bedroom-2', bedroom2, { x: -2.1, z: 8.5 });
-apartment.addRoom('bedroom-3', bedroom3, { x: 2.25, z: 8.5 });
-apartment.addRoom('master-bedroom', masterBedroom, { x: 5.0, z: 8.5 });
+// ── 注册南排 4 间 ──
+apartment.addRoom('room-e', roomE, { x: -12, z: 0 });
+apartment.addRoom('room-f', livingRoom, { x: -4, z: 0 });
+apartment.addRoom('room-g', roomG, { x: 4, z: 0 });
+apartment.addRoom('room-h', roomH, { x: 12, z: 0 });
 
-// 建立房间连接
-apartment.addConnection('living-room', 'central-hall', { x: 0, z: 3.5 });
-apartment.addConnection('central-hall', 'bedroom-1', { x: -4.9, z: 6.5 });
-apartment.addConnection('central-hall', 'bedroom-2', { x: -2.1, z: 6.5 });
-apartment.addConnection('central-hall', 'bedroom-3', { x: 2.25, z: 6.5 });
-apartment.addConnection('central-hall', 'master-bedroom', { x: 5.0, z: 6.5 });
+// ── 注册北排 4 间 ──
+apartment.addRoom('room-a', roomA, { x: -12, z: 10 });
+apartment.addRoom('room-b', roomB, { x: -4, z: 10 });
+apartment.addRoom('room-c', roomC, { x: 4, z: 10 });
+apartment.addRoom('room-d', roomD, { x: 12, z: 10 });
 
-// 构建并显示客厅
-apartment.build(scene, 'living-room');
+// ── 建立房间 ↔ 走廊连接 ──
+// 南排 → 走廊（北门）
+apartment.addConnection('room-e', 'corridor', { x: -12, z: 3.5 });
+apartment.addConnection('room-f', 'corridor', { x: -4, z: 3.5 });
+apartment.addConnection('room-g', 'corridor', { x: 4, z: 3.5 });
+apartment.addConnection('room-h', 'corridor', { x: 12, z: 3.5 });
+// 北排 → 走廊（南门）
+apartment.addConnection('room-a', 'corridor', { x: -12, z: 6.5 });
+apartment.addConnection('room-b', 'corridor', { x: -4, z: 6.5 });
+apartment.addConnection('room-c', 'corridor', { x: 4, z: 6.5 });
+apartment.addConnection('room-d', 'corridor', { x: 12, z: 6.5 });
 
-// 初始化统一寻路网格（覆盖所有房间）
-initApartmentGrid(apartment.rooms);
-rebuildGrid(apartment.rooms);
+// ── 构建走廊 ──
+const CORRIDOR_WIDTH = 32;
+const CORRIDOR_DEPTH = 3;
+const CORRIDOR_HEIGHT = 3.5;
+
+const corridorGroup = new THREE.Group();
+corridorGroup.position.set(0, 0, 5);  // 走廊中心
+
+// 西墙：公寓出口门
+const corridorWestWall = createDoorWall({
+    width: CORRIDOR_DEPTH,
+    height: CORRIDOR_HEIGHT,
+    thickness: 0.12,
+    door: { width: 1.2, height: 2.4, openDirection: 'left' },
+});
+corridorWestWall.position.set(-CORRIDOR_WIDTH / 2, 0, 0);
+corridorWestWall.rotation.y = -Math.PI / 2;
+corridorGroup.add(corridorWestWall);
+
+// 东墙：实心
+const corridorEastWall = createSolidWall({
+    width: CORRIDOR_DEPTH,
+    height: CORRIDOR_HEIGHT,
+    thickness: 0.12,
+});
+corridorEastWall.position.set(CORRIDOR_WIDTH / 2, 0, 0);
+corridorEastWall.rotation.y = Math.PI / 2;
+corridorGroup.add(corridorEastWall);
+
+// 走廊地板 + 天花板
+const corridorFloor = createFloor({ width: CORRIDOR_WIDTH, depth: CORRIDOR_DEPTH });
+const corridorCeiling = createCeiling({ width: CORRIDOR_WIDTH, depth: CORRIDOR_DEPTH, height: CORRIDOR_HEIGHT });
+corridorGroup.add(corridorFloor);
+corridorGroup.add(corridorCeiling);
+
+// 走廊墙壁不投阴影，地板接收阴影
+corridorGroup.traverse(obj => {
+    if (obj.isMesh) {
+        obj.castShadow = false;
+    }
+});
+corridorFloor.receiveShadow = true;
+
+scene.add(corridorGroup);
+
+// 将走廊部件引用传给公寓管理器（用于可见性控制）
+apartment._corridorGroup = corridorGroup;
+apartment._corridorFloor = corridorFloor;
+apartment._corridorCeiling = corridorCeiling;
+apartment._corridorWestWall = corridorWestWall;
+apartment._corridorEastWall = corridorEastWall;
+
+// 设置走廊边界（用于角色位置检测）
+apartment.setCorridorBounds({
+    minX: -CORRIDOR_WIDTH / 2,
+    maxX: CORRIDOR_WIDTH / 2,
+    minZ: 5 - CORRIDOR_DEPTH / 2,
+    maxZ: 5 + CORRIDOR_DEPTH / 2,
+});
+
+// ── 构建所有房间并显示客厅 ──
+apartment.build(scene, 'room-f');
+
+// ── 初始化统一寻路网格（覆盖所有房间 + 走廊） ──
+initApartmentGrid(apartment.rooms, apartment.corridorBounds);
+rebuildGrid(apartment.rooms, apartment.corridorBounds);
 
 // ── 当前房间的可变引用 ──
 let currentRoomResult = apartment.getCurrentRoom().result;
@@ -130,15 +201,27 @@ let furnitureList = currentRoomResult.furniture;
 
 // ── 房间切换回调（仅更新 UI 引用，不传送角色）──
 apartment.onRoomChange = (newRoomId, oldRoomId) => {
-    const newRoom = apartment.getCurrentRoom();
-    currentRoomResult = newRoom.result;
-    door         = currentRoomResult.door;
-    curtains     = currentRoomResult.curtains;
-    ceilingLight = currentRoomResult.ceilingLight;
-    floorLamp    = currentRoomResult.floorLamp;
-    allMovables  = currentRoomResult.allMovables;
-    allSmallItems = currentRoomResult.smallItems;
-    furnitureList = currentRoomResult.furniture;
+    // 走廊没有独立的 result，使用公寓出口门作为 door 引用
+    if (newRoomId === 'corridor') {
+        door = corridorWestWall;  // 公寓出口门
+        curtains = null;
+        ceilingLight = null;
+        floorLamp = null;
+        allMovables = [];
+        allSmallItems = [];
+        furnitureList = [];
+    } else {
+        const newRoom = apartment.getCurrentRoom();
+        if (!newRoom) return;
+        currentRoomResult = newRoom.result;
+        door         = currentRoomResult.door;
+        curtains     = currentRoomResult.curtains;
+        ceilingLight = currentRoomResult.ceilingLight;
+        floorLamp    = currentRoomResult.floorLamp;
+        allMovables  = currentRoomResult.allMovables;
+        allSmallItems = currentRoomResult.smallItems;
+        furnitureList = currentRoomResult.furniture;
+    }
 
     // 更新灯具状态
     const newCeilingBulb = ceilingLight?.userData.lightRef;
@@ -564,15 +647,29 @@ renderer.domElement.addEventListener('pointerup', e => {
     }
 
     // 门点击
-    if (door) {
-        const doorHits = clickRaycaster.intersectObjects(door.children, true);
+    // 走廊模式：检测所有走廊门墙 + 公寓出口门
+    const doorsToCheck = [];
+    if (apartment.currentRoomId === 'corridor') {
+        // 公寓出口门
+        if (door) doorsToCheck.push(door);
+        // 所有房间的走廊门墙
+        for (const [, wall] of apartment.corridorDoorWalls) {
+            if (wall.visible) doorsToCheck.push(wall);
+        }
+    } else if (door) {
+        doorsToCheck.push(door);
+    }
+
+    for (const doorObj of doorsToCheck) {
+        const doorHits = clickRaycaster.intersectObjects(doorObj.children, true);
         if (doorHits.length > 0) {
-            door.userData.isOpen = !door.userData.isOpen;
-            door.userData.targetRotation = door.userData.isOpen ? Math.PI / 2 : 0;
+            doorObj.userData.isOpen = !doorObj.userData.isOpen;
+            doorObj.userData.targetRotation = doorObj.userData.isOpen ? Math.PI / 2 : 0;
             // 更新房间可见性（门打开时显示相邻房间）
             apartment.updateVisibility();
             // 重建寻路网格（门口开合状态变化）
-            rebuildGrid(apartment.rooms);
+            rebuildGrid(apartment.rooms, apartment.corridorBounds);
+            break;
         }
     }
 
@@ -619,15 +716,14 @@ const fill = new THREE.DirectionalLight(FILL_LIGHT_COLOR, FILL_LIGHT_INTENSITY);
 fill.position.set(FILL_LIGHT_POSITION.x, FILL_LIGHT_POSITION.y, FILL_LIGHT_POSITION.z);
 scene.add(fill);
 
-const size = livingRoom.size;
 const windowLight = new THREE.SpotLight(
     WINDOW_SPOT_COLOR, WINDOW_SPOT_INTENSITY, WINDOW_SPOT_DISTANCE,
     WINDOW_SPOT_ANGLE, WINDOW_SPOT_PENUMBRA,
 );
-windowLight.position.set(WINDOW_SPOT_POSITION.x, WINDOW_SPOT_POSITION.y, -size.depth / 2 - 0.5);
-windowLight.target.position.set(0, 0, 0);
-windowLight.castShadow = true;
-windowLight.shadow.mapSize.set(WINDOW_SPOT_SHADOW_MAP_SIZE, WINDOW_SPOT_SHADOW_MAP_SIZE);
+// room-f 中心在 (-4, 0)，南墙在 z = -3.5
+windowLight.position.set(-4 + WINDOW_SPOT_POSITION.x, WINDOW_SPOT_POSITION.y, -3.5 - 0.5);
+windowLight.target.position.set(-4, 0, 0);
+windowLight.castShadow = false;
 scene.add(windowLight);
 scene.add(windowLight.target);
 
@@ -742,7 +838,21 @@ function animate() {
     updateWalker(delta);
 
     // 门开合动画
-    if (door) {
+    if (apartment.currentRoomId === 'corridor') {
+        // 走廊模式：动画所有可见门墙
+        for (const [, doorWall] of apartment.corridorDoorWalls) {
+            if (!doorWall.visible) continue;
+            const pivot = doorWall.userData.doorPivot;
+            if (!pivot) continue;
+            const diff = doorWall.userData.targetRotation - pivot.rotation.y;
+            if (Math.abs(diff) > 0.005) {
+                pivot.rotation.y += diff * 0.08;
+            } else if (pivot.rotation.y !== doorWall.userData.targetRotation) {
+                pivot.rotation.y = doorWall.userData.targetRotation;
+                rebuildGrid(apartment.rooms, apartment.corridorBounds);
+            }
+        }
+    } else if (door) {
         const doorPivot = door.userData.doorPivot;
         if (doorPivot) {
             const doorDiff = door.userData.targetRotation - doorPivot.rotation.y;
@@ -752,7 +862,7 @@ function animate() {
                 if (doorPivot.rotation.y !== door.userData.targetRotation) {
                     doorPivot.rotation.y = door.userData.targetRotation;
                     // 门动画结束，重建寻路网格
-                    rebuildGrid(apartment.rooms);
+                    rebuildGrid(apartment.rooms, apartment.corridorBounds);
                 }
             }
         }

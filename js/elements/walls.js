@@ -74,6 +74,7 @@ export function createSolidWall({ width, height, thickness = WALL_T_DEFAULT }) {
 
     group.userData.wallType = 'solid';
     group.userData.wallSize = { width, height, thickness };
+    group.userData.isWall = true;
     return group;
 }
 
@@ -144,6 +145,7 @@ export function createWindowWall({ width, height, thickness = WALL_T_DEFAULT, wi
     group.userData.wallType = 'window';
     group.userData.wallSize = { width, height, thickness };
     group.userData.window = winGroup;
+    group.userData.isWall = true;
     return group;
 }
 
@@ -200,6 +202,7 @@ export function createDoorWall({ width, height, thickness = WALL_T_DEFAULT, door
     group.userData.doorPivot = doorGroup.userData.doorPivot;
     group.userData.isOpen = false;
     group.userData.targetRotation = 0;
+    group.userData.isWall = true;
     return group;
 }
 
