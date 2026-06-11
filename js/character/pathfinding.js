@@ -32,8 +32,9 @@ let grid = new Uint8Array(1);
  * 初始化公寓级寻路网格（在所有房间构建后调用一次）
  * @param {Map<string, object>} rooms - Apartment.rooms
  * @param {object|null} corridorBounds - 走廊边界 {minX, maxX, minZ, maxZ}
+ * @param {object|null} grass - 草地参数 {centerX, centerZ, radius}
  */
-export function initApartmentGrid(rooms, corridorBounds) {
+export function initApartmentGrid(rooms, corridorBounds, grass) {
     let minX = Infinity, maxX = -Infinity;
     let minZ = Infinity, maxZ = -Infinity;
 
@@ -55,6 +56,14 @@ export function initApartmentGrid(rooms, corridorBounds) {
         maxZ = Math.max(maxZ, corridorBounds.maxZ);
     }
 
+    // 圆形草地范围
+    if (grass) {
+        minX = Math.min(minX, grass.centerX - grass.radius);
+        maxX = Math.max(maxX, grass.centerX + grass.radius);
+        minZ = Math.min(minZ, grass.centerZ - grass.radius);
+        maxZ = Math.max(maxZ, grass.centerZ + grass.radius);
+    }
+
     GRID_ORIGIN_X = minX;
     GRID_ORIGIN_Z = minZ;
     GRID_W = Math.max(1, Math.ceil((maxX - minX) / CELL_SIZE));
@@ -68,11 +77,18 @@ export function initApartmentGrid(rooms, corridorBounds) {
  * @param {Map<string, object>} rooms - Apartment.rooms
  * @param {object|null} corridorBounds - 走廊边界 {minX, maxX, minZ, maxZ}
  * @param {object|null} corridorExitDoor - 走廊尽头出口门（用于判断开合状态）
+ * @param {object|null} shellDoor - 外壳门（用于判断开合状态）
+ * @param {object|null} grass - 草地参数 {centerX, centerZ, radius}
  */
-export function rebuildGrid(rooms, corridorBounds, corridorExitDoor) {
+export function rebuildGrid(rooms, corridorBounds, corridorExitDoor, shellDoor, grass) {
     grid.fill(0);
     const inflate = CHAR_RADIUS + OBSTACLE_PAD;
     const box = new THREE.Box3();
+
+    // 标记圆形草地范围外为障碍
+    if (grass) {
+        _markOutsideCircle(grass.centerX, grass.centerZ, grass.radius);
+    }
 
     // 标记走廊墙壁（东西两端）
     if (corridorBounds) {
@@ -113,6 +129,15 @@ export function rebuildGrid(rooms, corridorBounds, corridorExitDoor) {
         if (exitPivot) {
             box.setFromObject(exitPivot);
             _markBox(box, inflate);
+        }
+    }
+
+    // 外壳门：关闭时门口为障碍，打开时清除门口障碍
+    if (shellDoor) {
+        if (!shellDoor.userData.isOpen) {
+            _markShellDoorWalls(shellDoor);
+        } else {
+            _clearShellDoorway();
         }
     }
 }
@@ -499,6 +524,67 @@ function _markBox(box, inflate) {
 }
 
 // ── 坐标转换 ──────────────────────────────────────────
+
+/**
+ * 标记圆形草地范围外为障碍
+ */
+function _markOutsideCircle(cx, cz, radius) {
+    const r2 = radius * radius;
+    for (let gz = 0; gz < GRID_D; gz++) {
+        for (let gx = 0; gx < GRID_W; gx++) {
+            const wp = gridToWorld(gx, gz);
+            const dx = wp.x - cx;
+            const dz = wp.z - cz;
+            if (dx * dx + dz * dz > r2) {
+                grid[gz * GRID_W + gx] = 1;
+            }
+        }
+    }
+}
+
+/**
+ * 标记外壳门关闭时门口区域为障碍
+ */
+function _markShellDoorWalls(shellDoor) {
+    // 外壳门在西墙，world_z = 5（EAVE_Z），宽 1.2m
+    const doorCenterZ = 5;
+    const wallX = -16.26;
+    const marginCells = Math.floor(WALL_MARGIN / CELL_SIZE);
+    const gz0 = worldToGridZ(doorCenterZ - DOOR_WIDTH / 2);
+    const gz1 = worldToGridZ(doorCenterZ + DOOR_WIDTH / 2);
+    for (let i = -marginCells; i <= marginCells; i++) {
+        const gx = worldToGridX(wallX) + i;
+        if (gx < 0 || gx >= GRID_W) continue;
+        for (let gz = gz0; gz <= gz1; gz++) {
+            if (gz >= 0 && gz < GRID_D) {
+                grid[gz * GRID_W + gx] = 1;
+            }
+        }
+    }
+}
+
+/**
+ * 外壳门打开时，清除门口区域障碍（含走廊西墙门口）
+ */
+function _clearShellDoorway() {
+    const doorCenterZ = 5;
+    const marginCells = Math.floor(WALL_MARGIN / CELL_SIZE);
+    const gz0 = worldToGridZ(doorCenterZ - DOOR_WIDTH / 2);
+    const gz1 = worldToGridZ(doorCenterZ + DOOR_WIDTH / 2);
+    // 从外壳门墙到走廊西墙之间的门口区域
+    const gxShell = worldToGridX(-16.26);
+    const gxCorridor = worldToGridX(-16);
+    const gxMin = Math.min(gxShell, gxCorridor) - marginCells;
+    const gxMax = Math.max(gxShell, gxCorridor) + marginCells;
+    for (let gx = gxMin; gx <= gxMax; gx++) {
+        if (gx < 0 || gx >= GRID_W) continue;
+        for (let gz = gz0; gz <= gz1; gz++) {
+            if (gz >= 0 && gz < GRID_D) {
+                grid[gz * GRID_W + gx] = 0;
+            }
+        }
+    }
+}
 
 function worldToGridX(wx) {
     return THREE.MathUtils.clamp(Math.floor((wx - GRID_ORIGIN_X) / CELL_SIZE), 0, GRID_W - 1);

@@ -190,12 +190,12 @@ apartment.setCorridorBounds({
 apartment.build(scene, 'room-f');
 
 // ── 外壳房子（永远可见）──
-const { group: houseShellGroup, door: shellDoor } = createHouseShell();
+const { group: houseShellGroup, door: shellDoor, grass } = createHouseShell();
 scene.add(houseShellGroup);
 
-// ── 初始化统一寻路网格（覆盖所有房间 + 走廊） ──
-initApartmentGrid(apartment.rooms, apartment.corridorBounds);
-rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
+// ── 初始化统一寻路网格（覆盖所有房间 + 走廊 + 草地） ──
+initApartmentGrid(apartment.rooms, apartment.corridorBounds, grass);
+rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
 
 // ── 当前房间的可变引用 ──
 let currentRoomResult = apartment.getCurrentRoom().result;
@@ -600,7 +600,7 @@ const dragControlsInstance = createDragControls([...allMovables, humanoid], came
 // ============================================================
 //  角色点击走动
 // ============================================================
-initWalker(humanoid, camera, renderer, scene, apartment);
+initWalker(humanoid, camera, renderer, scene, apartment, shellDoor, grass);
 
 // ============================================================
 //  窗帘点击开合
@@ -680,7 +680,7 @@ renderer.domElement.addEventListener('pointerup', e => {
             // 更新房间可见性（门打开时显示相邻房间）
             apartment.updateVisibility();
             // 重建寻路网格（门口开合状态变化）
-            rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
+            rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
             break;
         }
     }
@@ -866,7 +866,7 @@ function animate() {
                     exitPivot.rotation.y += exitDiff * 0.08;
                 } else if (exitPivot.rotation.y !== door.userData.targetRotation) {
                     exitPivot.rotation.y = door.userData.targetRotation;
-                    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
+                    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
                 }
             }
         }
@@ -879,7 +879,7 @@ function animate() {
                     shellPivot.rotation.y += sDiff * 0.08;
                 } else if (shellPivot.rotation.y !== shellDoor.userData.targetRotation) {
                     shellPivot.rotation.y = shellDoor.userData.targetRotation;
-                    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
+                    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
                 }
             }
         }
@@ -893,7 +893,7 @@ function animate() {
                 pivot.rotation.y += diff * 0.08;
             } else if (pivot.rotation.y !== doorWall.userData.targetRotation) {
                 pivot.rotation.y = doorWall.userData.targetRotation;
-                rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
+                rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
             }
         }
     } else if (door) {
@@ -906,7 +906,7 @@ function animate() {
                 if (doorPivot.rotation.y !== door.userData.targetRotation) {
                     doorPivot.rotation.y = door.userData.targetRotation;
                     // 门动画结束，重建寻路网格
-                    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
+                    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
                 }
             }
         }

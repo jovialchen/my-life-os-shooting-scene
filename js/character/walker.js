@@ -59,6 +59,8 @@ let prevDistance = Infinity; // 上一帧到当前路径点的距离
 
 /** @type {import('../apartment.js').Apartment|null} */
 let apartment = null;
+let shellDoor = null;
+let grass = null;
 
 // 预分配向量（避免每帧分配）
 const _toTarget = new THREE.Vector3();
@@ -86,10 +88,14 @@ let pointerDownPos = null;
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Scene} scene
  * @param {import('../apartment.js').Apartment|null} apt - 公寓管理器
+ * @param {object|null} door - 外壳门
+ * @param {object|null} g - 草地参数
  */
-export function initWalker(humanoid, camera, renderer, scene, apt) {
+export function initWalker(humanoid, camera, renderer, scene, apt, door, g) {
     humanoidGroup = humanoid;
     apartment = apt;
+    shellDoor = door;
+    grass = g;
 
     // 创建点击标记
     marker = new THREE.Mesh(markerGeometry, markerMaterial);
@@ -161,7 +167,7 @@ export function initWalker(humanoid, camera, renderer, scene, apt) {
  */
 export function rebuildNavGrid() {
     if (!apartment) return;
-    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
+    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
 }
 
 /**

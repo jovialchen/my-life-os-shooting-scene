@@ -54,4 +54,4 @@ export const matCurtain = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roug
 export const matSiding  = new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: ROUGHNESS_MATTE });        // 白色外墙
 export const matTrim    = new THREE.MeshStandardMaterial({ color: 0xe8e0d0, roughness: ROUGHNESS_SEMI_MATT });     // 装饰线条
 export const matRoof    = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: ROUGHNESS_SATIN });         // 深灰屋顶
-export const matGrass   = new THREE.MeshStandardMaterial({ color: 0x5a8f3c, roughness: 1.0, side: THREE.DoubleSide }); // 草地
+export const matGround  = new THREE.MeshStandardMaterial({ color: 0x8b6f4e, roughness: ROUGHNESS_SEMI_MATT });        // 地面（与地板同色）
