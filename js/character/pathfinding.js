@@ -31,8 +31,9 @@ let grid = new Uint8Array(1);
 /**
  * 初始化公寓级寻路网格（在所有房间构建后调用一次）
  * @param {Map<string, object>} rooms - Apartment.rooms
+ * @param {object|null} corridorBounds - 走廊边界 {minX, maxX, minZ, maxZ}
  */
-export function initApartmentGrid(rooms) {
+export function initApartmentGrid(rooms, corridorBounds) {
     let minX = Infinity, maxX = -Infinity;
     let minZ = Infinity, maxZ = -Infinity;
 
@@ -46,6 +47,14 @@ export function initApartmentGrid(rooms) {
         maxZ = Math.max(maxZ, p.z + hd);
     }
 
+    // 走廊边界也纳入网格范围
+    if (corridorBounds) {
+        minX = Math.min(minX, corridorBounds.minX);
+        maxX = Math.max(maxX, corridorBounds.maxX);
+        minZ = Math.min(minZ, corridorBounds.minZ);
+        maxZ = Math.max(maxZ, corridorBounds.maxZ);
+    }
+
     GRID_ORIGIN_X = minX;
     GRID_ORIGIN_Z = minZ;
     GRID_W = Math.max(1, Math.ceil((maxX - minX) / CELL_SIZE));
@@ -57,11 +66,17 @@ export function initApartmentGrid(rooms) {
 /**
  * 重建寻路网格（房间可见性或门状态变化时调用）
  * @param {Map<string, object>} rooms - Apartment.rooms
+ * @param {object|null} corridorBounds - 走廊边界 {minX, maxX, minZ, maxZ}
  */
-export function rebuildGrid(rooms) {
+export function rebuildGrid(rooms, corridorBounds) {
     grid.fill(0);
     const inflate = CHAR_RADIUS + OBSTACLE_PAD;
     const box = new THREE.Box3();
+
+    // 标记走廊墙壁（东西两端）
+    if (corridorBounds) {
+        _markCorridorWalls(corridorBounds);
+    }
 
     for (const [id, room] of rooms) {
         if (!room.result.group.visible) {
@@ -379,6 +394,53 @@ function _markRoomWalls(room) {
         }
     }
 
+}
+
+/**
+ * 标记走廊东西两端墙壁为障碍
+ * @param {object} bounds - {minX, maxX, minZ, maxZ}
+ */
+function _markCorridorWalls(bounds) {
+    const marginCells = Math.floor(WALL_MARGIN / CELL_SIZE);
+
+    // 西墙 (x = minX)：有出口门，门口区域不标记
+    const gxWest = worldToGridX(bounds.minX);
+    const gzMin = worldToGridZ(bounds.minZ);
+    const gzMax = worldToGridZ(bounds.maxZ);
+    for (let i = 0; i < marginCells; i++) {
+        const gx = gxWest + i;
+        if (gx < 0 || gx >= GRID_W) continue;
+        for (let gz = gzMin; gz <= gzMax; gz++) {
+            if (gz >= 0 && gz < GRID_D) {
+                grid[gz * GRID_W + gx] = 1;
+            }
+        }
+    }
+    // 出口门在走廊西墙中心 (z=5)，宽 1.2m，清除门口障碍
+    const doorCenterZ = 5;
+    const gzDoor0 = worldToGridZ(doorCenterZ - DOOR_WIDTH / 2);
+    const gzDoor1 = worldToGridZ(doorCenterZ + DOOR_WIDTH / 2);
+    for (let i = -marginCells; i <= marginCells; i++) {
+        const gx = gxWest + i;
+        if (gx < 0 || gx >= GRID_W) continue;
+        for (let gz = gzDoor0; gz <= gzDoor1; gz++) {
+            if (gz >= 0 && gz < GRID_D) {
+                grid[gz * GRID_W + gx] = 0;
+            }
+        }
+    }
+
+    // 东墙 (x = maxX)：实心墙
+    const gxEast = worldToGridX(bounds.maxX);
+    for (let i = 0; i < marginCells; i++) {
+        const gx = gxEast - i;
+        if (gx < 0 || gx >= GRID_W) continue;
+        for (let gz = gzMin; gz <= gzMax; gz++) {
+            if (gz >= 0 && gz < GRID_D) {
+                grid[gz * GRID_W + gx] = 1;
+            }
+        }
+    }
 }
 
 /**

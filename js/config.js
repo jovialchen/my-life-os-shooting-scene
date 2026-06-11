@@ -24,8 +24,8 @@ export const FOG_FAR     = 25;
 export const CAMERA_FOV     = 50;
 export const CAMERA_NEAR    = 0.1;
 export const CAMERA_FAR     = 50;
-export const CAMERA_POS     = { x: 4.5, y: 3.5, z: 6 };
-export const CAMERA_TARGET  = { x: 0, y: 1.2, z: 0 };
+export const CAMERA_POS     = { x: 0.5, y: 3.5, z: 6 };
+export const CAMERA_TARGET  = { x: -4, y: 1.2, z: 0 };
 
 // 轨道控制器
 export const ORBIT_DAMPING       = 0.05;

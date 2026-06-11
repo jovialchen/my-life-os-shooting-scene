@@ -1,98 +1,89 @@
 /**
- * 卧室配置工厂
+ * 北排房间配置工厂
  *
- * 生成各卧室的配置对象，北墙有窗（采光面），南墙有门（连接中央走廊）
- * 不含家具
+ * 4 间统一 8×7，北墙有窗（采光面），南墙有门（连接走廊）
+ * 相邻房间共享一堵实心墙，由其中一侧负责建造
  */
 
 /**
- * 创建卧室配置
+ * 创建北排房间配置
  * @param {object} opts
  * @param {string} opts.id - 房间 ID
- * @param {number} opts.width - 开间（米）
- * @param {number} opts.depth - 进深（米）
- * @param {number} opts.height - 层高（米），默认 3.5
- * @param {number} opts.windowWidth - 北窗宽度（米），默认 1.5
- * @param {string} opts.doorDirection - 门开方向，默认 'left'
+ * @param {boolean} [opts.skipEastWall=false] - 不建东墙（由右侧邻居建西墙）
+ * @param {boolean} [opts.skipWestWall=false] - 不建西墙（由左侧邻居建东墙）
  */
-export function createBedroomConfig({
+export function createNorthRoomConfig({
     id,
-    width,
-    depth,
-    height = 3.5,
-    windowWidth = 1.5,
-    doorDirection = 'left',
+    skipEastWall = false,
+    skipWestWall = false,
 }) {
+    const walls = [
+        // 北墙：窗（采光面）
+        {
+            type: 'window',
+            facing: 'north',
+            window: { width: 5, sillHeight: 0.25, topHeight: 3.25 },
+        },
+        // 南墙：门（连接走廊）
+        {
+            type: 'door',
+            facing: 'south',
+            door: { width: 1.2, height: 2.4, openDirection: 'left' },
+        },
+    ];
+
+    if (!skipEastWall) {
+        walls.push({ type: 'solid', facing: 'east' });
+    }
+    if (!skipWestWall) {
+        walls.push({ type: 'solid', facing: 'west' });
+    }
+
     return {
         id,
-        size: { width, depth, height },
-
-        // ── 墙壁 ──
-        walls: [
-            // 北墙：窗（采光面）
-            {
-                type: 'window',
-                facing: 'north',
-                window: { width: windowWidth, sillHeight: 0.25, topHeight: 3.25 },
-            },
-            // 南墙：门（连接中央走廊）
-            {
-                type: 'door',
-                facing: 'south',
-                door: { width: 1.2, height: 2.4, openDirection: doorDirection },
-            },
-            // 东墙：实心
-            { type: 'solid', facing: 'east' },
-            // 西墙：实心
-            { type: 'solid', facing: 'west' },
-        ],
-
-        // ── 家具（无）──
+        size: { width: 8, depth: 7, height: 3.5 },
+        walls,
         furniture: [],
-
-        // ── 灯具 ──
         lights: [
             { type: 'ceilingLight', pos: { x: 0, z: 0 } },
         ],
-
-        // ── 装饰（无）──
         decorations: [],
-
-        // ── 小物品（无）──
         smallItems: [],
     };
 }
 
-// ── 预定义卧室 ──
+// ── 北排 4 间 ──
 
-/** 卧室1：左侧第一间次卧 */
-export const bedroom1 = createBedroomConfig({
-    id: 'bedroom-1',
-    width: 2.8,
-    depth: 4,
-    windowWidth: 1.5,
+/** room-a：北排左一（最左，西墙是公寓外墙） */
+export const roomA = createNorthRoomConfig({
+    id: 'room-a',
+    skipWestWall: false,
+    skipEastWall: false,   // 东墙由 room-a 建，room-b 不建西墙
 });
 
-/** 卧室2：左侧第二间次卧 */
-export const bedroom2 = createBedroomConfig({
-    id: 'bedroom-2',
-    width: 2.8,
-    depth: 4,
-    windowWidth: 1.5,
+/** room-b：北排左二 */
+export const roomB = createNorthRoomConfig({
+    id: 'room-b',
+    skipWestWall: true,   // 西墙由 room-a 建
+    skipEastWall: false,   // 东墙由 room-b 建，room-c 不建西墙
 });
 
-/** 卧室3：右侧次卧 */
-export const bedroom3 = createBedroomConfig({
-    id: 'bedroom-3',
-    width: 2.5,
-    depth: 4,
-    windowWidth: 1.5,
+/** room-c：北排右二 */
+export const roomC = createNorthRoomConfig({
+    id: 'room-c',
+    skipWestWall: true,   // 西墙由 room-b 建
+    skipEastWall: false,   // 东墙由 room-c 建，room-d 不建西墙
 });
 
-/** 主卧：右侧主卧室 */
-export const masterBedroom = createBedroomConfig({
-    id: 'master-bedroom',
-    width: 3.0,
-    depth: 4,
-    windowWidth: 2.0,
+/** room-d：北排右一（最右，东墙是公寓外墙） */
+export const roomD = createNorthRoomConfig({
+    id: 'room-d',
+    skipWestWall: true,   // 西墙由 room-c 建
+    skipEastWall: false,
 });
+
+// ── 向后兼容旧名 ──
+export const bedroom1 = roomA;
+export const bedroom2 = roomB;
+export const bedroom3 = roomC;
+export const masterBedroom = roomD;

@@ -9,9 +9,9 @@ import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 
 // ── 角色摆放参数 ──────────────────────────────────────
 const VRM = {
-    posX: 1.5,          // x 位置
+    posX: -4,           // x 位置（room-f 中心）
     posY: 0,            // y 位置
-    posZ: 0.3,          // z 位置
+    posZ: 0,            // z 位置
     rotY: -0.4,         // y 旋转（弧度）
     fallbackColor: 0xffffff, // 回退材质颜色
 };

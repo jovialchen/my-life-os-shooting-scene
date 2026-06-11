@@ -133,6 +133,7 @@ export function buildRoom(config) {
         }
 
         if (wall) {
+            wall.userData.wallFacing = wallDef.facing;
             const transform = computeWallTransform(wallDef.facing, size);
             wall.position.set(transform.pos.x, transform.pos.y, transform.pos.z);
             wall.rotation.y = transform.rotY;
