@@ -30,8 +30,10 @@ export const CAMERA_TARGET  = { x: -4, y: 1.2, z: 0 };
 // 轨道控制器
 export const ORBIT_DAMPING       = 0.05;
 export const ORBIT_MIN_DISTANCE  = 2;
-export const ORBIT_MAX_DISTANCE  = 12;
+export const ORBIT_MAX_DISTANCE  = 20;
 export const ORBIT_MAX_POLAR     = Math.PI * 0.85; // 最大俯仰角
+export const CAMERA_FOLLOW_SPEED = 3;               // 相机跟随角色的平滑速度
+export const CAMERA_FOLLOW_Y     = 1.2;             // 跟随目标的 Y 偏移（角色躯干中心）
 export const MAX_PIXEL_RATIO     = 2;               // 设备像素比上限
 
 // 渲染器参数

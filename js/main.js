@@ -21,6 +21,7 @@ import {
     TONE_MAPPING_EXPOSURE,
     BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,
     ORBIT_DAMPING, ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
+    CAMERA_FOLLOW_SPEED, CAMERA_FOLLOW_Y,
     AMBIENT_LIGHT_COLOR, AMBIENT_LIGHT_INTENSITY,
     SUN_COLOR, SUN_INTENSITY, SUN_POSITION,
     SUN_SHADOW_MAP_SIZE, SUN_SHADOW_LEFT, SUN_SHADOW_RIGHT, SUN_SHADOW_TOP, SUN_SHADOW_BOTTOM,
@@ -91,6 +92,7 @@ controls.update();
 
 // ── 动画时钟 ──
 const clock = new THREE.Clock();
+const _followTarget = new THREE.Vector3();
 let lookAtBound = false;
 
 // ============================================================
@@ -820,6 +822,13 @@ function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
     controls.update();
+
+    // 相机跟随角色
+    if (humanoid.userData.vrm) {
+        const t = 1 - Math.exp(-CAMERA_FOLLOW_SPEED * delta);
+        _followTarget.set(humanoid.position.x, CAMERA_FOLLOW_Y, humanoid.position.z);
+        controls.target.lerp(_followTarget, t);
+    }
 
     if (compassRing) {
         const camAngle = Math.atan2(
