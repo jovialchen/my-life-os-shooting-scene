@@ -3,7 +3,7 @@
  * 包裹整个公寓，永远可见，外墙门窗与室内对齐
  */
 import * as THREE from 'three';
-import { matSiding, matTrim, matGround, matGlass, matFrame, matWood, matMetal } from '../materials.js';
+import { matSiding, matTrim, matGround, matFloor, matGlass, matFrame, matWood, matMetal } from '../materials.js';
 
 // ── 壳体尺寸 ──
 const SHELL_T   = 0.2;    // 外墙厚度
@@ -239,13 +239,27 @@ export function createHouseShell() {
 
     // ── 屋顶（待重做）──
 
-    // ── 地面（圆形草地）──
+    // ── 地面：绿色草地圆 + 建筑底部地板色 ──
     const GRASS_RADIUS = 25;
     const GRASS_CENTER_X = 0;
     const GRASS_CENTER_Z = EAVE_Z; // 公寓中心 z=5
-    const ground = new THREE.Mesh(
+
+    // 绿色草地（外圈）
+    const grass = new THREE.Mesh(
         new THREE.CircleGeometry(GRASS_RADIUS, 64),
-        matGround,
+        new THREE.MeshStandardMaterial({ color: 0x7a9e6d, roughness: 1.0 }),
+    );
+    grass.rotation.x = -Math.PI / 2;
+    grass.position.set(GRASS_CENTER_X, -0.02, GRASS_CENTER_Z);
+    grass.receiveShadow = true;
+    house.add(grass);
+
+    // 建筑底部（地板色，覆盖草地中间）
+    const bldgW = EAST_X - WEST_X;
+    const bldgD = NORTH_Z - SOUTH_Z;
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(bldgW, bldgD),
+        matFloor,
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(GRASS_CENTER_X, -0.01, GRASS_CENTER_Z);
