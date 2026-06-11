@@ -62,6 +62,9 @@ import { createDragControls } from './interaction/dragControls.js';
 // ── 外壳房子 ──
 import { createHouseShell } from './elements/houseShell.js';
 
+// ── 墙体遮挡系统 ──
+import { initWallOcclusion, updateWallOcclusion } from './systems/wallOcclusion.js';
+
 // ============================================================
 //  场景 / 相机 / 渲染器
 // ============================================================
@@ -263,6 +266,9 @@ apartment.onRoomChange = (newRoomId, oldRoomId) => {
 // 角色
 const humanoid = createHumanoid();
 scene.add(humanoid);
+
+// 墙体遮挡透明系统
+initWallOcclusion(apartment, camera, humanoid, houseShellGroup);
 
 // 从家具列表中提取引用（用于侧边栏和障碍物）
 const sofa        = furnitureList.find(f => f.type === 'sofa')?.group;
@@ -966,6 +972,9 @@ function animate() {
         fill.intensity         = fillBaseIntensity    * curtainFillF;
         ambientLight.intensity = ambientBaseIntensity * curtainAmbF;
     }
+
+    // 墙体遮挡透明
+    updateWallOcclusion(delta);
 
     composer.render();
 }

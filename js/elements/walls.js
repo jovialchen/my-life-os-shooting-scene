@@ -230,6 +230,7 @@ export function createCeiling({ width, depth, height }) {
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), ceilMat);
     ceil.rotation.x = Math.PI / 2;
     ceil.position.y = height;
+    ceil.userData.isOccluder = true;
     return ceil;
 }
 

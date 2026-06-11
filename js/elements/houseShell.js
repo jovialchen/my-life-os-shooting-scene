@@ -185,6 +185,7 @@ export function createHouseShell() {
         wg.position.set(op.x, 0, 0);
         southWall.add(wg);
     }
+    southWall.userData.isOccluder = true;
     house.add(southWall);
 
     // 北墙（4 个窗户，对应北排 4 间房的北窗）
@@ -203,6 +204,7 @@ export function createHouseShell() {
         wg.position.set(op.x, 0, 0);
         northWall.add(wg);
     }
+    northWall.userData.isOccluder = true;
     house.add(northWall);
 
     // 西墙（1 个门，对应走廊出口）
@@ -213,6 +215,7 @@ export function createHouseShell() {
         { x: 0, w: DOOR_W, y: DOOR_H / 2, h: DOOR_H },  // 门在墙中心 = world_z = EAVE_Z
     ];
     const westWall = wallWithOpenings(wallDepth, WALL_TOP, SHELL_T, westOpenings, matSiding);
+    westWall.userData.isOccluder = true;
     const doorGroup = new THREE.Group();
     addDoor(doorGroup, DOOR_W, DOOR_H, SHELL_T, 1);
     westWall.add(doorGroup);
@@ -231,6 +234,7 @@ export function createHouseShell() {
     eastWall.position.set(EAST_X, WALL_TOP / 2, EAVE_Z);
     eastWall.castShadow = true;
     eastWall.receiveShadow = true;
+    eastWall.userData.isOccluder = true;
     house.add(eastWall);
 
     // ── 屋顶（待重做）──

@@ -109,6 +109,10 @@ export const CURTAIN_PLEAT_FREQ_OX = 12;   // 褶皱正弦频率（ox 方向）
 export const CURTAIN_PLEAT_FREQ_T  = 8;    // 褶皱正弦频率（t 方向）
 export const CURTAIN_PLEAT_AMPLITUDE = 0.04; // 褶皱振幅
 
+// ── 墙体遮挡透明 ─────────────────────────────────────────
+export const OCCLUSION_TARGET_OPACITY = 0.15;  // 被遮挡墙体的目标透明度
+export const OCCLUSION_LERP_SPEED     = 0.1;   // 每帧 lerp 系数（0~1，越大越快）
+
 // ── 点击检测 ────────────────────────────────────────────
 
 export const CLICK_DRAG_THRESHOLD = 5; // 像素阈值，超过视为拖拽
