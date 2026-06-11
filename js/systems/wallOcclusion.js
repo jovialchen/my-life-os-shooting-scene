@@ -153,9 +153,10 @@ function collectVisibleWallMeshes() {
         }
     }
 
-    // 走廊东西墙
+    // 走廊东西墙 + 天花板
     if (apartment._corridorWestWall?.visible) collect(apartment._corridorWestWall);
     if (apartment._corridorEastWall?.visible) collect(apartment._corridorEastWall);
+    if (apartment._corridorCeiling?.visible) _meshCache.push(apartment._corridorCeiling);
 
     // 外壳房子（isOccluder 标记的 group 或单个 mesh）
     if (houseShellGroup?.visible) {
