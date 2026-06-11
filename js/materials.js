@@ -50,6 +50,15 @@ export const matPot     = new THREE.MeshStandardMaterial({ color: 0xc4b8a8, roug
 export const matLeaf    = new THREE.MeshStandardMaterial({ color: 0x2e8b57, roughness: ROUGHNESS_MATTE });
 export const matCurtain = new THREE.MeshStandardMaterial({ color: 0xe0d8cc, roughness: ROUGHNESS_SMOOTH, side: THREE.DoubleSide }); // 米白窗帘
 
+// ── 花卉 ──────────────────────────────────────────────
+export const matStem         = new THREE.MeshStandardMaterial({ color: 0x3a6b35, roughness: ROUGHNESS_MATTE }); // 深绿茎
+export const matPetalPink    = new THREE.MeshStandardMaterial({ color: 0xe8a0a0, roughness: ROUGHNESS_SATIN }); // 粉（月季）
+export const matPetalDeepPink = new THREE.MeshStandardMaterial({ color: 0xc97070, roughness: ROUGHNESS_SATIN }); // 深粉（玫瑰）
+export const matPetalPurple  = new THREE.MeshStandardMaterial({ color: 0x9070b0, roughness: ROUGHNESS_SATIN }); // 紫（紫罗兰）
+export const matPetalBlue    = new THREE.MeshStandardMaterial({ color: 0x7080c0, roughness: ROUGHNESS_SATIN }); // 蓝紫（鸢尾花）
+export const matPetalWhite   = new THREE.MeshStandardMaterial({ color: 0xf0ebe3, roughness: ROUGHNESS_SATIN }); // 白（茉莉）
+export const matFlowerCenter = new THREE.MeshStandardMaterial({ color: 0xf5d742, roughness: ROUGHNESS_MATTE }); // 黄花蕊
+
 // ── 外壳房子 ─────────────────────────────────────────
 export const matSiding  = new THREE.MeshStandardMaterial({ color: 0xf2efe9, roughness: ROUGHNESS_MATTE });        // 纯白外墙
 export const matTrim    = new THREE.MeshStandardMaterial({ color: 0xe0dbd2, roughness: ROUGHNESS_SEMI_MATT });     // 浅灰装饰线条

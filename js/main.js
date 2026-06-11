@@ -62,6 +62,9 @@ import { createDragControls } from './interaction/dragControls.js';
 // ── 外壳房子 ──
 import { createHouseShell } from './elements/houseShell.js';
 
+// ── 花卉 ──
+import { createGardenFlowers } from './elements/flowers.js';
+
 // ── 墙体遮挡系统 ──
 import { initWallOcclusion, updateWallOcclusion } from './systems/wallOcclusion.js';
 
@@ -195,6 +198,10 @@ apartment.build(scene, 'room-f');
 // ── 外壳房子（永远可见）──
 const { group: houseShellGroup, door: shellDoor, grass } = createHouseShell();
 scene.add(houseShellGroup);
+
+// ── 花园花卉 ──
+const gardenFlowers = createGardenFlowers(grass);
+scene.add(gardenFlowers);
 
 // ── 初始化统一寻路网格（覆盖所有房间 + 走廊 + 草地） ──
 initApartmentGrid(apartment.rooms, apartment.corridorBounds, grass);
