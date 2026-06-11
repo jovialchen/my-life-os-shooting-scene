@@ -15,10 +15,8 @@ export const WALL_T      = 0.12;              // 墙壁厚度
 export const DOOR_WIDTH  = 1.2;
 export const DOOR_HEIGHT = 2.4;
 
-// 背景与雾效
+// 背景色
 export const BG_COLOR    = 0x87a5c0;   // 中午明亮天空
-export const FOG_NEAR    = 8;
-export const FOG_FAR     = 25;
 
 // 相机默认参数
 export const CAMERA_FOV     = 50;

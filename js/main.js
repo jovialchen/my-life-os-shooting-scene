@@ -16,7 +16,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
 
 import {
-    BG_COLOR, FOG_NEAR, FOG_FAR,
+    BG_COLOR,
     CAMERA_FOV, CAMERA_NEAR, CAMERA_FAR, CAMERA_POS, CAMERA_TARGET,
     TONE_MAPPING_EXPOSURE,
     BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,
@@ -64,7 +64,6 @@ import { createDragControls } from './interaction/dragControls.js';
 // ============================================================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(BG_COLOR);
-scene.fog = new THREE.Fog(BG_COLOR, FOG_NEAR, FOG_FAR);
 
 const camera = new THREE.PerspectiveCamera(CAMERA_FOV, innerWidth / innerHeight, CAMERA_NEAR, CAMERA_FAR);
 camera.position.set(CAMERA_POS.x, CAMERA_POS.y, CAMERA_POS.z);
@@ -771,7 +770,6 @@ function updateTimeOfDay(value) {
 
     const bgColor = new THREE.Color(a.bg).lerp(new THREE.Color(b.bg), t);
     scene.background = bgColor;
-    scene.fog.color.copy(bgColor);
 }
 
 updateTimeOfDay(2);
