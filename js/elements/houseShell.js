@@ -8,6 +8,7 @@ import { matSiding, matTrim, matGrass, matGlass, matFrame, matWood, matMetal } f
 // ── 壳体尺寸 ──
 const SHELL_T   = 0.2;    // 外墙厚度
 const WALL_TOP  = 3.5;    // 墙顶 (= ROOM_HEIGHT)
+const EAVE_Z    = 5;      // 公寓中心 z（屋脊位置）
 
 // 外墙位置（紧贴公寓内墙外表面：内墙外表面 ± 外壳半厚）
 const WALL_T_INT = 0.12;                              // 内墙厚度
@@ -121,12 +122,13 @@ function addWindow(group, winW, sillY, topY, wallThickness, zSign) {
     group.add(sill);
 }
 
-/** 在洞口处添加门（框架 + 门板 + 把手） zSign: +1 = +z 面（西墙），-1 = -z 面 */
+/** 在洞口处添加门（框架 + 可旋转门板 + 把手） zSign: +1 = +z 面（西墙），-1 = -z 面 */
 function addDoor(group, doorW, doorH, wallThickness, zSign) {
     const cy = doorH / 2;
     const oz = zSign * (wallThickness / 2 + 0.04);
+    const pz = zSign * (wallThickness / 2 + 0.03);
 
-    // 门框
+    // 门框（静态）
     const frameTop = new THREE.Mesh(new THREE.BoxGeometry(doorW + 0.12, 0.12, 0.08), matFrame);
     frameTop.position.set(0, doorH + 0.06, oz);
     group.add(frameTop);
@@ -137,15 +139,24 @@ function addDoor(group, doorW, doorH, wallThickness, zSign) {
     frameR.position.set(doorW / 2 + 0.06, cy, oz);
     group.add(frameR);
 
-    // 门板
+    // 门板 pivot（绕左侧铰链旋转）
+    const doorPivot = new THREE.Group();
+    doorPivot.position.set(-doorW / 2, 0, pz);
+    group.add(doorPivot);
+
     const panel = new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, 0.06), matWood);
-    panel.position.set(0, cy, zSign * (wallThickness / 2 + 0.03));
-    group.add(panel);
+    panel.position.set(doorW / 2, cy, 0);
+    doorPivot.add(panel);
 
     // 把手
     const handle = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), matMetal);
-    handle.position.set(doorW / 4, cy, zSign * (wallThickness / 2 + 0.07));
-    group.add(handle);
+    handle.position.set(doorW * 0.75, cy, zSign * 0.04);
+    doorPivot.add(handle);
+
+    // 暴露交互状态
+    group.userData.doorPivot = doorPivot;
+    group.userData.isOpen = false;
+    group.userData.targetRotation = 0;
 }
 
 // ============================================================
@@ -234,5 +245,5 @@ export function createHouseShell() {
     ground.receiveShadow = true;
     house.add(ground);
 
-    return house;
+    return { group: house, door: doorGroup };
 }

@@ -190,7 +190,8 @@ apartment.setCorridorBounds({
 apartment.build(scene, 'room-f');
 
 // ── 外壳房子（永远可见）──
-scene.add(createHouseShell());
+const { group: houseShellGroup, door: shellDoor } = createHouseShell();
+scene.add(houseShellGroup);
 
 // ── 初始化统一寻路网格（覆盖所有房间 + 走廊） ──
 initApartmentGrid(apartment.rooms, apartment.corridorBounds);
@@ -654,11 +655,13 @@ renderer.domElement.addEventListener('pointerup', e => {
     }
 
     // 门点击
-    // 走廊模式：检测所有走廊门墙 + 公寓出口门
+    // 走廊模式：检测所有走廊门墙 + 公寓出口门 + 外壳门
     const doorsToCheck = [];
     if (apartment.currentRoomId === 'corridor') {
         // 公寓出口门
         if (door) doorsToCheck.push(door);
+        // 外壳房门
+        if (shellDoor) doorsToCheck.push(shellDoor);
         // 所有房间的走廊门墙
         for (const [, wall] of apartment.corridorDoorWalls) {
             if (wall.visible) doorsToCheck.push(wall);
@@ -671,7 +674,9 @@ renderer.domElement.addEventListener('pointerup', e => {
         const doorHits = clickRaycaster.intersectObjects(doorObj.children, true);
         if (doorHits.length > 0) {
             doorObj.userData.isOpen = !doorObj.userData.isOpen;
-            doorObj.userData.targetRotation = doorObj.userData.isOpen ? Math.PI / 2 : 0;
+            // 外壳门向外开（+PI/2），公寓出口门向里开（-PI/2）
+            const isOpenDir = doorObj === shellDoor ? Math.PI / 2 : -Math.PI / 2;
+            doorObj.userData.targetRotation = doorObj.userData.isOpen ? isOpenDir : 0;
             // 更新房间可见性（门打开时显示相邻房间）
             apartment.updateVisibility();
             // 重建寻路网格（门口开合状态变化）
@@ -861,6 +866,19 @@ function animate() {
                     exitPivot.rotation.y += exitDiff * 0.08;
                 } else if (exitPivot.rotation.y !== door.userData.targetRotation) {
                     exitPivot.rotation.y = door.userData.targetRotation;
+                    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
+                }
+            }
+        }
+        // 走廊模式：动画外壳房门
+        if (shellDoor) {
+            const shellPivot = shellDoor.userData.doorPivot;
+            if (shellPivot) {
+                const sDiff = shellDoor.userData.targetRotation - shellPivot.rotation.y;
+                if (Math.abs(sDiff) > 0.005) {
+                    shellPivot.rotation.y += sDiff * 0.08;
+                } else if (shellPivot.rotation.y !== shellDoor.userData.targetRotation) {
+                    shellPivot.rotation.y = shellDoor.userData.targetRotation;
                     rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall);
                 }
             }
