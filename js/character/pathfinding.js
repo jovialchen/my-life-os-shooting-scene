@@ -1,10 +1,11 @@
 /**
- * A* 网格寻路 —— 用于角色绕开家具走路
+ * A* 网格寻路 —— 统一网格覆盖整个公寓
  *
- * 在房间地板上覆盖一个 2D 网格，标记被家具占据的格子为不可通行，
- * 用 A* 算法在网格上规划最短路径。
+ * 用一个大网格覆盖所有房间，根据房间可见性动态标记障碍：
+ * - 可见房间：标记家具为障碍，墙壁按配置标记，门口根据门开合状态处理
+ * - 不可见房间：整个区域标记为障碍
  *
- * 支持动态房间尺寸：调用 initGrid() 可切换到不同大小的房间。
+ * 支持跨房间寻路：角色可以从一个房间直接走到另一个房间（门口打开时）
  */
 import * as THREE from 'three';
 
@@ -15,149 +16,93 @@ const OBSTACLE_PAD  = 0.05;  // 家具额外边距
 const WALL_MARGIN   = 0.35;  // 离墙最小距离（角色中心到墙的距离）
 const DOOR_WIDTH    = 1.2;   // 门宽（米）
 
-// ── 网格尺寸（动态，由 initGrid 设置）──────────────────
-let GRID_W = 80;
-let GRID_D = 70;
-let GRID_ORIGIN_X = -4;
-let GRID_ORIGIN_Z = -3.5;
-let ROOM_HALF_W = 4;
-let ROOM_HALF_D = 3.5;
-let ROOM_CENTER_X = 0;
-let ROOM_CENTER_Z = 0;
+// ── 公寓级网格参数 ──────────────────────────────────
+let GRID_W = 1;
+let GRID_D = 1;
+let GRID_ORIGIN_X = 0;
+let GRID_ORIGIN_Z = 0;
 
 // ── 内部状态 ──────────────────────────────────────────
 /** @type {Uint8Array} 0=可通行 1=障碍 */
-let grid = new Uint8Array(GRID_W * GRID_D);
-
-/** @type {THREE.Object3D|null} 门 group 引用（用于动态障碍） */
-let doorRef = null;
-
-// 预分配 A* 工作数组（避免每次 findPath 重新分配）
-let gScoreBuf   = new Float32Array(GRID_W * GRID_D);
-let cameFromBuf = new Int32Array(GRID_W * GRID_D);
-let closedBuf   = new Uint8Array(GRID_W * GRID_D);
+let grid = new Uint8Array(1);
 
 // ── 公开 API ──────────────────────────────────────────
 
 /**
- * 初始化/切换寻路网格到新的房间尺寸
- * @param {number} halfW - 房间半宽（米）
- * @param {number} halfD - 房间半深（米）
- * @param {number} centerX - 房间中心 X（世界坐标）
- * @param {number} centerZ - 房间中心 Z（世界坐标）
+ * 初始化公寓级寻路网格（在所有房间构建后调用一次）
+ * @param {Map<string, object>} rooms - Apartment.rooms
  */
-export function initGrid(halfW, halfD, centerX = 0, centerZ = 0) {
-    ROOM_HALF_W = halfW;
-    ROOM_HALF_D = halfD;
-    ROOM_CENTER_X = centerX;
-    ROOM_CENTER_Z = centerZ;
+export function initApartmentGrid(rooms) {
+    let minX = Infinity, maxX = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
 
-    GRID_W = Math.ceil(halfW * 2 / CELL_SIZE);
-    GRID_D = Math.ceil(halfD * 2 / CELL_SIZE);
-    GRID_ORIGIN_X = centerX - halfW;
-    GRID_ORIGIN_Z = centerZ - halfD;
+    for (const [, room] of rooms) {
+        const p = room.position;
+        const hw = room.bounds.halfW;
+        const hd = room.bounds.halfD;
+        minX = Math.min(minX, p.x - hw);
+        maxX = Math.max(maxX, p.x + hw);
+        minZ = Math.min(minZ, p.z - hd);
+        maxZ = Math.max(maxZ, p.z + hd);
+    }
 
-    // 重新分配网格和工作数组
+    GRID_ORIGIN_X = minX;
+    GRID_ORIGIN_Z = minZ;
+    GRID_W = Math.max(1, Math.ceil((maxX - minX) / CELL_SIZE));
+    GRID_D = Math.max(1, Math.ceil((maxZ - minZ) / CELL_SIZE));
+
     grid = new Uint8Array(GRID_W * GRID_D);
-    gScoreBuf = new Float32Array(GRID_W * GRID_D);
-    cameFromBuf = new Int32Array(GRID_W * GRID_D);
-    closedBuf = new Uint8Array(GRID_W * GRID_D);
 }
 
 /**
- * 根据家具列表重建障碍网格
- * @param {THREE.Object3D[]} furnitureList - 主要家具 group 列表
+ * 重建寻路网格（房间可见性或门状态变化时调用）
+ * @param {Map<string, object>} rooms - Apartment.rooms
  */
-export function buildGrid(furnitureList) {
-    _buildGridInternal(furnitureList);
-}
-
-/**
- * 设置门引用，开门时门板会作为动态障碍加入网格
- * @param {THREE.Object3D} door - 门 group
- */
-export function setDoor(door) {
-    doorRef = door;
-}
-
-function _buildGridInternal(furnitureList) {
+export function rebuildGrid(rooms) {
     grid.fill(0);
-
     const inflate = CHAR_RADIUS + OBSTACLE_PAD;
     const box = new THREE.Box3();
 
-    for (const obj of furnitureList) {
-        if (!obj.visible) continue;
+    for (const [id, room] of rooms) {
+        if (!room.result.group.visible) {
+            // 不可见房间 → 整个区域标记为障碍
+            _markRoomBounds(room, true);
+            continue;
+        }
 
-        // 计算 AABB（世界坐标，XZ 平面）
-        box.setFromObject(obj);
-        const minX = box.min.x - inflate;
-        const maxX = box.max.x + inflate;
-        const minZ = box.min.z - inflate;
-        const maxZ = box.max.z + inflate;
+        // 可见房间 → 标记墙壁边界
+        _markRoomWalls(room);
 
-        // 转换为网格坐标
-        const gx0 = Math.max(0, Math.floor((minX - GRID_ORIGIN_X) / CELL_SIZE));
-        const gx1 = Math.min(GRID_W - 1, Math.ceil((maxX - GRID_ORIGIN_X) / CELL_SIZE));
-        const gz0 = Math.max(0, Math.floor((minZ - GRID_ORIGIN_Z) / CELL_SIZE));
-        const gz1 = Math.min(GRID_D - 1, Math.ceil((maxZ - GRID_ORIGIN_Z) / CELL_SIZE));
+        // 标记家具障碍
+        for (const f of room.result.furniture) {
+            if (!f.group.visible) continue;
+            box.setFromObject(f.group);
+            _markBox(box, inflate);
+        }
 
-        for (let gz = gz0; gz <= gz1; gz++) {
-            for (let gx = gx0; gx <= gx1; gx++) {
-                grid[gz * GRID_W + gx] = 1;
+        // 门打开时，门板甩入房间内，作为动态障碍（只标记门板，不标记墙壁面板）
+        const door = room.result.door;
+        if (door && door.userData.isOpen) {
+            const doorPivot = door.userData.doorPivot;
+            if (doorPivot) {
+                box.setFromObject(doorPivot);
+                _markBox(box, inflate);
             }
         }
     }
+}
 
-    // 门打开时，门板甩入房间内部，作为动态障碍
-    if (doorRef && doorRef.userData.isOpen) {
-        box.setFromObject(doorRef);
-        const dgx0 = Math.max(0, Math.floor((box.min.x - inflate - GRID_ORIGIN_X) / CELL_SIZE));
-        const dgx1 = Math.min(GRID_W - 1, Math.ceil((box.max.x + inflate - GRID_ORIGIN_X) / CELL_SIZE));
-        const dgz0 = Math.max(0, Math.floor((box.min.z - inflate - GRID_ORIGIN_Z) / CELL_SIZE));
-        const dgz1 = Math.min(GRID_D - 1, Math.ceil((box.max.z + inflate - GRID_ORIGIN_Z) / CELL_SIZE));
-        for (let gz = dgz0; gz <= dgz1; gz++) {
-            for (let gx = dgx0; gx <= dgx1; gx++) {
-                grid[gz * GRID_W + gx] = 1;
-            }
-        }
-    }
-
-    // 标记房间边界为障碍（防止角色贴墙或走出房间）
-    // 四面墙全部标记，角色不得走出房间
-    const wallCells = Math.floor(WALL_MARGIN / CELL_SIZE);
-    // 后边界（Z 负方向 → 网格底部，gz=0 一侧）
-    for (let gz = 0; gz < wallCells; gz++) {
-        for (let gx = 0; gx < GRID_W; gx++) {
-            grid[gz * GRID_W + gx] = 1;
-        }
-    }
-    // 前边界（Z 正方向 → 网格顶部，gz=GRID_D-1 一侧）
-    for (let gz = GRID_D - wallCells; gz < GRID_D; gz++) {
-        for (let gx = 0; gx < GRID_W; gx++) {
-            grid[gz * GRID_W + gx] = 1;
-        }
-    }
-
-    // 前墙门洞：清除门宽范围内的障碍，让角色可以穿过门口
-    // 门居中于前墙 (x=房间中心)，宽 DOOR_WIDTH
-    const doorCenterX = ROOM_CENTER_X; // 门在房间中心 X
-    const doorLeft  = worldToGridX(doorCenterX - DOOR_WIDTH / 2);
-    const doorRight = worldToGridX(doorCenterX + DOOR_WIDTH / 2);
-    for (let gz = GRID_D - wallCells; gz < GRID_D; gz++) {
-        for (let gx = doorLeft; gx <= doorRight; gx++) {
-            grid[gz * GRID_W + gx] = 0;
-        }
-    }
-    // 左右边界（X 方向）
-    for (let gz = 0; gz < GRID_D; gz++) {
-        for (let gx = 0; gx < wallCells; gx++) {
-            grid[gz * GRID_W + gx] = 1;
-        }
-        for (let gx = GRID_W - wallCells; gx < GRID_W; gx++) {
-            grid[gz * GRID_W + gx] = 1;
-        }
-    }
+/**
+ * 检查世界坐标是否可通行
+ * @param {number} wx
+ * @param {number} wz
+ * @returns {boolean}
+ */
+export function isWalkableWorld(wx, wz) {
+    const gx = worldToGridX(wx);
+    const gz = worldToGridZ(wz);
+    if (gx < 0 || gx >= GRID_W || gz < 0 || gz >= GRID_D) return false;
+    return grid[gz * GRID_W + gx] === 0;
 }
 
 /**
@@ -191,10 +136,14 @@ export function findPath(start, end) {
     }
 
     // A*
-    const openSet   = new MinHeap();
+    const totalCells = GRID_W * GRID_D;
+    const gScoreBuf   = new Float32Array(totalCells);
+    const cameFromBuf = new Int32Array(totalCells);
+    const closedBuf   = new Uint8Array(totalCells);
+
+    const openSet = new MinHeap();
     gScoreBuf.fill(Infinity);
     cameFromBuf.fill(-1);
-    closedBuf.fill(0);
 
     const startIdx = actualSz * GRID_W + actualSx;
     const endIdx   = actualEz * GRID_W + actualEx;
@@ -225,7 +174,7 @@ export function findPath(start, end) {
             if (nx < 0 || nx >= GRID_W || nz < 0 || nz >= GRID_D) continue;
 
             const nIdx = nz * GRID_W + nx;
-            if (closedBuf[nIdx] || grid[nIdx]) continue; // grid=1 是障碍
+            if (closedBuf[nIdx] || grid[nIdx]) continue;
 
             // 斜角移动时检查两个正交邻居是否可通过（防止穿墙角）
             if (DX[d] !== 0 && DZ[d] !== 0) {
@@ -270,41 +219,7 @@ export function smoothPath(path) {
 }
 
 /**
- * 检查世界坐标是否可通行（供 walker.js 做位置校验）
- * @param {number} wx
- * @param {number} wz
- * @returns {boolean}
- */
-export function isWalkableWorld(wx, wz) {
-    const gx = worldToGridX(wx);
-    const gz = worldToGridZ(wz);
-    if (gx < 0 || gx >= GRID_W || gz < 0 || gz >= GRID_D) return false;
-    return grid[gz * GRID_W + gx] === 0;
-}
-
-/**
- * 将世界坐标限制在房间可行走区域内（离墙至少 WALL_MARGIN）
- * @param {number} wx
- * @param {number} wz
- * @returns {{ x: number, z: number }}
- */
-export function clampToRoomWorld(wx, wz) {
-    const mx = ROOM_HALF_W - WALL_MARGIN;
-    const mz = ROOM_HALF_D - WALL_MARGIN;
-    return {
-        x: Math.max(ROOM_CENTER_X - mx, Math.min(ROOM_CENTER_X + mx, wx)),
-        z: Math.max(ROOM_CENTER_Z - mz, Math.min(ROOM_CENTER_Z + mz, wz)),
-    };
-}
-
-/**
- * 检查从 (x0,z0) 到 (x1,z1) 的直线路径上所有网格格子是否都可通行
- * 用 Bresenham 遍历路径经过的每一格，防止角色对角移动穿过障碍物拐角
- * @param {number} x0
- * @param {number} z0
- * @param {number} x1
- * @param {number} z1
- * @returns {boolean}
+ * 检查从 (x0,z0) 到 (x1,z1) 的直线路径是否可通行
  */
 export function isPathClear(x0, z0, x1, z1) {
     let gx0 = worldToGridX(x0);
@@ -328,17 +243,193 @@ export function isPathClear(x0, z0, x1, z1) {
     return true;
 }
 
-// ── 内部函数 ──────────────────────────────────────────
+// ── 内部函数：网格标记 ──────────────────────────────
 
-/** 世界坐标 → 网格坐标 */
+/**
+ * 标记房间墙壁边界为障碍，根据墙壁配置和门口状态
+ *
+ * 逻辑：
+ * - 有墙的方向：标记 WALL_MARGIN 宽的障碍带（从墙面向内）
+ * - 无墙的方向：不标记，允许通行（开放通道）
+ * - 门口区域：始终清除障碍带（门框处不留 margin）
+ *   - 门打开：门口可通行
+ *   - 门关闭：门口由门板障碍单独阻挡
+ */
+function _markRoomWalls(room) {
+    const p = room.position;
+    const hw = room.bounds.halfW;
+    const hd = room.bounds.halfD;
+
+    // 收集有墙的方向
+    const wallFacingSet = new Set();
+    for (const w of room.config.walls) {
+        wallFacingSet.add(w.facing);
+    }
+
+    // 收集各方向的门口位置（本地 X 坐标）
+    const southDoors = [];
+    const northDoors = [];
+    for (const w of room.config.walls) {
+        if (w.type === 'door') {
+            if (w.facing === 'south') southDoors.push(0);
+            if (w.facing === 'north') northDoors.push(0);
+        }
+    }
+    for (const conn of room.connections) {
+        const localZ = conn.doorPos.z - p.z;
+        const localX = conn.doorPos.x - p.x;
+        if (Math.abs(localZ + hd) < 0.5) southDoors.push(localX);
+        if (Math.abs(localZ - hd) < 0.5) northDoors.push(localX);
+    }
+
+    const marginCells = Math.floor(WALL_MARGIN / CELL_SIZE);
+
+    // ── 南边界（-z 方向）── 只在房间 x 范围内标记
+    const door = room.result.door;
+    const doorOpen = door && door.userData.isOpen;
+
+    if (wallFacingSet.has('south')) {
+        const gzEdge = worldToGridZ(p.z - hd);
+        const gxMin = worldToGridX(p.x - hw);
+        const gxMax = worldToGridX(p.x + hw);
+        for (let i = 0; i < marginCells; i++) {
+            const gz = gzEdge + i;
+            if (gz < 0 || gz >= GRID_D) continue;
+            for (let gx = gxMin; gx <= gxMax; gx++) {
+                if (gx >= 0 && gx < GRID_W) {
+                    grid[gz * GRID_W + gx] = 1;
+                }
+            }
+        }
+        // 门打开时清除门口障碍带（双向：房间内侧 + 外侧）
+        if (doorOpen) {
+            for (const doorCenterX of southDoors) {
+                const gx0 = worldToGridX(p.x + doorCenterX - DOOR_WIDTH / 2);
+                const gx1 = worldToGridX(p.x + doorCenterX + DOOR_WIDTH / 2);
+                for (let i = -marginCells; i <= marginCells; i++) {
+                    const gz = gzEdge + i;
+                    if (gz < 0 || gz >= GRID_D) continue;
+                    for (let gx = gx0; gx <= gx1; gx++) {
+                        if (gx >= 0 && gx < GRID_W) grid[gz * GRID_W + gx] = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    // ── 北边界（+z 方向）── 只在房间 x 范围内标记
+    if (wallFacingSet.has('north')) {
+        const gzEdge = worldToGridZ(p.z + hd);
+        const gxMin = worldToGridX(p.x - hw);
+        const gxMax = worldToGridX(p.x + hw);
+        for (let i = 0; i < marginCells; i++) {
+            const gz = gzEdge - i;
+            if (gz < 0 || gz >= GRID_D) continue;
+            for (let gx = gxMin; gx <= gxMax; gx++) {
+                if (gx >= 0 && gx < GRID_W) {
+                    grid[gz * GRID_W + gx] = 1;
+                }
+            }
+        }
+        // 门打开时清除门口障碍带
+        if (doorOpen) {
+            for (const doorCenterX of northDoors) {
+                const gx0 = worldToGridX(p.x + doorCenterX - DOOR_WIDTH / 2);
+                const gx1 = worldToGridX(p.x + doorCenterX + DOOR_WIDTH / 2);
+                for (let i = -marginCells; i <= marginCells; i++) {
+                    const gz = gzEdge - i;
+                    if (gz < 0 || gz >= GRID_D) continue;
+                    for (let gx = gx0; gx <= gx1; gx++) {
+                        if (gx >= 0 && gx < GRID_W) grid[gz * GRID_W + gx] = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    // ── 西边界（-x 方向）── 只在房间 z 范围内标记
+    if (wallFacingSet.has('west')) {
+        const gxEdge = worldToGridX(p.x - hw);
+        const gzMin = worldToGridZ(p.z - hd);
+        const gzMax = worldToGridZ(p.z + hd);
+        for (let i = 0; i < marginCells; i++) {
+            const gx = gxEdge + i;
+            if (gx < 0 || gx >= GRID_W) continue;
+            for (let gz = gzMin; gz <= gzMax; gz++) {
+                if (gz >= 0 && gz < GRID_D) {
+                    grid[gz * GRID_W + gx] = 1;
+                }
+            }
+        }
+    }
+
+    // ── 东边界（+x 方向）── 只在房间 z 范围内标记
+    if (wallFacingSet.has('east')) {
+        const gxEdge = worldToGridX(p.x + hw);
+        const gzMin = worldToGridZ(p.z - hd);
+        const gzMax = worldToGridZ(p.z + hd);
+        for (let i = 0; i < marginCells; i++) {
+            const gx = gxEdge - i;
+            if (gx < 0 || gx >= GRID_W) continue;
+            for (let gz = gzMin; gz <= gzMax; gz++) {
+                if (gz >= 0 && gz < GRID_D) {
+                    grid[gz * GRID_W + gx] = 1;
+                }
+            }
+        }
+    }
+
+}
+
+/**
+ * 标记房间边界为障碍（不可见房间整体封锁）
+ */
+function _markRoomBounds(room, fullBlock) {
+    const p = room.position;
+    const hw = room.bounds.halfW;
+    const hd = room.bounds.halfD;
+
+    const gx0 = worldToGridX(p.x - hw);
+    const gx1 = worldToGridX(p.x + hw);
+    const gz0 = worldToGridZ(p.z - hd);
+    const gz1 = worldToGridZ(p.z + hd);
+
+    if (fullBlock) {
+        for (let gz = gz0; gz <= gz1; gz++) {
+            for (let gx = gx0; gx <= gx1; gx++) {
+                if (gx >= 0 && gx < GRID_W && gz >= 0 && gz < GRID_D) {
+                    grid[gz * GRID_W + gx] = 1;
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 标记 AABB 为障碍（世界坐标）
+ */
+function _markBox(box, inflate) {
+    const gx0 = worldToGridX(box.min.x - inflate);
+    const gx1 = worldToGridX(box.max.x + inflate);
+    const gz0 = worldToGridZ(box.min.z - inflate);
+    const gz1 = worldToGridZ(box.max.z + inflate);
+    for (let gz = gz0; gz <= gz1; gz++) {
+        for (let gx = gx0; gx <= gx1; gx++) {
+            if (gx >= 0 && gx < GRID_W && gz >= 0 && gz < GRID_D) {
+                grid[gz * GRID_W + gx] = 1;
+            }
+        }
+    }
+}
+
+// ── 坐标转换 ──────────────────────────────────────────
+
 function worldToGridX(wx) {
     return THREE.MathUtils.clamp(Math.floor((wx - GRID_ORIGIN_X) / CELL_SIZE), 0, GRID_W - 1);
 }
 function worldToGridZ(wz) {
     return THREE.MathUtils.clamp(Math.floor((wz - GRID_ORIGIN_Z) / CELL_SIZE), 0, GRID_D - 1);
 }
-
-/** 网格坐标 → 世界坐标（格子中心） */
 function gridToWorld(gx, gz) {
     return new THREE.Vector3(
         GRID_ORIGIN_X + (gx + 0.5) * CELL_SIZE,
@@ -352,25 +443,16 @@ function isWalkable(gx, gz) {
     return grid[gz * GRID_W + gx] === 0;
 }
 
-/**
- * 在附近搜索最近的可通行格（按实际距离排序，保证返回最近的）
- * 同时确保结果在房间有效区域内
- */
 function findNearestFree(gx, gz, radius) {
-    const wallCells = Math.floor(WALL_MARGIN / CELL_SIZE);
     let bestDist = Infinity;
     let best = null;
-
     for (let dz = -radius; dz <= radius; dz++) {
         for (let dx = -radius; dx <= radius; dx++) {
             if (dx === 0 && dz === 0) continue;
             const nx = gx + dx;
             const nz = gz + dz;
             if (!isWalkable(nx, nz)) continue;
-            // 确保不在房间边界障碍带内（即确实在可行走区域）
-            if (nx < wallCells || nx >= GRID_W - wallCells) continue;
-            if (nz < wallCells || nz >= GRID_D - wallCells) continue;
-            const dist = dx * dx + dz * dz; // 用距离平方比较，避免 sqrt
+            const dist = dx * dx + dz * dz;
             if (dist < bestDist) {
                 bestDist = dist;
                 best = { x: nx, z: nz };
@@ -383,7 +465,7 @@ function findNearestFree(gx, gz, radius) {
 function heuristic(x0, z0, x1, z1) {
     const dx = Math.abs(x0 - x1);
     const dz = Math.abs(z0 - z1);
-    return Math.max(dx, dz) + (Math.SQRT2 - 1) * Math.min(dx, dz); // octile
+    return Math.max(dx, dz) + (Math.SQRT2 - 1) * Math.min(dx, dz);
 }
 
 function reconstructPath(cameFrom, endIdx) {
@@ -394,8 +476,6 @@ function reconstructPath(cameFrom, endIdx) {
         idx = cameFrom[idx];
     }
     indices.reverse();
-
-    // 转换为世界坐标
     return indices.map(i => {
         const gx = i % GRID_W;
         const gz = (i - gx) / GRID_W;
@@ -403,10 +483,6 @@ function reconstructPath(cameFrom, endIdx) {
     });
 }
 
-/**
- * Bresenham line-of-sight 检查，同时检查路径两侧相邻格子
- * 确保平滑路径不会贴着障碍物边缘走（角色有碰撞半径）
- */
 function hasLineOfSight(a, b) {
     let x0 = worldToGridX(a.x);
     let z0 = worldToGridZ(a.z);
@@ -420,14 +496,10 @@ function hasLineOfSight(a, b) {
     let err = dx - dz;
 
     while (true) {
-        // 检查当前格子及两侧相邻格子（为角色半径留出空间）
         if (!isWalkable(x0, z0)) return false;
-        // 垂直于行进方向偏移 1 格检查（根据主要行进方向选择偏移轴）
         if (dx >= dz) {
-            // 主要沿 X 方向行进，检查 Z 方向两侧
             if (!isWalkable(x0, z0 + 1) || !isWalkable(x0, z0 - 1)) return false;
         } else {
-            // 主要沿 Z 方向行进，检查 X 方向两侧
             if (!isWalkable(x0 + 1, z0) || !isWalkable(x0 - 1, z0)) return false;
         }
         if (x0 === x1 && z0 === z1) break;

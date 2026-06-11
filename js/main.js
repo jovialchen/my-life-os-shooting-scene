@@ -51,6 +51,7 @@ import { Apartment } from './apartment.js';
 // ── 角色 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
 import { initWalker, updateWalker, rebuildNavGrid } from './character/walker.js';
+import { initApartmentGrid, rebuildGrid } from './character/pathfinding.js';
 
 // ── 交互 ──
 import { createDragControls } from './interaction/dragControls.js';
@@ -113,6 +114,10 @@ apartment.addConnection('central-hall', 'master-bedroom', { x: 5.0, z: 6.5 });
 // 构建并显示客厅
 apartment.build(scene, 'living-room');
 
+// 初始化统一寻路网格（覆盖所有房间）
+initApartmentGrid(apartment.rooms);
+rebuildGrid(apartment.rooms);
+
 // ── 当前房间的可变引用 ──
 let currentRoomResult = apartment.getCurrentRoom().result;
 let door         = currentRoomResult.door;
@@ -123,8 +128,8 @@ let allMovables  = currentRoomResult.allMovables;
 let allSmallItems = currentRoomResult.smallItems;
 let furnitureList = currentRoomResult.furniture;
 
-// ── 房间切换回调 ──
-apartment.onRoomSwitch = (newRoomId, oldRoomId, entryPos) => {
+// ── 房间切换回调（仅更新 UI 引用，不传送角色）──
+apartment.onRoomChange = (newRoomId, oldRoomId) => {
     const newRoom = apartment.getCurrentRoom();
     currentRoomResult = newRoom.result;
     door         = currentRoomResult.door;
@@ -147,16 +152,6 @@ apartment.onRoomSwitch = (newRoomId, oldRoomId, entryPos) => {
         newFloorLampBulb.userData.baseIntensity = newFloorLampBulb.intensity;
     }
 
-    // 传送角色到新房间门口
-    if (entryPos) {
-        humanoid.position.x = entryPos.x;
-        humanoid.position.z = entryPos.z;
-        console.log(`[Room Switch] 传送到: x=${entryPos.x.toFixed(2)}, z=${entryPos.z.toFixed(2)}`);
-    }
-
-    // 重建寻路网格并继续走向目标
-    rebuildNavGrid();
-
     // 更新拖拽控制器的可移动物体列表
     if (dragControlsInstance) {
         dragControlsInstance.updateMovables([...allMovables, humanoid]);
@@ -171,7 +166,7 @@ apartment.onRoomSwitch = (newRoomId, oldRoomId, entryPos) => {
     // 刷新侧边栏 UI
     if (window._sidebarRefresh) window._sidebarRefresh();
 
-    console.log(`[Room Switch] ${oldRoomId} → ${newRoomId}`);
+    console.log(`[Room Change] ${oldRoomId} → ${newRoomId}`);
 };
 
 // 角色
@@ -514,8 +509,7 @@ const dragControlsInstance = createDragControls([...allMovables, humanoid], came
 // ============================================================
 //  角色点击走动
 // ============================================================
-const furnitureObstacles = [sofa, chair, coffeeTable, sideTable, bookshelf, floorLamp].filter(Boolean);
-initWalker(humanoid, camera, renderer, scene, furnitureObstacles, door, apartment);
+initWalker(humanoid, camera, renderer, scene, apartment);
 
 // ============================================================
 //  窗帘点击开合
@@ -577,6 +571,8 @@ renderer.domElement.addEventListener('pointerup', e => {
             door.userData.targetRotation = door.userData.isOpen ? Math.PI / 2 : 0;
             // 更新房间可见性（门打开时显示相邻房间）
             apartment.updateVisibility();
+            // 重建寻路网格（门口开合状态变化）
+            rebuildGrid(apartment.rooms);
         }
     }
 
@@ -755,7 +751,8 @@ function animate() {
             } else {
                 if (doorPivot.rotation.y !== door.userData.targetRotation) {
                     doorPivot.rotation.y = door.userData.targetRotation;
-                    rebuildNavGrid();
+                    // 门动画结束，重建寻路网格
+                    rebuildGrid(apartment.rooms);
                 }
             }
         }
