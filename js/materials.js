@@ -58,6 +58,16 @@ export const matPetalPurple  = new THREE.MeshStandardMaterial({ color: 0x9070b0,
 export const matPetalBlue    = new THREE.MeshStandardMaterial({ color: 0x7080c0, roughness: ROUGHNESS_SATIN }); // 蓝紫（鸢尾花）
 export const matPetalWhite   = new THREE.MeshStandardMaterial({ color: 0xf0ebe3, roughness: ROUGHNESS_SATIN }); // 白（茉莉）
 export const matFlowerCenter = new THREE.MeshStandardMaterial({ color: 0xf5d742, roughness: ROUGHNESS_MATTE }); // 黄花蕊
+export const matPetalYellow   = new THREE.MeshStandardMaterial({ color: 0xf0d020, roughness: ROUGHNESS_SATIN }); // 黄（向日葵/郁金香）
+export const matPetalLavender = new THREE.MeshStandardMaterial({ color: 0x8060a0, roughness: ROUGHNESS_SATIN }); // 紫（薰衣草）
+export const matPetalRed      = new THREE.MeshStandardMaterial({ color: 0xd03030, roughness: ROUGHNESS_SATIN }); // 红（郁金香）
+export const matSunflowerCenter = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: ROUGHNESS_MATTE }); // 棕（向日葵花心）
+
+// ── 树木 ──────────────────────────────────────────────
+export const matTrunk      = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: ROUGHNESS_SEMI_MATT }); // 深棕树干
+export const matCanopy     = new THREE.MeshStandardMaterial({ color: 0x4a8c3f, roughness: ROUGHNESS_MATTE });     // 鲜绿阔叶树冠
+export const matCanopyDark = new THREE.MeshStandardMaterial({ color: 0x2d6b2e, roughness: ROUGHNESS_MATTE });     // 深绿松树冠
+export const matBlossom    = new THREE.MeshStandardMaterial({ color: 0xf0a0b0, roughness: ROUGHNESS_SATIN });     // 粉红樱花
 
 // ── 外壳房子 ─────────────────────────────────────────
 export const matSiding  = new THREE.MeshStandardMaterial({ color: 0xf2efe9, roughness: ROUGHNESS_MATTE });        // 纯白外墙

@@ -54,7 +54,7 @@ import { Apartment } from './apartment.js';
 // ── 角色 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
 import { initWalker, updateWalker, rebuildNavGrid } from './character/walker.js';
-import { initApartmentGrid, rebuildGrid } from './character/pathfinding.js';
+import { initApartmentGrid, rebuildGrid, setTreePositions } from './character/pathfinding.js';
 
 // ── 交互 ──
 import { createDragControls } from './interaction/dragControls.js';
@@ -64,6 +64,9 @@ import { createHouseShell } from './elements/houseShell.js';
 
 // ── 花卉 ──
 import { createGardenFlowers } from './elements/flowers.js';
+
+// ── 大树 ──
+import { createGardenTrees, TREE_POSITIONS } from './elements/trees.js';
 
 // ── 栅栏 ──
 import { createFence } from './elements/fence.js';
@@ -206,11 +209,16 @@ scene.add(houseShellGroup);
 const gardenFlowers = createGardenFlowers(grass);
 scene.add(gardenFlowers);
 
+// ── 花园大树 ──
+const gardenTrees = createGardenTrees(grass);
+scene.add(gardenTrees);
+
 // ── 草地栅栏 + 拱形门 ──
 const fence = createFence(grass);
 scene.add(fence);
 
 // ── 初始化统一寻路网格（覆盖所有房间 + 走廊 + 草地） ──
+setTreePositions(TREE_POSITIONS);
 initApartmentGrid(apartment.rooms, apartment.corridorBounds, grass);
 rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
 
@@ -282,7 +290,7 @@ const humanoid = createHumanoid();
 scene.add(humanoid);
 
 // 墙体遮挡透明系统
-initWallOcclusion(apartment, camera, humanoid, houseShellGroup);
+initWallOcclusion(apartment, camera, humanoid, houseShellGroup, [gardenTrees, gardenFlowers]);
 
 // 从家具列表中提取引用（用于侧边栏和障碍物）
 const sofa        = furnitureList.find(f => f.type === 'sofa')?.group;

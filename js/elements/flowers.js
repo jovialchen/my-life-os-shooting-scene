@@ -1,13 +1,14 @@
 /**
- * 花卉工厂：5 种低多边形程序化花卉
+ * 花卉工厂：8 种低多边形程序化花卉
  *
- * 月季、玫瑰、紫罗兰、鸢尾花、茉莉
+ * 月季、玫瑰、紫罗兰、鸢尾花、茉莉、向日葵、薰衣草、郁金香
  * 工厂只管"建"，不管"放"。位置由调用者决定。
  */
 import * as THREE from 'three';
 import {
     matStem, matLeaf, matFlowerCenter,
     matPetalPink, matPetalDeepPink, matPetalPurple, matPetalBlue, matPetalWhite,
+    matPetalYellow, matPetalLavender, matPetalRed, matSunflowerCenter,
 } from '../materials.js';
 
 // ── 通用尺寸 ─────────────────────────────────────────
@@ -370,7 +371,164 @@ export function createJasmine({ position, scale: s = 1 } = {}) {
 //  花园批量放置
 // ============================================================
 
-const FLOWER_FACTORS = [createRose, createChinaRose, createViolet, createIris, createJasmine];
+const FLOWER_FACTORS = [createRose, createChinaRose, createViolet, createIris, createJasmine, createSunflower, createLavender, createTulip];
+
+
+// ============================================================
+//  ⑥ 向日葵（高茎，棕色花心 + 黄色花瓣）
+// ============================================================
+
+/**
+ * @param {object} [opts]
+ * @param {THREE.Vector3} [opts.position]
+ * @param {number} [opts.scale=1]
+ * @returns {THREE.Group}
+ */
+export function createSunflower({ position, scale: s = 1 } = {}) {
+    const g = new THREE.Group();
+    const h = 0.8 * s;
+
+    g.add(createStem(h));
+    g.add(createLeaf(h * 0.3, 0.2, s * 1.2));
+    g.add(createLeaf(h * 0.5, Math.PI * 0.8, s * 1.1));
+    g.add(createLeaf(h * 0.4, Math.PI * 1.5, s));
+
+    const flowerY = h + 0.03 * s;
+
+    // 棕色花心（大圆盘）
+    const center = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08 * s, 0.08 * s, 0.02 * s, 8),
+        matSunflowerCenter,
+    );
+    center.position.y = flowerY;
+    g.add(center);
+
+    // 黄色花瓣（12 片，向外辐射）
+    for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const petal = new THREE.Mesh(
+            new THREE.BoxGeometry(0.04 * s, 0.01 * s, 0.1 * s),
+            matPetalYellow,
+        );
+        petal.position.set(
+            Math.cos(angle) * 0.1 * s,
+            flowerY,
+            Math.sin(angle) * 0.1 * s,
+        );
+        petal.rotation.y = -angle;
+        petal.rotation.x = 0.3;
+        petal.castShadow = true;
+        g.add(petal);
+    }
+
+    if (position) g.position.copy(position);
+    return g;
+}
+
+
+// ============================================================
+//  ⑦ 薰衣草（矮穗状紫色花）
+// ============================================================
+
+/**
+ * @param {object} [opts]
+ * @param {THREE.Vector3} [opts.position]
+ * @param {number} [opts.scale=1]
+ * @returns {THREE.Group}
+ */
+export function createLavender({ position, scale: s = 1 } = {}) {
+    const g = new THREE.Group();
+    const h = 0.35 * s;
+
+    // 细茎
+    g.add(createStem(h));
+
+    // 窄叶
+    const leaf1 = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04 * s, 0.01 * s, 0.15 * s),
+        matLeaf,
+    );
+    leaf1.position.set(0.03 * s, h * 0.25, 0);
+    leaf1.rotation.set(0.3, 0, 0.5);
+    leaf1.castShadow = true;
+    g.add(leaf1);
+
+    const leaf2 = new THREE.Mesh(
+        new THREE.BoxGeometry(0.04 * s, 0.01 * s, 0.12 * s),
+        matLeaf,
+    );
+    leaf2.position.set(-0.02 * s, h * 0.2, 0.02 * s);
+    leaf2.rotation.set(0.2, 1, -0.4);
+    leaf2.castShadow = true;
+    g.add(leaf2);
+
+    // 穗状花序（多个小球堆叠）
+    const flowerY = h;
+    for (let i = 0; i < 8; i++) {
+        const bud = new THREE.Mesh(
+            new THREE.SphereGeometry(0.02 * s, 4, 3),
+            matPetalLavender,
+        );
+        bud.position.set(
+            (Math.random() - 0.5) * 0.02 * s,
+            flowerY + i * 0.02 * s,
+            (Math.random() - 0.5) * 0.02 * s,
+        );
+        bud.castShadow = true;
+        g.add(bud);
+    }
+
+    if (position) g.position.copy(position);
+    return g;
+}
+
+
+// ============================================================
+//  ⑧ 郁金香（杯状花，红/黄）
+// ============================================================
+
+/**
+ * @param {object} [opts]
+ * @param {THREE.Vector3} [opts.position]
+ * @param {number} [opts.scale=1]
+ * @returns {THREE.Group}
+ */
+export function createTulip({ position, scale: s = 1 } = {}) {
+    const g = new THREE.Group();
+    const h = 0.45 * s;
+
+    g.add(createStem(h));
+    g.add(createLeaf(h * 0.3, 0.3, s));
+    g.add(createLeaf(h * 0.25, Math.PI * 1.1, s * 0.9));
+
+    const flowerY = h + 0.01 * s;
+
+    // 杯状花（6 片花瓣围成杯形）
+    const petalMat = Math.random() > 0.5 ? matPetalRed : matPetalYellow;
+    for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const petal = new THREE.Mesh(
+            new THREE.ConeGeometry(0.04 * s, 0.12 * s, 4),
+            petalMat,
+        );
+        petal.position.set(
+            Math.cos(angle) * 0.03 * s,
+            flowerY + 0.04 * s,
+            Math.sin(angle) * 0.03 * s,
+        );
+        // 向内倾斜形成杯状
+        petal.rotation.x = -Math.sin(angle) * 0.3;
+        petal.rotation.z = Math.cos(angle) * 0.3;
+        petal.castShadow = true;
+        g.add(petal);
+    }
+
+    if (position) g.position.copy(position);
+    return g;
+}
+
+
+
 
 /**
  * 在建筑外围草地上生成随机花卉簇
@@ -387,21 +545,55 @@ export function createGardenFlowers(grassInfo) {
     const bldgMinZ = -4.0;
     const bldgMaxZ =  14.0;
 
-    // 在建筑四周生成花簇
+    // 在建筑四周生成花簇（密集版，窗窗春意盎然）
     const clusters = [
-        // 南侧（建筑前面）
+        // ── 南侧（建筑前面，4 扇南窗望出去）──
         { cx: -10, cz: bldgMinZ - 1.5, count: 6, spread: 2.5 },
         { cx:   0, cz: bldgMinZ - 1.8, count: 5, spread: 2.0 },
         { cx:  10, cz: bldgMinZ - 1.3, count: 6, spread: 2.5 },
-        // 北侧（建筑后面）
+        // 南侧新增密集花带
+        { cx:  -6, cz: bldgMinZ - 3.5, count: 7, spread: 3.0 },
+        { cx:   4, cz: bldgMinZ - 4.0, count: 7, spread: 3.0 },
+        { cx: -12, cz: bldgMinZ - 2.5, count: 5, spread: 2.0 },
+        { cx:  12, cz: bldgMinZ - 2.5, count: 5, spread: 2.0 },
+
+        // ── 北侧（建筑后面，4 扇北窗望出去）──
         { cx: -8,  cz: bldgMaxZ + 1.5, count: 5, spread: 2.0 },
         { cx:  8,  cz: bldgMaxZ + 1.5, count: 5, spread: 2.0 },
-        // 东侧
+        // 北侧新增密集花带
+        { cx: -4,  cz: bldgMaxZ + 3.0, count: 7, spread: 3.0 },
+        { cx:  4,  cz: bldgMaxZ + 3.5, count: 7, spread: 3.0 },
+        { cx: -12, cz: bldgMaxZ + 2.5, count: 5, spread: 2.0 },
+        { cx:  12, cz: bldgMaxZ + 2.5, count: 5, spread: 2.0 },
+
+        // ── 东侧（2 扇东窗望出去）──
         { cx: bldgMaxX + 1.5, cz: 3,  count: 4, spread: 2.0 },
         { cx: bldgMaxX + 1.5, cz: 8,  count: 4, spread: 1.5 },
-        // 西侧（门口附近少放）
+        // 东侧新增
+        { cx: bldgMaxX + 3.0, cz: 1,  count: 5, spread: 2.5 },
+        { cx: bldgMaxX + 3.0, cz: 10, count: 5, spread: 2.5 },
+
+        // ── 西侧（门口附近少放，2 扇西窗望出去）──
         { cx: bldgMinX - 1.5, cz: 2,  count: 3, spread: 1.5 },
         { cx: bldgMinX - 1.5, cz: 9,  count: 4, spread: 2.0 },
+        // 西侧新增（门口对面多放）
+        { cx: bldgMinX - 3.0, cz: 0,  count: 4, spread: 2.0 },
+        { cx: bldgMinX - 3.0, cz: 10, count: 5, spread: 2.5 },
+
+        // ── 树下花丛（大树根部点缀）──
+        { cx:  -6, cz: -10, count: 4, spread: 1.5 },  // 南左樱花下
+        { cx:   0, cz: -14, count: 5, spread: 2.0 },  // 南中大绿树下
+        { cx:   8, cz: -11, count: 4, spread: 1.5 },  // 南右松树下
+        { cx:  -8, cz:  19, count: 4, spread: 1.5 },  // 北左大绿树下
+        { cx:   7, cz:  20, count: 4, spread: 1.5 },  // 北右樱花下
+        { cx: -22, cz:   0, count: 3, spread: 1.2 },  // 西南松树下
+        { cx: -21, cz:  10, count: 3, spread: 1.2 },  // 西北大绿树下
+        { cx:  22, cz:   1, count: 3, spread: 1.2 },  // 东南大绿树下
+        { cx:  21, cz:  10, count: 3, spread: 1.2 },  // 东北松树下
+
+        // ── 草坪中央点缀 ──
+        { cx:  -5, cz:   5, count: 4, spread: 2.0 },
+        { cx:   5, cz:   5, count: 4, spread: 2.0 },
     ];
 
     for (const cluster of clusters) {
@@ -417,6 +609,8 @@ export function createGardenFlowers(grassInfo) {
             });
             // 随机旋转
             flower.rotation.y = Math.random() * Math.PI * 2;
+            // 标记所有 mesh 为遮挡体（挡住视线时变半透明）
+            flower.traverse(child => { if (child.isMesh) child.userData.isOccluder = true; });
             garden.add(flower);
         }
     }

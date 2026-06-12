@@ -12,6 +12,7 @@ let apartment = null;
 let camera = null;
 let humanoid = null;
 let houseShellGroup = null;
+let gardenGroups = [];
 
 const raycaster = new THREE.Raycaster();
 const _rayOrigin = new THREE.Vector3();
@@ -39,12 +40,14 @@ const _meshCache = [];
  * @param {THREE.Camera} cam
  * @param {THREE.Group} human
  * @param {THREE.Group} shell — 外壳房子 group
+ * @param {THREE.Group[]} gardens — 花园 group 数组（树木、花卉等）
  */
-export function initWallOcclusion(apt, cam, human, shell) {
+export function initWallOcclusion(apt, cam, human, shell, gardens = []) {
     apartment = apt;
     camera = cam;
     humanoid = human;
     houseShellGroup = shell;
+    gardenGroups = gardens;
 }
 
 /**
@@ -166,6 +169,16 @@ function collectVisibleWallMeshes() {
                 } else {
                     collect(child);
                 }
+            }
+        });
+    }
+
+    // 花园（树木、花卉等）
+    for (const group of gardenGroups) {
+        if (!group?.visible) continue;
+        group.traverse(child => {
+            if (child.isMesh && child.userData?.isOccluder) {
+                _meshCache.push(child);
             }
         });
     }

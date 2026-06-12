@@ -26,6 +26,9 @@ let GRID_ORIGIN_Z = 0;
 /** @type {Uint8Array} 0=可通行 1=障碍 */
 let grid = new Uint8Array(1);
 
+/** 树木位置（用于障碍标记） */
+let treePositions = [];
+
 // ── 公开 API ──────────────────────────────────────────
 
 /**
@@ -70,6 +73,14 @@ export function initApartmentGrid(rooms, corridorBounds, grass) {
     GRID_D = Math.max(1, Math.ceil((maxZ - minZ) / CELL_SIZE));
 
     grid = new Uint8Array(GRID_W * GRID_D);
+}
+
+/**
+ * 设置树木位置（用于障碍标记）
+ * @param {Array<{x: number, z: number, r: number}>} trees
+ */
+export function setTreePositions(trees) {
+    treePositions = trees;
 }
 
 /**
@@ -140,6 +151,9 @@ export function rebuildGrid(rooms, corridorBounds, corridorExitDoor, shellDoor, 
             _clearShellDoorway();
         }
     }
+
+    // 树干障碍
+    _markTreeTrunks();
 }
 
 /**
@@ -518,6 +532,29 @@ function _markBox(box, inflate) {
         for (let gx = gx0; gx <= gx1; gx++) {
             if (gx >= 0 && gx < GRID_W && gz >= 0 && gz < GRID_D) {
                 grid[gz * GRID_W + gx] = 1;
+            }
+        }
+    }
+}
+
+/**
+ * 标记树干位置为障碍（圆形区域）
+ */
+function _markTreeTrunks() {
+    for (const tree of treePositions) {
+        const gx0 = worldToGridX(tree.x - tree.r);
+        const gx1 = worldToGridX(tree.x + tree.r);
+        const gz0 = worldToGridZ(tree.z - tree.r);
+        const gz1 = worldToGridZ(tree.z + tree.r);
+        const r2 = tree.r * tree.r;
+        for (let gz = gz0; gz <= gz1; gz++) {
+            for (let gx = gx0; gx <= gx1; gx++) {
+                if (gx < 0 || gx >= GRID_W || gz < 0 || gz >= GRID_D) continue;
+                const dx = (gx + 0.5) * CELL_SIZE + GRID_ORIGIN_X - tree.x;
+                const dz = (gz + 0.5) * CELL_SIZE + GRID_ORIGIN_Z - tree.z;
+                if (dx * dx + dz * dz <= r2) {
+                    grid[gz * GRID_W + gx] = 1;
+                }
             }
         }
     }
