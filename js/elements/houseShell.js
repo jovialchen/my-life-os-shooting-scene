@@ -3,7 +3,7 @@
  * 包裹整个公寓，永远可见，外墙门窗与室内对齐
  */
 import * as THREE from 'three';
-import { matSiding, matTrim, matRoof, matGround, matFloor, matGlass, matFrame, matWood, matMetal } from '../materials.js';
+import { matSiding, matTrim, matGround, matFloor, matGlass, matFrame, matWood, matMetal } from '../materials.js';
 
 // ── 壳体尺寸 ──
 const SHELL_T   = 0.2;    // 外墙厚度
@@ -237,78 +237,6 @@ export function createHouseShell() {
     eastWall.userData.isOccluder = true;
     house.add(eastWall);
 
-    // ── 复折屋顶（Gambrel）──
-    const ROOF_BREAK_RATIO = 0.45;   // 折点在半深处的比例
-    const RIDGE_HEIGHT     = 2.0;    // 屋脊高出墙顶的高度
-    const BREAK_HEIGHT     = RIDGE_HEIGHT * 0.55; // 折点高度
-
-    const halfD    = (NORTH_Z - SOUTH_Z) / 2;
-    const breakZ   = EAVE_Z - halfD * ROOF_BREAK_RATIO;  // 南侧折点 z
-    const breakZN  = EAVE_Z + halfD * ROOF_BREAK_RATIO;  // 北侧折点 z
-    const eaveY    = WALL_TOP;
-    const breakY   = WALL_TOP + BREAK_HEIGHT;
-    const ridgeY   = WALL_TOP + RIDGE_HEIGHT;
-
-    // 用 BufferGeometry 构建四面屋顶
-    const roofVertices = new Float32Array([
-        // ── 南下坡 ──
-        WEST_X, eaveY,  SOUTH_Z,   EAST_X, eaveY,  SOUTH_Z,   EAST_X, breakY, breakZ,
-        WEST_X, eaveY,  SOUTH_Z,   EAST_X, breakY, breakZ,    WEST_X, breakY, breakZ,
-        // ── 南上坡 ──
-        WEST_X, breakY, breakZ,    EAST_X, breakY, breakZ,    EAST_X, ridgeY, EAVE_Z,
-        WEST_X, breakY, breakZ,    EAST_X, ridgeY, EAVE_Z,    WEST_X, ridgeY, EAVE_Z,
-        // ── 北上坡 ──
-        WEST_X, ridgeY, EAVE_Z,    EAST_X, ridgeY, EAVE_Z,    EAST_X, breakY, breakZN,
-        WEST_X, ridgeY, EAVE_Z,    EAST_X, breakY, breakZN,   WEST_X, breakY, breakZN,
-        // ── 北下坡 ──
-        WEST_X, breakY, breakZN,   EAST_X, breakY, breakZN,   EAST_X, eaveY,  NORTH_Z,
-        WEST_X, breakY, breakZN,   EAST_X, eaveY,  NORTH_Z,   WEST_X, eaveY,  NORTH_Z,
-    ]);
-
-    const roofGeo = new THREE.BufferGeometry();
-    roofGeo.setAttribute('position', new THREE.BufferAttribute(roofVertices, 3));
-    roofGeo.computeVertexNormals();
-
-    const roof = new THREE.Mesh(roofGeo, matRoof);
-    roof.castShadow = true;
-    roof.receiveShadow = true;
-    house.add(roof);
-
-    // ── 山墙三角面（东西两端）──
-    // 复折山墙轮廓：6 个顶点，拆成 4 个三角形
-    const gableVerts = new Float32Array([
-        // ── 西山墙（法线朝 -x，CCW 从外看）──
-        // 南下梯形（2 三角）
-        WEST_X, eaveY,  SOUTH_Z,   WEST_X, eaveY,  breakZ,    WEST_X, breakY, breakZ,
-        WEST_X, eaveY,  SOUTH_Z,   WEST_X, breakY, breakZ,    WEST_X, breakY, EAVE_Z,
-        // 南上三角
-        WEST_X, eaveY,  SOUTH_Z,   WEST_X, breakY, EAVE_Z,    WEST_X, eaveY,  EAVE_Z,
-        // 北下梯形（2 三角）
-        WEST_X, eaveY,  NORTH_Z,   WEST_X, breakY, breakZN,   WEST_X, eaveY,  breakZN,
-        WEST_X, eaveY,  NORTH_Z,   WEST_X, breakY, EAVE_Z,    WEST_X, breakY, breakZN,
-        // 北上三角
-        WEST_X, eaveY,  NORTH_Z,   WEST_X, eaveY,  EAVE_Z,    WEST_X, breakY, EAVE_Z,
-
-        // ── 东山墙（法线朝 +x，CW 从外看）──
-        // 南下梯形
-        EAST_X, eaveY,  SOUTH_Z,   EAST_X, breakY, breakZ,    EAST_X, eaveY,  breakZ,
-        EAST_X, eaveY,  SOUTH_Z,   EAST_X, breakY, EAVE_Z,    EAST_X, breakY, breakZ,
-        // 南上三角
-        EAST_X, eaveY,  SOUTH_Z,   EAST_X, eaveY,  EAVE_Z,    EAST_X, breakY, EAVE_Z,
-        // 北下梯形
-        EAST_X, eaveY,  NORTH_Z,   EAST_X, eaveY,  breakZN,   EAST_X, breakY, breakZN,
-        EAST_X, eaveY,  NORTH_Z,   EAST_X, breakY, breakZN,   EAST_X, breakY, EAVE_Z,
-        // 北上三角
-        EAST_X, eaveY,  NORTH_Z,   EAST_X, breakY, EAVE_Z,    EAST_X, eaveY,  EAVE_Z,
-    ]);
-
-    const gableGeo = new THREE.BufferGeometry();
-    gableGeo.setAttribute('position', new THREE.BufferAttribute(gableVerts, 3));
-    gableGeo.computeVertexNormals();
-
-    const gable = new THREE.Mesh(gableGeo, matSiding);
-    gable.castShadow = true;
-    house.add(gable);
 
     // ── 地面：绿色草地圆 + 建筑底部地板色 ──
     const GRASS_RADIUS = 25;
