@@ -96,7 +96,7 @@ export const SEASON_PRESETS = [
     { name: '春', nameEn: 'Spring', grass: 0x7acc68, canopy: 0x5aad50, canopyDark: 0x2d6b2e, blossom: 0xf0a0b0, flowerRatio: 1.0 },
     { name: '夏', nameEn: 'Summer', grass: 0x4a8c3f, canopy: 0x2d6b2e, canopyDark: 0x1a5a1e, blossom: 0xe8a0a0, flowerRatio: 1.0 },
     { name: '秋', nameEn: 'Autumn', grass: 0xb8a040, canopy: 0xc07030, canopyDark: 0x2d6b2e, blossom: null,     flowerRatio: 0.15 },
-    { name: '冬', nameEn: 'Winter', grass: 0x8a8a70, canopy: null,     canopyDark: 0x3a7a3a, blossom: null,     flowerRatio: 0.0 },
+    { name: '冬', nameEn: 'Winter', grass: 0xe8e8e8, canopy: null,     canopyDark: 0x3a7a3a, blossom: null,     flowerRatio: 0.0 },
 ];
 
 // ── 窗帘衰减比例（窗帘全关时保留的光线比例） ──

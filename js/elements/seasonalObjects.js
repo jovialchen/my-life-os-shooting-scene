@@ -54,7 +54,7 @@ function createFruits(gardenTreesGroup) {
 
             const mat = Math.random() > 0.5 ? matFruit1 : matFruit2;
             const fruit = new THREE.Mesh(
-                new THREE.SphereGeometry(0.06, 6, 5),
+                new THREE.SphereGeometry(0.12, 6, 5),
                 mat,
             );
             // 挂在树冠表面附近（稍微偏移）
@@ -168,36 +168,56 @@ function createSnowman(position) {
     const g = new THREE.Group();
     g.name = 'snowman';
 
-    // 底球
-    const bottom = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), matSnow);
-    bottom.position.y = 0.5;
+    // 底球（大）
+    const bottom = new THREE.Mesh(new THREE.SphereGeometry(0.8, 8, 6), matSnow);
+    bottom.position.y = 0.8;
     bottom.castShadow = true;
     g.add(bottom);
 
     // 中球
-    const middle = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), matSnow);
-    middle.position.y = 1.15;
+    const middle = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), matSnow);
+    middle.position.y = 1.85;
     middle.castShadow = true;
     g.add(middle);
 
     // 头球
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 6), matSnow);
-    head.position.y = 1.65;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6), matSnow);
+    head.position.y = 2.65;
     head.castShadow = true;
     g.add(head);
 
-    // 眼睛
+    // 眼睛（大号黑色）
     for (const side of [-1, 1]) {
-        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 4, 3), matSnowmanEye);
-        eye.position.set(side * 0.08, 1.72, 0.2);
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 4), matSnowmanEye);
+        eye.position.set(side * 0.14, 2.78, 0.32);
         g.add(eye);
     }
 
-    // 胡萝卜鼻子
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.15, 4), matSnowmanNose);
-    nose.position.set(0, 1.65, 0.25);
+    // 胡萝卜鼻子（大号橙色）
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.3, 5), matSnowmanNose);
+    nose.position.set(0, 2.65, 0.38);
     nose.rotation.x = Math.PI / 2;
     g.add(nose);
+
+    // 黑色礼帽
+    const matHat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 });
+    // 帽檐
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.06, 8), matHat);
+    brim.position.y = 3.0;
+    brim.castShadow = true;
+    g.add(brim);
+    // 帽筒
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.3, 0.45, 8), matHat);
+    crown.position.y = 3.25;
+    crown.castShadow = true;
+    g.add(crown);
+
+    // 红色围巾
+    const matScarf = new THREE.MeshStandardMaterial({ color: 0xcc2222, roughness: 0.85 });
+    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 5, 12), matScarf);
+    scarf.position.set(0, 2.3, 0);
+    scarf.rotation.x = Math.PI / 2;
+    g.add(scarf);
 
     g.position.copy(position);
     return g;

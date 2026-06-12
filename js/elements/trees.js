@@ -10,6 +10,38 @@ import { matTrunk, matCanopy, matCanopyDark, matBlossom } from '../materials.js'
 // ── 通用参数 ─────────────────────────────────────────
 const TRUNK_SEGMENTS = 6;  // 低多边形
 
+/**
+ * 给树添加树杈（4-5 个从树干伸出的分支）
+ * @param {THREE.Group} g — 树的 group
+ * @param {number} trunkH — 树干高度
+ * @param {number} trunkR — 树干半径
+ * @param {number} s — 缩放
+ */
+function addBranches(g, trunkH, trunkR, s) {
+    const branchCount = 4 + Math.floor(Math.random() * 2); // 4-5 个
+    for (let i = 0; i < branchCount; i++) {
+        const angle = (i / branchCount) * Math.PI * 2 + Math.random() * 0.5;
+        const branchLen = (0.4 + Math.random() * 0.5) * s;
+        const branchR = trunkR * 0.35;
+        const branchY = trunkH * (0.5 + Math.random() * 0.35); // 在树干中上部分出
+
+        const branch = new THREE.Mesh(
+            new THREE.CylinderGeometry(branchR * 0.5, branchR, branchLen, 4),
+            matTrunk,
+        );
+        branch.position.set(
+            Math.cos(angle) * branchLen * 0.4,
+            branchY,
+            Math.sin(angle) * branchLen * 0.4,
+        );
+        // 向外倾斜
+        branch.rotation.z = Math.cos(angle) * 0.8;
+        branch.rotation.x = Math.sin(angle) * 0.8;
+        branch.castShadow = true;
+        g.add(branch);
+    }
+}
+
 
 // ============================================================
 //  ① 圆冠阔叶树（绿球冠）
@@ -36,6 +68,9 @@ export function createDeciduousTree({ position, scale: s = 1 } = {}) {
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     g.add(trunk);
+
+    // 树杈
+    addBranches(g, trunkH, trunkR, s);
 
     // 树冠（球体，稍微压扁）
     const canopy = new THREE.Mesh(
@@ -90,6 +125,9 @@ export function createCherryBlossom({ position, scale: s = 1 } = {}) {
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     g.add(trunk);
+
+    // 树杈
+    addBranches(g, trunkH, trunkR, s);
 
     // 樱花主冠
     const canopy = new THREE.Mesh(
@@ -147,6 +185,9 @@ export function createPineTree({ position, scale: s = 1 } = {}) {
     trunk.position.y = trunkH / 2;
     trunk.castShadow = true;
     g.add(trunk);
+
+    // 树杈
+    addBranches(g, trunkH, trunkR, s);
 
     // 三层锥形树冠（从下到上递减）
     const layers = [
