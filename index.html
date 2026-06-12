@@ -190,6 +190,53 @@
             min-width: 28px;
             text-align: center;
         }
+        /* 季节滑块 */
+        #season-bar {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(20,15,25,0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 8px 18px;
+            z-index: 20;
+            user-select: none;
+        }
+        #season-bar label {
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        #season-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 200px;
+            height: 4px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        #season-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #88cc77;
+            cursor: pointer;
+        }
+        #season-label {
+            color: rgba(255,255,255,0.9);
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 28px;
+            text-align: center;
+        }
         /* 语言切换球 */
         #lang-globe {
             position: absolute;
@@ -284,6 +331,11 @@
     <label>☀ 时间</label>
     <input id="time-slider" type="range" min="0" max="5" step="0.01" value="2">
     <span id="time-label">中午</span>
+</div>
+<div id="season-bar">
+    <label>🍃 季节</label>
+    <input id="season-slider" type="range" min="0" max="3" step="0.01" value="0">
+    <span id="season-label">春</span>
 </div>
 <div id="compass">
     <div id="compass-indicator"></div>

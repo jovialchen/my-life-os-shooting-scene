@@ -91,6 +91,14 @@ export const TIME_PRESETS = [
     { name: '夜晚', nameEn: 'Night',   az: 180, el: -10, h: 0.6,  s: 0.3,  l: 0.1,  sun: 0,    ambient: 0.03, fill: 0.02, spot: 0,    bg: 0x0a0a1a },
 ];
 
+// ── 四季预设 ─────────────────────────────────────────
+export const SEASON_PRESETS = [
+    { name: '春', nameEn: 'Spring', grass: 0x7acc68, canopy: 0x5aad50, canopyDark: 0x2d6b2e, blossom: 0xf0a0b0, flowerRatio: 1.0 },
+    { name: '夏', nameEn: 'Summer', grass: 0x4a8c3f, canopy: 0x2d6b2e, canopyDark: 0x1a5a1e, blossom: 0xe8a0a0, flowerRatio: 1.0 },
+    { name: '秋', nameEn: 'Autumn', grass: 0xb8a040, canopy: 0xc07030, canopyDark: 0x2d6b2e, blossom: null,     flowerRatio: 0.15 },
+    { name: '冬', nameEn: 'Winter', grass: 0x8a8a70, canopy: null,     canopyDark: 0x3a7a3a, blossom: null,     flowerRatio: 0.0 },
+];
+
 // ── 窗帘衰减比例（窗帘全关时保留的光线比例） ──
 export const CURTAIN_SUN_FACTOR    = 0.08;  // 太阳光几乎全挡
 export const CURTAIN_SPOT_FACTOR   = 0.1;   // 窗外聚光大幅减弱

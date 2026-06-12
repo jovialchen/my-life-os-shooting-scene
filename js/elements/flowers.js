@@ -596,6 +596,7 @@ export function createGardenFlowers(grassInfo) {
         { cx:   5, cz:   5, count: 4, spread: 2.0 },
     ];
 
+    let flowerIndex = 0;
     for (const cluster of clusters) {
         for (let i = 0; i < cluster.count; i++) {
             const factory = FLOWER_FACTORS[Math.floor(Math.random() * FLOWER_FACTORS.length)];
@@ -609,6 +610,7 @@ export function createGardenFlowers(grassInfo) {
             });
             // 随机旋转
             flower.rotation.y = Math.random() * Math.PI * 2;
+            flower.userData.flowerIndex = flowerIndex++;
             // 标记所有 mesh 为遮挡体（挡住视线时变半透明）
             flower.traverse(child => { if (child.isMesh) child.userData.isOccluder = true; });
             garden.add(flower);

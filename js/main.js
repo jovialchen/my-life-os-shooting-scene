@@ -68,6 +68,12 @@ import { createGardenFlowers } from './elements/flowers.js';
 // ── 大树 ──
 import { createGardenTrees, TREE_POSITIONS } from './elements/trees.js';
 
+// ── 季节物体 ──
+import { createSeasonalObjects } from './elements/seasonalObjects.js';
+
+// ── 季节系统 ──
+import { initSeasons, updateSeason } from './systems/seasons.js';
+
 // ── 栅栏 ──
 import { createFence } from './elements/fence.js';
 
@@ -202,7 +208,7 @@ apartment.setCorridorBounds({
 apartment.build(scene, 'room-f');
 
 // ── 外壳房子（永远可见）──
-const { group: houseShellGroup, door: shellDoor, grass } = createHouseShell();
+const { group: houseShellGroup, door: shellDoor, grass, grassMesh } = createHouseShell();
 scene.add(houseShellGroup);
 
 // ── 花园花卉 ──
@@ -213,6 +219,10 @@ scene.add(gardenFlowers);
 const gardenTrees = createGardenTrees(grass);
 scene.add(gardenTrees);
 
+// ── 季节物体（果子/蘑菇/雪人/雪团）──
+const seasonalObjects = createSeasonalObjects(grass, TREE_POSITIONS);
+scene.add(seasonalObjects);
+
 // ── 草地栅栏 + 拱形门 ──
 const fence = createFence(grass);
 scene.add(fence);
@@ -221,6 +231,10 @@ scene.add(fence);
 setTreePositions(TREE_POSITIONS);
 initApartmentGrid(apartment.rooms, apartment.corridorBounds, grass);
 rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
+
+// ── 初始化四季系统 ──
+initSeasons(grassMesh, gardenTrees, gardenFlowers, seasonalObjects);
+updateSeason(0); // 默认春天
 
 // ── 当前房间的可变引用 ──
 let currentRoomResult = apartment.getCurrentRoom().result;
@@ -370,6 +384,8 @@ rebuildSidebarItems();
             tabs: ['物品', '人物', '规则'],
             time: '时间',
             timeNames: TIME_PRESETS.map(p => p.name),
+            season: '季节',
+            seasonNames: ['春', '夏', '秋', '冬'],
             rules: {
                 title: '游戏规则',
                 controls: '基本操作',
@@ -395,6 +411,8 @@ rebuildSidebarItems();
             tabs: ['Items', 'Cast', 'Rules'],
             time: 'Time',
             timeNames: TIME_PRESETS.map(p => p.nameEn || p.name),
+            season: 'Season',
+            seasonNames: ['Spring', 'Summer', 'Autumn', 'Winter'],
             rules: {
                 title: 'Game Rules',
                 controls: 'Basic Controls',
@@ -587,6 +605,14 @@ rebuildSidebarItems();
         const timeLabelEl = document.getElementById('time-label');
         if (slider && timeLabelEl) {
             timeLabelEl.textContent = t('timeNames')[Math.round(parseFloat(slider.value))] || '';
+        }
+        // 季节标签
+        const seasonBarLabel = document.querySelector('#season-bar label');
+        if (seasonBarLabel) seasonBarLabel.textContent = `🍃 ${t('season')}`;
+        const seasonSliderEl = document.getElementById('season-slider');
+        const seasonLabelEl = document.getElementById('season-label');
+        if (seasonSliderEl && seasonLabelEl) {
+            seasonLabelEl.textContent = t('seasonNames')[Math.round(parseFloat(seasonSliderEl.value))] || '';
         }
         renderItems();
         renderCharacters();
@@ -821,6 +847,24 @@ if (timeSlider) {
         updateTimeOfDay(v);
         const preset = TIME_PRESETS[Math.round(v)];
         if (timeLabel) timeLabel.textContent = (window._sidebarLang && window._sidebarLang() === 'en') ? preset.nameEn : preset.name;
+    });
+}
+
+// ── 季节滑块 ──
+const SEASON_PRESETS_REF = [
+    { name: '春', nameEn: 'Spring' },
+    { name: '夏', nameEn: 'Summer' },
+    { name: '秋', nameEn: 'Autumn' },
+    { name: '冬', nameEn: 'Winter' },
+];
+const seasonSlider = document.getElementById('season-slider');
+const seasonLabel  = document.getElementById('season-label');
+if (seasonSlider) {
+    seasonSlider.addEventListener('input', () => {
+        const v = parseFloat(seasonSlider.value);
+        updateSeason(v);
+        const preset = SEASON_PRESETS_REF[Math.round(v)];
+        if (seasonLabel) seasonLabel.textContent = (window._sidebarLang && window._sidebarLang() === 'en') ? preset.nameEn : preset.name;
     });
 }
 

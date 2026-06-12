@@ -303,5 +303,6 @@ export function createHouseShell() {
         group: house,
         door: doorGroup,
         grass: { centerX: GRASS_CENTER_X, centerZ: GRASS_CENTER_Z, radius: GRASS_RADIUS },
+        grassMesh: grass,
     };
 }

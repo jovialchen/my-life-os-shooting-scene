@@ -213,27 +213,27 @@ export function createGardenTrees(grassInfo) {
     // 放置位置：围绕建筑，每扇窗户视野方向至少有 1-2 棵树
     const placements = [
         // ── 南侧（4 扇南窗 z=-3.5 望出去的方向）──
-        { x:  -6, z: -10, factory: createCherryBlossom, s: 1.1 },  // room-e, room-f 窗景
-        { x:   0, z: -14, factory: createDeciduousTree, s: 1.3 },  // room-f, room-g 窗景（正中大绿树）
-        { x:   8, z: -11, factory: createPineTree,      s: 1.0 },  // room-g, room-h 窗景
+        { x:  -6, z: -10, factory: createCherryBlossom, type: 'cherry',   s: 1.1 },  // room-e, room-f 窗景
+        { x:   0, z: -14, factory: createDeciduousTree, type: 'deciduous', s: 1.3 },  // room-f, room-g 窗景（正中大绿树）
+        { x:   8, z: -11, factory: createPineTree,      type: 'pine',      s: 1.0 },  // room-g, room-h 窗景
 
         // ── 北侧（4 扇北窗 z=13.5 望出去的方向）──
-        { x:  -8, z: 19,  factory: createDeciduousTree, s: 1.2 },  // room-a, room-b 窗景
-        { x:   7, z: 20,  factory: createCherryBlossom, s: 1.0 },  // room-c, room-d 窗景
+        { x:  -8, z: 19,  factory: createDeciduousTree, type: 'deciduous', s: 1.2 },  // room-a, room-b 窗景
+        { x:   7, z: 20,  factory: createCherryBlossom, type: 'cherry',    s: 1.0 },  // room-c, room-d 窗景
 
         // ── 西侧（2 扇西窗 x=-16 望出去的方向）──
-        { x: -22, z:  0,  factory: createPineTree,      s: 1.1 },  // room-e 西窗
-        { x: -21, z: 10,  factory: createDeciduousTree, s: 1.0 },  // room-a 西窗
+        { x: -22, z:  0,  factory: createPineTree,      type: 'pine',      s: 1.1 },  // room-e 西窗
+        { x: -21, z: 10,  factory: createDeciduousTree, type: 'deciduous', s: 1.0 },  // room-a 西窗
 
         // ── 东侧（2 扇东窗 x=16 望出去的方向）──
-        { x:  22, z:  1,  factory: createDeciduousTree, s: 1.1 },  // room-h 东窗
-        { x:  21, z: 10,  factory: createPineTree,      s: 1.0 },  // room-d 东窗
+        { x:  22, z:  1,  factory: createDeciduousTree, type: 'deciduous', s: 1.1 },  // room-h 东窗
+        { x:  21, z: 10,  factory: createPineTree,      type: 'pine',      s: 1.0 },  // room-d 东窗
 
         // ── 额外点缀（增加层次感）──
-        { x: -15, z: -15, factory: createPineTree,      s: 0.9 },  // 西南角
-        { x:  15, z: -16, factory: createDeciduousTree, s: 0.9 },  // 东南角
-        { x: -14, z: 21,  factory: createCherryBlossom, s: 0.8 },  // 西北角
-        { x:  14, z: 22,  factory: createPineTree,      s: 0.8 },  // 东北角
+        { x: -15, z: -15, factory: createPineTree,      type: 'pine',      s: 0.9 },  // 西南角
+        { x:  15, z: -16, factory: createDeciduousTree, type: 'deciduous', s: 0.9 },  // 东南角
+        { x: -14, z: 21,  factory: createCherryBlossom, type: 'cherry',    s: 0.8 },  // 西北角
+        { x:  14, z: 22,  factory: createPineTree,      type: 'pine',      s: 0.8 },  // 东北角
     ];
 
     for (const p of placements) {
@@ -252,6 +252,7 @@ export function createGardenTrees(grassInfo) {
             scale: p.s,
         });
         tree.rotation.y = Math.random() * Math.PI * 2;
+        tree.userData.treeType = p.type;
         // 标记所有 mesh 为遮挡体（挡住视线时变半透明）
         tree.traverse(child => { if (child.isMesh) child.userData.isOccluder = true; });
         garden.add(tree);
