@@ -18,7 +18,7 @@ const ROUGHNESS_GLASS     = 0.02;  // 玻璃
 export const matWall    = new THREE.MeshStandardMaterial({ color: 0xd8d2ca, roughness: ROUGHNESS_MATTE });     // 浅灰墙面
 export const matFloor   = new THREE.MeshStandardMaterial({ color: 0xc4a882, roughness: ROUGHNESS_SEMI_MATT }); // 浅原木地板
 export const matCeiling = new THREE.MeshStandardMaterial({ color: 0xf2efe9, roughness: ROUGHNESS_SMOOTH });    // 纯白天花板
-export const matGlass   = new THREE.MeshStandardMaterial({ color: 0xaaddff, transparent: true, opacity: 0.1, roughness: ROUGHNESS_GLASS, metalness: 0.3 });
+export const matGlass   = new THREE.MeshStandardMaterial({ color: 0xaaddff, transparent: true, opacity: 0.1, roughness: ROUGHNESS_GLASS, metalness: 0.3, side: THREE.DoubleSide });
 export const matFrame   = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: ROUGHNESS_LOW });
 
 // ── 家具通用 ──────────────────────────────────────────

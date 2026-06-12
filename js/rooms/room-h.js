@@ -22,8 +22,12 @@ export const roomH = {
             facing: 'south',
             window: { width: 5, sillHeight: 0.25, topHeight: 3.25 },
         },
-        // 东墙：实心（公寓外墙）
-        { type: 'solid', facing: 'east' },
+        // 东墙：窗（公寓外墙，采光）
+        {
+            type: 'window',
+            facing: 'east',
+            window: { width: 5, sillHeight: 0.25, topHeight: 3.25 },
+        },
         // 西墙：实心
         { type: 'solid', facing: 'west' },
     ],

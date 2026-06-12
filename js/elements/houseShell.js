@@ -207,18 +207,28 @@ export function createHouseShell() {
     northWall.userData.isOccluder = true;
     house.add(northWall);
 
-    // 西墙（1 个门，对应走廊出口）
+    // 西墙（1 个门 + 2 个窗户，对应走廊出口 + room-e/room-a）
     // rotation.y = -PI/2 后 local_x → world_z = local_x
     // 墙中心需对齐建筑中心 world_z = EAVE_Z = 5，用偏移组实现
     const wallDepth = NORTH_Z - SOUTH_Z;  // 18
     const westOpenings = [
-        { x: 0, w: DOOR_W, y: DOOR_H / 2, h: DOOR_H },  // 门在墙中心 = world_z = EAVE_Z
+        { x: -5, w: WIN_W, y: (WIN_SILL + WIN_TOP) / 2, h: WIN_H },  // room-e 窗（world_z=0）
+        { x: 0,  w: DOOR_W, y: DOOR_H / 2, h: DOOR_H },              // 走廊出口门
+        { x:  5, w: WIN_W, y: (WIN_SILL + WIN_TOP) / 2, h: WIN_H },  // room-a 窗（world_z=10）
     ];
     const westWall = wallWithOpenings(wallDepth, WALL_TOP, SHELL_T, westOpenings, matSiding);
     westWall.userData.isOccluder = true;
     const doorGroup = new THREE.Group();
     addDoor(doorGroup, DOOR_W, DOOR_H, SHELL_T, 1);
     westWall.add(doorGroup);
+    // 西墙窗户（room-e 在 local_x=-5，room-a 在 local_x=+5）
+    for (const op of westOpenings) {
+        if (op.w === DOOR_W) continue; // 跳过门洞
+        const wg = new THREE.Group();
+        addWindow(wg, op.w, WIN_SILL, WIN_TOP, SHELL_T, 1);
+        wg.position.set(op.x, 0, 0);
+        westWall.add(wg);
+    }
     // 偏移组：墙中心从 local_x=0 移到 local_x=EAVE_Z，旋转后对齐 world_z=EAVE_Z
     const westPivot = new THREE.Group();
     westPivot.add(westWall);
@@ -226,15 +236,24 @@ export function createHouseShell() {
     westPivot.position.set(WEST_X, 0, EAVE_Z);
     house.add(westPivot);
 
-    // 东墙（实墙，无旋转，z 维度 = wallDepth，居中对齐建筑 z = EAVE_Z）
-    const eastWall = new THREE.Mesh(
-        new THREE.BoxGeometry(SHELL_T, WALL_TOP, wallDepth),
-        matSiding,
-    );
-    eastWall.position.set(EAST_X, WALL_TOP / 2, EAVE_Z);
-    eastWall.castShadow = true;
-    eastWall.receiveShadow = true;
+    // 东墙（2 个窗户，对应 room-h/room-d）
+    // rotation.y = PI/2 后 local_x → world_z = -local_x + EAVE_Z
+    // local_x=+5 → world_z=0（room-h 东墙），local_x=-5 → world_z=10（room-d 东墙）
+    const eastOpenings = [
+        { x:  5, w: WIN_W, y: (WIN_SILL + WIN_TOP) / 2, h: WIN_H },  // room-h 窗（world_z=0）
+        { x: -5, w: WIN_W, y: (WIN_SILL + WIN_TOP) / 2, h: WIN_H },  // room-d 窗（world_z=10）
+    ];
+    const eastWall = wallWithOpenings(wallDepth, WALL_TOP, SHELL_T, eastOpenings, matSiding);
     eastWall.userData.isOccluder = true;
+    // 东墙窗户（旋转 PI/2 后 +z 面朝东=外侧，zSign = +1）
+    for (const op of eastOpenings) {
+        const wg = new THREE.Group();
+        addWindow(wg, op.w, WIN_SILL, WIN_TOP, SHELL_T, 1);
+        wg.position.set(op.x, 0, 0);
+        eastWall.add(wg);
+    }
+    eastWall.rotation.y = Math.PI / 2;
+    eastWall.position.set(EAST_X, 0, EAVE_Z);
     house.add(eastWall);
 
 

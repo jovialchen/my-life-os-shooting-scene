@@ -43,8 +43,21 @@ export function createNorthRoomConfig({ id }) {
 
 // ── 北排 4 间 ──
 
-/** room-a：北排左一（最左，西墙是公寓外墙） */
-export const roomA = createNorthRoomConfig({ id: 'room-a' });
+/** room-a：北排左一（最左，西墙是公寓外墙，有窗） */
+export const roomA = {
+    id: 'room-a',
+    size: { width: 8, depth: 7, height: 3.5 },
+    walls: [
+        { type: 'window', facing: 'north', window: { width: 5, sillHeight: 0.25, topHeight: 3.25 } },
+        { type: 'door', facing: 'south', door: { width: 1.2, height: 2.4, openDirection: 'left' } },
+        { type: 'solid', facing: 'east' },
+        { type: 'window', facing: 'west', window: { width: 5, sillHeight: 0.25, topHeight: 3.25 } },
+    ],
+    furniture: [],
+    lights: [{ type: 'ceilingLight', pos: { x: 0, z: 0 } }],
+    decorations: [],
+    smallItems: [],
+};
 
 /** room-b：北排左二 */
 export const roomB = createNorthRoomConfig({ id: 'room-b' });
@@ -52,8 +65,21 @@ export const roomB = createNorthRoomConfig({ id: 'room-b' });
 /** room-c：北排右二 */
 export const roomC = createNorthRoomConfig({ id: 'room-c' });
 
-/** room-d：北排右一（最右，东墙是公寓外墙） */
-export const roomD = createNorthRoomConfig({ id: 'room-d' });
+/** room-d：北排右一（最右，东墙是公寓外墙，有窗） */
+export const roomD = {
+    id: 'room-d',
+    size: { width: 8, depth: 7, height: 3.5 },
+    walls: [
+        { type: 'window', facing: 'north', window: { width: 5, sillHeight: 0.25, topHeight: 3.25 } },
+        { type: 'door', facing: 'south', door: { width: 1.2, height: 2.4, openDirection: 'left' } },
+        { type: 'window', facing: 'east', window: { width: 5, sillHeight: 0.25, topHeight: 3.25 } },
+        { type: 'solid', facing: 'west' },
+    ],
+    furniture: [],
+    lights: [{ type: 'ceilingLight', pos: { x: 0, z: 0 } }],
+    decorations: [],
+    smallItems: [],
+};
 
 // ── 向后兼容旧名 ──
 export const bedroom1 = roomA;

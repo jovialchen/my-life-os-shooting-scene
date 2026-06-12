@@ -37,8 +37,8 @@ function computeWallTransform(facing, size) {
     switch (facing) {
         case 'south': return { pos: { x: 0, y: 0, z: -halfD }, rotY: 0 };
         case 'north': return { pos: { x: 0, y: 0, z: halfD },  rotY: Math.PI };
-        case 'east':  return { pos: { x: -halfW, y: 0, z: 0 }, rotY: Math.PI / 2 };
-        case 'west':  return { pos: { x: halfW, y: 0, z: 0 },  rotY: -Math.PI / 2 };
+        case 'east':  return { pos: { x: halfW, y: 0, z: 0 },  rotY: -Math.PI / 2 };
+        case 'west':  return { pos: { x: -halfW, y: 0, z: 0 }, rotY: Math.PI / 2 };
         default:      return { pos: { x: 0, y: 0, z: 0 },      rotY: 0 };
     }
 }
