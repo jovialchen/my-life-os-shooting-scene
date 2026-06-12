@@ -199,13 +199,20 @@ function ensureClonedMaterials(group) {
     const originals = new Map();
     group.traverse(child => {
         if (child.isMesh && child.material) {
-            // 保存原始材质
             originals.set(child, child.material);
-            // 克隆并设置透明
-            const cloned = child.material.clone();
-            cloned.transparent = true;
-            cloned.depthWrite = true;
-            child.material = cloned;
+            if (Array.isArray(child.material)) {
+                child.material = child.material.map(m => {
+                    const c = m.clone();
+                    c.transparent = true;
+                    c.depthWrite = true;
+                    return c;
+                });
+            } else {
+                const cloned = child.material.clone();
+                cloned.transparent = true;
+                cloned.depthWrite = true;
+                child.material = cloned;
+            }
         }
     });
     originalMaterials.set(group, originals);
@@ -232,8 +239,10 @@ function restoreOriginalMaterials(group) {
  */
 function setGroupOpacity(group, opacity) {
     group.traverse(child => {
-        if (child.isMesh && child.material?.transparent) {
-            child.material.opacity = opacity;
+        if (!child.isMesh || !child.material) return;
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        for (const m of mats) {
+            if (m.transparent) m.opacity = opacity;
         }
     });
 }

@@ -284,12 +284,15 @@ export function createHouseShell() {
     ground.receiveShadow = true;
     house.add(ground);
 
-    // 平板屋顶（四周出檐 0.3）
+    // 平板屋顶（四周出檐 0.3，仅顶面带 polygonOffset 防止与天花板 Z-fighting）
     const OVERHANG = 0.3;
-    const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(bldgW + OVERHANG * 2, 0.15, bldgD + OVERHANG * 2),
-        matRoof,
-    );
+    const matRoofTop = matRoof.clone();
+    matRoofTop.polygonOffset = true;
+    matRoofTop.polygonOffsetFactor = -1;
+    matRoofTop.polygonOffsetUnits = -1;
+    const roofGeo = new THREE.BoxGeometry(bldgW + OVERHANG * 2, 0.15, bldgD + OVERHANG * 2);
+    // BoxGeometry 材质顺序: +X, -X, +Y(top), -Y(bottom), +Z, -Z
+    const roof = new THREE.Mesh(roofGeo, [matRoof, matRoof, matRoofTop, matRoof, matRoof, matRoof]);
     roof.position.set(GRASS_CENTER_X, WALL_TOP + 0.075, GRASS_CENTER_Z);
     roof.castShadow = true;
     roof.receiveShadow = true;
