@@ -220,7 +220,7 @@ const gardenTrees = createGardenTrees(grass);
 scene.add(gardenTrees);
 
 // ── 季节物体（果子/蘑菇/雪人/雪团）──
-const seasonalObjects = createSeasonalObjects(grass, TREE_POSITIONS);
+const seasonalObjects = createSeasonalObjects(grass, gardenTrees);
 scene.add(seasonalObjects);
 
 // ── 草地栅栏 + 拱形门 ──

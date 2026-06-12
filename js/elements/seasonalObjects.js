@@ -5,6 +5,7 @@
  * 预创建后按季节控制 visible
  */
 import * as THREE from 'three';
+import { matCanopy, matCanopyDark, matBlossom, matTrunk } from '../materials.js';
 
 // ── 材质 ─────────────────────────────────────────────
 const matFruit1 = new THREE.MeshStandardMaterial({ color: 0xcc3333, roughness: 0.8 });  // 红果
@@ -18,34 +19,51 @@ const matSnowmanNose = new THREE.MeshStandardMaterial({ color: 0xff8800, roughne
 
 
 // ============================================================
-//  果子（秋天挂在树上）
+//  果子（秋天挂在树冠上）
 // ============================================================
 
 /**
- * 在每棵树附近生成几个小果子
- * @param {Array<{x: number, z: number}>} treePositions
+ * 遍历树木，在树冠 mesh 附近挂果子
+ * @param {THREE.Group} gardenTreesGroup
  * @returns {THREE.Group}
  */
-function createFruits(treePositions) {
+function createFruits(gardenTreesGroup) {
     const group = new THREE.Group();
     group.name = 'fruits';
 
-    for (const tree of treePositions) {
-        const count = 2 + Math.floor(Math.random() * 3); // 2-4 个果子
+    if (!gardenTreesGroup) return group;
+
+    for (const tree of gardenTreesGroup.children) {
+        const canopyMeshes = [];
+        // 收集这棵树的所有树冠 mesh（排除树干）
+        tree.traverse(child => {
+            if (child.isMesh && child.material !== matTrunk) {
+                canopyMeshes.push(child);
+            }
+        });
+
+        if (canopyMeshes.length === 0) continue;
+
+        // 每棵树挂 2-4 个果子
+        const count = 2 + Math.floor(Math.random() * 3);
         for (let i = 0; i < count; i++) {
+            // 随机选一个树冠 mesh，取它的世界位置
+            const canopy = canopyMeshes[Math.floor(Math.random() * canopyMeshes.length)];
+            const worldPos = new THREE.Vector3();
+            canopy.getWorldPosition(worldPos);
+
             const mat = Math.random() > 0.5 ? matFruit1 : matFruit2;
             const fruit = new THREE.Mesh(
                 new THREE.SphereGeometry(0.06, 6, 5),
                 mat,
             );
-            // 随机挂在树冠高度附近
+            // 挂在树冠表面附近（稍微偏移）
             fruit.position.set(
-                tree.x + (Math.random() - 0.5) * 1.5,
-                2.0 + Math.random() * 2.0,
-                tree.z + (Math.random() - 0.5) * 1.5,
+                worldPos.x + (Math.random() - 0.5) * canopy.scale.x * 0.8,
+                worldPos.y - Math.random() * 0.3,
+                worldPos.z + (Math.random() - 0.5) * canopy.scale.z * 0.8,
             );
             fruit.castShadow = true;
-            fruit.userData.isOccluder = true;
             group.add(fruit);
         }
     }
@@ -77,7 +95,6 @@ function createMushrooms(grassInfo) {
         { x: -10, z: -6 }, { x: -3, z: -7 }, { x: 6, z: -6 }, { x: 13, z: -5 },
         { x: -10, z: 15 }, { x: -2, z: 16 }, { x: 5, z: 15 }, { x: 12, z: 16 },
         { x: -19, z: 1 }, { x: -19, z: 8 }, { x: 19, z: 2 }, { x: 19, z: 9 },
-        { x: -5, z: -2 }, { x: 7, z: -2 }, { x: -5, z: 12 }, { x: 7, z: 12 },
         { x: -14, z: -3 }, { x: 14, z: -3 },
     ];
 
@@ -188,36 +205,73 @@ function createSnowman(position) {
 
 
 // ============================================================
-//  树上雪团（冬天覆盖在树冠上）
+//  树上雪团（冬天，匹配树形）
 // ============================================================
 
 /**
- * 在每棵树冠上生成白色雪团
- * @param {Array<{x: number, z: number}>} treePositions
+ * 根据树木实际形状生成雪团
+ * - 落叶木/樱花：白色球冠（和树冠同位置同大小）
+ * - 松树：绿色锥体上方叠加白色小锥体
+ * @param {THREE.Group} gardenTreesGroup
  * @returns {THREE.Group}
  */
-function createTreeSnow(treePositions) {
+function createTreeSnow(gardenTreesGroup) {
     const group = new THREE.Group();
     group.name = 'treeSnow';
 
-    for (const tree of treePositions) {
-        // 每棵树 2-3 个白球
-        const count = 2 + Math.floor(Math.random() * 2);
-        for (let i = 0; i < count; i++) {
-            const r = 0.3 + Math.random() * 0.4;
-            const snow = new THREE.Mesh(
-                new THREE.SphereGeometry(r, 7, 5),
-                matSnow,
-            );
-            snow.position.set(
-                tree.x + (Math.random() - 0.5) * 1.2,
-                3.0 + Math.random() * 2.0,
-                tree.z + (Math.random() - 0.5) * 1.2,
-            );
-            snow.scale.set(1, 0.6, 1); // 压扁一点像积雪
-            snow.castShadow = true;
-            snow.userData.isOccluder = true;
-            group.add(snow);
+    if (!gardenTreesGroup) return group;
+
+    for (const tree of gardenTreesGroup.children) {
+        const type = tree.userData.treeType;
+
+        if (type === 'deciduous' || type === 'cherry') {
+            // 落叶木 / 樱花：找到所有树冠 mesh，生成同形状白色版本
+            tree.traverse(child => {
+                if (child.isMesh && child.material !== matTrunk) {
+                    const worldPos = new THREE.Vector3();
+                    child.getWorldPosition(worldPos);
+                    const worldQuat = new THREE.Quaternion();
+                    child.getWorldQuaternion(worldQuat);
+                    const worldScale = new THREE.Vector3();
+                    child.getWorldScale(worldScale);
+
+                    const snowGeo = child.geometry.clone();
+                    const snow = new THREE.Mesh(snowGeo, matSnow);
+                    snow.position.copy(worldPos);
+                    snow.quaternion.copy(worldQuat);
+                    // 稍微缩小一点，避免完全重叠穿模
+                    snow.scale.copy(worldScale).multiplyScalar(0.92);
+                    // 略微上移，让雪"覆盖"在树冠表面
+                    snow.position.y += 0.05;
+                    snow.castShadow = true;
+                    group.add(snow);
+                }
+            });
+        } else if (type === 'pine') {
+            // 松树：在每个绿色锥体上方叠加一个白色小锥体
+            tree.traverse(child => {
+                if (child.isMesh && child.geometry.type === 'ConeGeometry' && child.material !== matTrunk) {
+                    const worldPos = new THREE.Vector3();
+                    child.getWorldPosition(worldPos);
+                    const worldQuat = new THREE.Quaternion();
+                    child.getWorldQuaternion(worldQuat);
+                    const worldScale = new THREE.Vector3();
+                    child.getWorldScale(worldScale);
+
+                    const params = child.geometry.parameters;
+                    const snowCone = new THREE.Mesh(
+                        new THREE.ConeGeometry(params.radiusTop * 0.85, params.height * 0.6, params.radialSegments),
+                        matSnow,
+                    );
+                    // 放在绿色锥体顶部
+                    snowCone.position.copy(worldPos);
+                    snowCone.position.y += params.height * 0.25 * worldScale.y;
+                    snowCone.quaternion.copy(worldQuat);
+                    snowCone.scale.copy(worldScale);
+                    snowCone.castShadow = true;
+                    group.add(snowCone);
+                }
+            });
         }
     }
 
@@ -232,30 +286,30 @@ function createTreeSnow(treePositions) {
 /**
  * 创建所有季节专属物体
  * @param {object} grassInfo — { centerX, centerZ, radius }
- * @param {Array<{x: number, z: number}>} treePositions
+ * @param {THREE.Group} gardenTreesGroup — 花园树木 group
  * @returns {THREE.Group}
  */
-export function createSeasonalObjects(grassInfo, treePositions) {
+export function createSeasonalObjects(grassInfo, gardenTreesGroup) {
     const group = new THREE.Group();
     group.name = 'seasonalObjects';
 
-    // 果子（秋）
-    const fruits = createFruits(treePositions);
+    // 果子（秋）— 挂在树冠上
+    const fruits = createFruits(gardenTreesGroup);
     fruits.visible = false;
     group.add(fruits);
 
-    // 蘑菇（秋）
+    // 蘑菇（秋）— 长在草地上
     const mushrooms = createMushrooms(grassInfo);
     mushrooms.visible = false;
     group.add(mushrooms);
 
-    // 雪人（冬）
-    const snowman = createSnowman(new THREE.Vector3(-10, 0, 5));
+    // 雪人（冬）— 放在建筑外西侧草地（x=-19 避开建筑）
+    const snowman = createSnowman(new THREE.Vector3(-19, 0, 5));
     snowman.visible = false;
     group.add(snowman);
 
-    // 树上雪团（冬）
-    const treeSnow = createTreeSnow(treePositions);
+    // 树上雪团（冬）— 匹配树形
+    const treeSnow = createTreeSnow(gardenTreesGroup);
     treeSnow.visible = false;
     group.add(treeSnow);
 

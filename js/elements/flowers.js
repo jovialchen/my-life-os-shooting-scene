@@ -591,9 +591,9 @@ export function createGardenFlowers(grassInfo) {
         { cx:  22, cz:   1, count: 3, spread: 1.2 },  // 东南大绿树下
         { cx:  21, cz:  10, count: 3, spread: 1.2 },  // 东北松树下
 
-        // ── 草坪中央点缀 ──
-        { cx:  -5, cz:   5, count: 4, spread: 2.0 },
-        { cx:   5, cz:   5, count: 4, spread: 2.0 },
+        // ── 草坪外围点缀（避开建筑） ──
+        { cx:  -5, cz:  -7, count: 4, spread: 2.0 },  // 南侧草地
+        { cx:   5, cz:  17, count: 4, spread: 2.0 },  // 北侧草地
     ];
 
     let flowerIndex = 0;
