@@ -3,7 +3,7 @@
  * 包裹整个公寓，永远可见，外墙门窗与室内对齐
  */
 import * as THREE from 'three';
-import { matSiding, matTrim, matGround, matFloor, matGlass, matFrame, matWood, matMetal } from '../materials.js';
+import { matSiding, matTrim, matGround, matFloor, matGlass, matFrame, matWood, matMetal, matRoof } from '../materials.js';
 
 // ── 壳体尺寸 ──
 const SHELL_T   = 0.2;    // 外墙厚度
@@ -283,6 +283,17 @@ export function createHouseShell() {
     ground.position.set(GRASS_CENTER_X, -0.01, GRASS_CENTER_Z);
     ground.receiveShadow = true;
     house.add(ground);
+
+    // 平板屋顶
+    const roof = new THREE.Mesh(
+        new THREE.BoxGeometry(bldgW, 0.15, bldgD),
+        matRoof,
+    );
+    roof.position.set(GRASS_CENTER_X, WALL_TOP + 0.075, GRASS_CENTER_Z);
+    roof.castShadow = true;
+    roof.receiveShadow = true;
+    roof.userData.isOccluder = true;
+    house.add(roof);
 
     return {
         group: house,
