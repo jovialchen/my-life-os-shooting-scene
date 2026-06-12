@@ -56,7 +56,7 @@ function createFruits(gardenTreesGroup) {
 
             const mat = Math.random() > 0.5 ? matFruit1 : matFruit2;
             const fruit = new THREE.Mesh(
-                new THREE.SphereGeometry(0.5, 6, 5),
+                new THREE.SphereGeometry(0.2, 6, 5),
                 mat,
             );
 

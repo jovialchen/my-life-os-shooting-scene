@@ -11,42 +11,39 @@ import { matTrunk, matCanopy, matCanopyDark, matBlossom } from '../materials.js'
 const TRUNK_SEGMENTS = 6;  // 低多边形
 
 /**
- * 给树添加树杈（4-5 个 V 形分支，开口向上）
+ * 给树添加树杈（3 根，从树干顶端向不同方向斜上方伸展）
  * @param {THREE.Group} g — 树的 group
  * @param {number} trunkH — 树干高度
  * @param {number} trunkR — 树干半径
  * @param {number} s — 缩放
  */
 function addBranches(g, trunkH, trunkR, s) {
-    const branchCount = 4 + Math.floor(Math.random() * 2); // 4-5 个
-    const branchR = trunkR * 0.3;
+    const branchCount = 3;
+    const branchR = trunkR * 0.35;
 
     for (let i = 0; i < branchCount; i++) {
-        const angle = (i / branchCount) * Math.PI * 2 + Math.random() * 0.5;
-        const branchLen = (0.5 + Math.random() * 0.4) * s;
-        const branchY = trunkH * (0.5 + Math.random() * 0.3);
+        const angle = (i / branchCount) * Math.PI * 2 + Math.random() * 0.3;
+        const branchLen = (0.6 + Math.random() * 0.4) * s;
 
-        // 每个树杈是 V 形：两根细枝从同一点向两侧上方伸展
-        for (const side of [-1, 1]) {
-            const twig = new THREE.Mesh(
-                new THREE.CylinderGeometry(branchR * 0.3, branchR, branchLen, 4),
-                matTrunk,
-            );
-            // V 形：向外倾斜 + 向上开口
-            const spreadAngle = 0.5 + Math.random() * 0.3; // 向外张开角度
-            const upAngle = 0.3 + Math.random() * 0.3;     // 向上翘角度
-            twig.rotation.z = Math.cos(angle) * spreadAngle + side * Math.cos(angle + Math.PI / 2) * upAngle;
-            twig.rotation.x = Math.sin(angle) * spreadAngle + side * Math.sin(angle + Math.PI / 2) * upAngle;
+        const branch = new THREE.Mesh(
+            new THREE.CylinderGeometry(branchR * 0.3, branchR, branchLen, 4),
+            matTrunk,
+        );
 
-            // 位置：从树干表面出发
-            twig.position.set(
-                Math.cos(angle) * trunkR * 0.8,
-                branchY,
-                Math.sin(angle) * trunkR * 0.8,
-            );
-            twig.castShadow = true;
-            g.add(twig);
-        }
+        // 底端在树干顶端，向外倾斜约 40-60°
+        const tilt = 0.7 + Math.random() * 0.3; // 倾斜弧度
+        branch.rotation.z = Math.cos(angle) * tilt;
+        branch.rotation.x = Math.sin(angle) * tilt;
+
+        // 位置：树干顶端偏外一点（让底端贴着树干顶端）
+        const halfLen = branchLen / 2;
+        branch.position.set(
+            Math.cos(angle) * Math.sin(tilt) * halfLen,
+            trunkH + Math.cos(tilt) * halfLen,
+            Math.sin(angle) * Math.sin(tilt) * halfLen,
+        );
+        branch.castShadow = true;
+        g.add(branch);
     }
 }
 
