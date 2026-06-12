@@ -65,6 +65,9 @@ import { createHouseShell } from './elements/houseShell.js';
 // ── 花卉 ──
 import { createGardenFlowers } from './elements/flowers.js';
 
+// ── 栅栏 ──
+import { createFence } from './elements/fence.js';
+
 // ── 墙体遮挡系统 ──
 import { initWallOcclusion, updateWallOcclusion } from './systems/wallOcclusion.js';
 
@@ -202,6 +205,10 @@ scene.add(houseShellGroup);
 // ── 花园花卉 ──
 const gardenFlowers = createGardenFlowers(grass);
 scene.add(gardenFlowers);
+
+// ── 草地栅栏 + 拱形门 ──
+const fence = createFence(grass);
+scene.add(fence);
 
 // ── 初始化统一寻路网格（覆盖所有房间 + 走廊 + 草地） ──
 initApartmentGrid(apartment.rooms, apartment.corridorBounds, grass);
