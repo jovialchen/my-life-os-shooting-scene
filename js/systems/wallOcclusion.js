@@ -134,9 +134,8 @@ function collectVisibleWallMeshes() {
         }
     };
 
-    // 各房间的墙体 + 天花板
+    // 各房间的墙体 + 天花板（房间 group 始终 visible，墙体始终加载）
     for (const [, room] of apartment.rooms) {
-        if (!room.result.group.visible) continue;
         for (const child of room.result.group.children) {
             if (child.userData?.isWall) {
                 collect(child);

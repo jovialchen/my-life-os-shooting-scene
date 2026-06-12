@@ -196,7 +196,7 @@ export class Apartment {
      */
     _showCorridorView() {
         // 走廊全部显示
-        this._setCorridorVisible(true);
+        this._setCorridorVisible();
 
         // 所有门墙显示
         this.doorWallsGroup.visible = true;
@@ -204,20 +204,19 @@ export class Apartment {
             doorWall.visible = true;
         }
 
-        // 隐藏所有房间
+        // 所有房间：保留墙体+天花板可见，隐藏家具等
         for (const [, r] of this.rooms) {
-            r.result.group.visible = false;
-            // 重置 mesh 可见性（为开门房间做准备）
-            r.result.group.traverse(child => {
-                if (child.isMesh) child.visible = true;
-            });
+            this._showWallsAndCeilingsOnly(r);
         }
 
-        // 开门的房间 → 全部显示
+        // 开门的房间 → 全部显示（恢复所有子元素）
         for (const [id, r] of this.rooms) {
             const doorWall = this.corridorDoorWalls.get(id);
             if (doorWall && doorWall.userData.isOpen) {
                 r.result.group.visible = true;
+                r.result.group.traverse(child => {
+                    if (child.isMesh) child.visible = true;
+                });
             }
         }
     }
@@ -230,37 +229,47 @@ export class Apartment {
         if (!room) return;
 
         // 走廊：只显示地板（隐藏墙、天花板）
-        this._setCorridorVisible(false);
+        this._setCorridorVisible();
 
-        // 隐藏所有房间
+        // 非当前房间：只保留墙体+天花板可见
         for (const [, r] of this.rooms) {
-            r.result.group.visible = false;
-        }
-        // 重置所有 mesh 可见性
-        for (const [, r] of this.rooms) {
-            r.result.group.traverse(child => {
-                if (child.isMesh) child.visible = true;
-            });
+            if (r.id !== this.currentRoomId) {
+                this._showWallsAndCeilingsOnly(r);
+            }
         }
 
-        // 显示当前房间
+        // 当前房间：全部显示
         room.result.group.visible = true;
+        room.result.group.traverse(child => {
+            if (child.isMesh) child.visible = true;
+        });
 
-        // 门墙：只显示当前房间的门墙，隐藏其他
-        for (const [id, doorWall] of this.corridorDoorWalls) {
-            doorWall.visible = (id === this.currentRoomId);
+        // 门墙：始终全部显示（遮挡透明由 wallOcclusion 系统处理）
+        for (const [, doorWall] of this.corridorDoorWalls) {
+            doorWall.visible = true;
+        }
+    }
+
+    /**
+     * 只显示房间的墙体和天花板，隐藏家具/装饰等
+     * @param {object} room
+     */
+    _showWallsAndCeilingsOnly(room) {
+        room.result.group.visible = true;
+        for (const child of room.result.group.children) {
+            child.visible = !!(child.userData?.isWall || child.userData?.isOccluder);
         }
     }
 
     /**
      * 控制走廊部件可见性
-     * @param {boolean} full - true=全部显示，false=只显示地板
+     * 地板、天花板、墙体始终显示（遮挡透明由 wallOcclusion 系统处理）
      */
-    _setCorridorVisible(full) {
+    _setCorridorVisible() {
         if (this._corridorFloor)    this._corridorFloor.visible = true;
-        if (this._corridorCeiling)  this._corridorCeiling.visible = full;
-        if (this._corridorWestWall) this._corridorWestWall.visible = full;
-        if (this._corridorEastWall) this._corridorEastWall.visible = full;
+        if (this._corridorCeiling)  this._corridorCeiling.visible = true;
+        if (this._corridorWestWall) this._corridorWestWall.visible = true;
+        if (this._corridorEastWall) this._corridorEastWall.visible = true;
     }
 
     /**
