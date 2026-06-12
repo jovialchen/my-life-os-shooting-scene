@@ -35,7 +35,7 @@ function createFruits(gardenTreesGroup) {
 
     for (const tree of gardenTreesGroup.children) {
         const canopyMeshes = [];
-        // 收集这棵树的所有树冠 mesh（排除树干）
+        // 收集这棵树的所有树冠 mesh（排除树干和树杈）
         tree.traverse(child => {
             if (child.isMesh && child.material !== matTrunk) {
                 canopyMeshes.push(child);
@@ -44,24 +44,43 @@ function createFruits(gardenTreesGroup) {
 
         if (canopyMeshes.length === 0) continue;
 
-        // 每棵树挂 2-4 个果子
-        const count = 2 + Math.floor(Math.random() * 3);
+        // 每棵树挂 3-5 个果子
+        const count = 3 + Math.floor(Math.random() * 3);
         for (let i = 0; i < count; i++) {
-            // 随机选一个树冠 mesh，取它的世界位置
+            // 随机选一个树冠 mesh
             const canopy = canopyMeshes[Math.floor(Math.random() * canopyMeshes.length)];
             const worldPos = new THREE.Vector3();
             canopy.getWorldPosition(worldPos);
+            const worldScale = new THREE.Vector3();
+            canopy.getWorldScale(worldScale);
 
             const mat = Math.random() > 0.5 ? matFruit1 : matFruit2;
             const fruit = new THREE.Mesh(
-                new THREE.SphereGeometry(0.12, 6, 5),
+                new THREE.SphereGeometry(0.5, 6, 5),
                 mat,
             );
-            // 挂在树冠表面附近（稍微偏移）
+
+            // 计算树冠表面位置
+            // 随机方向（水平角度）
+            const theta = Math.random() * Math.PI * 2;
+            // 向下偏一点（果子长在树冠下半球表面）
+            const phi = Math.random() * Math.PI * 0.4 + Math.PI * 0.3; // 54°~126°
+
+            // 根据树冠类型估算表面半径
+            let surfaceR;
+            if (canopy.geometry.type === 'SphereGeometry') {
+                surfaceR = canopy.geometry.parameters.radius * Math.max(worldScale.x, worldScale.z);
+            } else if (canopy.geometry.type === 'ConeGeometry') {
+                surfaceR = canopy.geometry.parameters.radius * Math.max(worldScale.x, worldScale.z) * 0.7;
+            } else {
+                surfaceR = Math.max(worldScale.x, worldScale.z) * 0.8;
+            }
+
+            // 放在树冠外表面上
             fruit.position.set(
-                worldPos.x + (Math.random() - 0.5) * canopy.scale.x * 0.8,
-                worldPos.y - Math.random() * 0.3,
-                worldPos.z + (Math.random() - 0.5) * canopy.scale.z * 0.8,
+                worldPos.x + Math.sin(phi) * Math.cos(theta) * surfaceR,
+                worldPos.y + Math.cos(phi) * surfaceR * 0.6, // 稍微压扁Y方向
+                worldPos.z + Math.sin(phi) * Math.sin(theta) * surfaceR,
             );
             fruit.castShadow = true;
             group.add(fruit);
