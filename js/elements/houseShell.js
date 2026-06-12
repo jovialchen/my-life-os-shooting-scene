@@ -284,9 +284,10 @@ export function createHouseShell() {
     ground.receiveShadow = true;
     house.add(ground);
 
-    // 平板屋顶
+    // 平板屋顶（四周出檐 0.3）
+    const OVERHANG = 0.3;
     const roof = new THREE.Mesh(
-        new THREE.BoxGeometry(bldgW, 0.15, bldgD),
+        new THREE.BoxGeometry(bldgW + OVERHANG * 2, 0.15, bldgD + OVERHANG * 2),
         matRoof,
     );
     roof.position.set(GRASS_CENTER_X, WALL_TOP + 0.075, GRASS_CENTER_Z);
