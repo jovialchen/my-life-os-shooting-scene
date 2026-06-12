@@ -138,13 +138,13 @@ export function updateSeason(value) {
     }
 
     // ── 季节物体可见性 ──
-    // 果子：秋（1.5~2.5）
+    // 果子：秋（1.5~2.0），叶子开始凋落时果子就没了
     if (fruitsGroup) {
-        fruitsGroup.visible = value >= 1.5 && value < 2.5;
+        fruitsGroup.visible = value >= 1.5 && value < 2.0;
     }
-    // 蘑菇：秋（1.5~2.5）
+    // 蘑菇：秋（1.5~2.0）
     if (mushroomsGroup) {
-        mushroomsGroup.visible = value >= 1.5 && value < 2.5;
+        mushroomsGroup.visible = value >= 1.5 && value < 2.0;
     }
     // 雪人：冬（2.5~3.5）
     if (snowmanGroup) {
