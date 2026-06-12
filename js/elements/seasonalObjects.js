@@ -5,7 +5,6 @@
  * 预创建后按季节控制 visible
  */
 import * as THREE from 'three';
-import { matCanopy, matCanopyDark, matBlossom, matTrunk } from '../materials.js';
 
 // ── 材质 ─────────────────────────────────────────────
 const matFruit1 = new THREE.MeshStandardMaterial({ color: 0xcc3333, roughness: 0.8 });  // 红果
@@ -34,14 +33,7 @@ function createFruits(gardenTreesGroup) {
     if (!gardenTreesGroup) return group;
 
     for (const tree of gardenTreesGroup.children) {
-        const canopyMeshes = [];
-        // 收集这棵树的所有树冠 mesh（排除树干和树杈）
-        tree.traverse(child => {
-            if (child.isMesh && child.material !== matTrunk) {
-                canopyMeshes.push(child);
-            }
-        });
-
+        const canopyMeshes = tree.userData.canopyMeshes || [];
         if (canopyMeshes.length === 0) continue;
 
         // 每棵树挂 3-5 个果子
@@ -262,55 +254,49 @@ function createTreeSnow(gardenTreesGroup) {
 
     for (const tree of gardenTreesGroup.children) {
         const type = tree.userData.treeType;
+        const canopyMeshes = tree.userData.canopyMeshes || [];
 
         if (type === 'deciduous' || type === 'cherry') {
-            // 落叶木 / 樱花：找到所有树冠 mesh，生成同形状白色版本
-            tree.traverse(child => {
-                if (child.isMesh && child.material !== matTrunk) {
-                    const worldPos = new THREE.Vector3();
-                    child.getWorldPosition(worldPos);
-                    const worldQuat = new THREE.Quaternion();
-                    child.getWorldQuaternion(worldQuat);
-                    const worldScale = new THREE.Vector3();
-                    child.getWorldScale(worldScale);
+            // 落叶木 / 樱花：在每个树冠 mesh 上生成同形状白色版本
+            for (const child of canopyMeshes) {
+                const worldPos = new THREE.Vector3();
+                child.getWorldPosition(worldPos);
+                const worldQuat = new THREE.Quaternion();
+                child.getWorldQuaternion(worldQuat);
+                const worldScale = new THREE.Vector3();
+                child.getWorldScale(worldScale);
 
-                    const snowGeo = child.geometry.clone();
-                    const snow = new THREE.Mesh(snowGeo, matSnow);
-                    snow.position.copy(worldPos);
-                    snow.quaternion.copy(worldQuat);
-                    // 稍微缩小一点，避免完全重叠穿模
-                    snow.scale.copy(worldScale).multiplyScalar(0.92);
-                    // 略微上移，让雪"覆盖"在树冠表面
-                    snow.position.y += 0.05;
-                    snow.castShadow = true;
-                    group.add(snow);
-                }
-            });
+                const snowGeo = child.geometry.clone();
+                const snow = new THREE.Mesh(snowGeo, matSnow);
+                snow.position.copy(worldPos);
+                snow.quaternion.copy(worldQuat);
+                snow.scale.copy(worldScale).multiplyScalar(0.92);
+                snow.position.y += 0.05;
+                snow.castShadow = true;
+                group.add(snow);
+            }
         } else if (type === 'pine') {
             // 松树：在每个绿色锥体上方叠加一个白色小锥体
-            tree.traverse(child => {
-                if (child.isMesh && child.geometry.type === 'ConeGeometry' && child.material !== matTrunk) {
-                    const worldPos = new THREE.Vector3();
-                    child.getWorldPosition(worldPos);
-                    const worldQuat = new THREE.Quaternion();
-                    child.getWorldQuaternion(worldQuat);
-                    const worldScale = new THREE.Vector3();
-                    child.getWorldScale(worldScale);
+            for (const child of canopyMeshes) {
+                const worldPos = new THREE.Vector3();
+                child.getWorldPosition(worldPos);
+                const worldQuat = new THREE.Quaternion();
+                child.getWorldQuaternion(worldQuat);
+                const worldScale = new THREE.Vector3();
+                child.getWorldScale(worldScale);
 
-                    const params = child.geometry.parameters;
-                    const snowCone = new THREE.Mesh(
-                        new THREE.ConeGeometry(params.radiusTop * 0.85, params.height * 0.6, params.radialSegments),
-                        matSnow,
-                    );
-                    // 放在绿色锥体顶部
-                    snowCone.position.copy(worldPos);
-                    snowCone.position.y += params.height * 0.25 * worldScale.y;
-                    snowCone.quaternion.copy(worldQuat);
-                    snowCone.scale.copy(worldScale);
-                    snowCone.castShadow = true;
-                    group.add(snowCone);
-                }
-            });
+                const params = child.geometry.parameters;
+                const snowCone = new THREE.Mesh(
+                    new THREE.ConeGeometry(params.radiusTop * 0.85, params.height * 0.6, params.radialSegments),
+                    matSnow,
+                );
+                snowCone.position.copy(worldPos);
+                snowCone.position.y += params.height * 0.25 * worldScale.y;
+                snowCone.quaternion.copy(worldQuat);
+                snowCone.scale.copy(worldScale);
+                snowCone.castShadow = true;
+                group.add(snowCone);
+            }
         }
     }
 

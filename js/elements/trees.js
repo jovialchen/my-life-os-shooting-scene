@@ -12,6 +12,7 @@ const TRUNK_SEGMENTS = 6;  // 低多边形
 
 /**
  * 给树添加树杈（3 根，从树干顶端向不同方向斜上方伸展）
+ * 用 pivot Group 做旋转支点，确保底端贴着树干顶端
  * @param {THREE.Group} g — 树的 group
  * @param {number} trunkH — 树干高度
  * @param {number} trunkR — 树干半径
@@ -25,25 +26,24 @@ function addBranches(g, trunkH, trunkR, s) {
         const angle = (i / branchCount) * Math.PI * 2 + Math.random() * 0.3;
         const branchLen = (0.6 + Math.random() * 0.4) * s;
 
+        // 旋转支点放在树干顶端
+        const pivot = new THREE.Group();
+        pivot.position.set(0, trunkH, 0);
+
+        // 树杈 mesh：底端在 pivot 原点（= 树干顶端），向上延伸
         const branch = new THREE.Mesh(
             new THREE.CylinderGeometry(branchR * 0.3, branchR, branchLen, 4),
             matTrunk,
         );
-
-        // 底端在树干顶端，向外倾斜约 40-60°
-        const tilt = 0.7 + Math.random() * 0.3; // 倾斜弧度
-        branch.rotation.z = Math.cos(angle) * tilt;
-        branch.rotation.x = Math.sin(angle) * tilt;
-
-        // 位置：树干顶端偏外一点（让底端贴着树干顶端）
-        const halfLen = branchLen / 2;
-        branch.position.set(
-            Math.cos(angle) * Math.sin(tilt) * halfLen,
-            trunkH + Math.cos(tilt) * halfLen,
-            Math.sin(angle) * Math.sin(tilt) * halfLen,
-        );
+        branch.position.y = branchLen / 2; // 底端在 y=0（pivot 处）
         branch.castShadow = true;
-        g.add(branch);
+        pivot.add(branch);
+
+        // 先绕 Y 轴转到目标方向，再向外倾斜
+        pivot.rotation.y = angle;
+        pivot.rotation.z = 0.7 + Math.random() * 0.3; // 向外倾斜 40-60°
+
+        g.add(pivot);
     }
 }
 
@@ -100,6 +100,7 @@ export function createDeciduousTree({ position, scale: s = 1 } = {}) {
     canopy2.castShadow = true;
     g.add(canopy2);
 
+    g.userData.canopyMeshes = [canopy, canopy2];
     if (position) g.position.copy(position);
     return g;
 }
@@ -161,6 +162,7 @@ export function createCherryBlossom({ position, scale: s = 1 } = {}) {
     side2.castShadow = true;
     g.add(side2);
 
+    g.userData.canopyMeshes = [canopy, side1, side2];
     if (position) g.position.copy(position);
     return g;
 }
@@ -195,6 +197,7 @@ export function createPineTree({ position, scale: s = 1 } = {}) {
     addBranches(g, trunkH, trunkR, s);
 
     // 三层锥形树冠（从下到上递减）
+    const canopyMeshes = [];
     const layers = [
         { r: 1.4, h: 2.0, y: trunkH * 0.5 },
         { r: 1.1, h: 1.8, y: trunkH * 0.7 },
@@ -208,9 +211,11 @@ export function createPineTree({ position, scale: s = 1 } = {}) {
         );
         cone.position.y = layer.y * s + (layer.h * s) / 2;
         cone.castShadow = true;
+        canopyMeshes.push(cone);
         g.add(cone);
     }
 
+    g.userData.canopyMeshes = canopyMeshes;
     if (position) g.position.copy(position);
     return g;
 }

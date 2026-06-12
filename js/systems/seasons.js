@@ -79,42 +79,51 @@ export function updateSeason(value) {
         matCanopy.color.set(lerpColor(canopyA, canopyB, t));
     }
 
-    // 松树冠颜色
-    matCanopyDark.color.set(lerpColor(a.canopyDark, b.canopyDark, t));
-
-    // 樱花色
-    if (a.blossom !== null && b.blossom !== null) {
-        matBlossom.color.set(lerpColor(a.blossom, b.blossom, t));
-    }
-
-    // ── 树冠可见性（冬天隐藏阔叶和樱花树冠）──
+    // ── 树冠颜色 + 可见性（按树型分别处理）──
     if (gardenTreesGroup) {
         gardenTreesGroup.children.forEach(tree => {
             const type = tree.userData.treeType;
-            if (type === 'deciduous' || type === 'cherry') {
-                // 阔叶和樱花树：冬（value > 2.5）时隐藏树冠
-                tree.traverse(child => {
-                    if (child.isMesh && child.material !== matTrunk) {
-                        // 非树干的 mesh（树冠部分）
-                        if (value >= 2.5) {
-                            child.visible = false;
-                        } else if (value >= 2.0) {
-                            // 过渡：逐渐变透明
-                            child.visible = true;
-                            if (!child.userData._seasonCloned) {
-                                child.material = child.material.clone();
-                                child.material.transparent = true;
-                                child.userData._seasonCloned = true;
-                            }
-                            child.material.opacity = 1 - (value - 2.0) * 2; // 2.0→2.5 从1到0
-                        } else {
-                            child.visible = true;
-                            if (child.userData._seasonCloned) {
-                                child.material.opacity = 1;
-                            }
+            const meshes = tree.userData.canopyMeshes || [];
+
+            // 冬天（value >= 2.5）：落叶木和樱花树冠隐藏
+            // 秋→冬过渡（2.0~2.5）：逐渐变透明
+            const isWinter = value >= 2.5;
+            const isFading = value >= 2.0 && value < 2.5;
+            const fadeT = isFading ? (value - 2.0) * 2 : 0; // 0→1
+
+            for (const mesh of meshes) {
+                // 更新颜色
+                if (type === 'deciduous') {
+                    const c = (a.canopy !== null && b.canopy !== null)
+                        ? lerpColor(a.canopy, b.canopy, t) : null;
+                    if (c !== null) mesh.material.color.set(c);
+                } else if (type === 'cherry') {
+                    const c = (a.blossom !== null && b.blossom !== null)
+                        ? lerpColor(a.blossom, b.blossom, t) : null;
+                    if (c !== null) mesh.material.color.set(c);
+                } else if (type === 'pine') {
+                    mesh.material.color.set(lerpColor(a.canopyDark, b.canopyDark, t));
+                }
+
+                // 可见性：落叶木和樱花在冬天隐藏
+                if (type === 'deciduous' || type === 'cherry') {
+                    if (isWinter) {
+                        mesh.visible = false;
+                    } else if (isFading) {
+                        mesh.visible = true;
+                        if (!mesh.userData._seasonCloned) {
+                            mesh.material = mesh.material.clone();
+                            mesh.material.transparent = true;
+                            mesh.userData._seasonCloned = true;
+                        }
+                        mesh.material.opacity = 1 - fadeT;
+                    } else {
+                        mesh.visible = true;
+                        if (mesh.userData._seasonCloned) {
+                            mesh.material.opacity = 1;
                         }
                     }
-                });
+                }
             }
         });
     }
