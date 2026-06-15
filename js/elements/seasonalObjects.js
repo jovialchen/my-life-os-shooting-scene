@@ -321,21 +321,25 @@ export function createSeasonalObjects(grassInfo, gardenTreesGroup) {
     // 果子（秋）— 挂在树冠上
     const fruits = createFruits(gardenTreesGroup);
     fruits.visible = false;
+    fruits.traverse(child => { if (child.isMesh) child.userData.isOccluder = true; });
     group.add(fruits);
 
     // 蘑菇（秋）— 长在草地上
     const mushrooms = createMushrooms(grassInfo);
     mushrooms.visible = false;
+    mushrooms.traverse(child => { if (child.isMesh) child.userData.isOccluder = true; });
     group.add(mushrooms);
 
     // 雪人（冬）— 放在建筑外西侧草地（x=-19 避开建筑）
     const snowman = createSnowman(new THREE.Vector3(-19, 0, 5));
     snowman.visible = false;
+    snowman.traverse(child => { if (child.isMesh) child.userData.isOccluder = true; });
     group.add(snowman);
 
     // 树上雪团（冬）— 匹配树形
     const treeSnow = createTreeSnow(gardenTreesGroup);
     treeSnow.visible = false;
+    treeSnow.traverse(child => { if (child.isMesh) child.userData.isOccluder = true; });
     group.add(treeSnow);
 
     return group;

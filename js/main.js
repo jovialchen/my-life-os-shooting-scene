@@ -304,7 +304,7 @@ const humanoid = createHumanoid();
 scene.add(humanoid);
 
 // 墙体遮挡透明系统
-initWallOcclusion(apartment, camera, humanoid, houseShellGroup, [gardenTrees, gardenFlowers]);
+initWallOcclusion(apartment, camera, humanoid, houseShellGroup, [gardenTrees, gardenFlowers, seasonalObjects]);
 
 // 从家具列表中提取引用（用于侧边栏和障碍物）
 const sofa        = furnitureList.find(f => f.type === 'sofa')?.group;
