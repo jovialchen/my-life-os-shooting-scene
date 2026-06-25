@@ -40,13 +40,21 @@ import {
     THUMB_DIST_MULTIPLIER, THUMB_OFFSET_XZ, THUMB_OFFSET_Y,
 } from './config.js';
 
-// ── 零件库 + 房间配置 ──
+// ═══ 导入房间配置 ═══
+import { room_a } from './rooms/room-a.js';
+import { room_b } from './rooms/room-b.js';
+import { room_hall } from './rooms/room-hall.js';
+import { room_c } from './rooms/room-c.js';
+import { room_d } from './rooms/room-d.js';
+import { room_laundry } from './rooms/room-laundry.js';
+import { room_guest } from './rooms/room-guest.js';
+import { room_kitchen } from './rooms/room-kitchen.js';
+import { room_bedroom } from './rooms/room-bedroom.js';
+import { room_living } from './rooms/room-living.js';
+import { room_study } from './rooms/room-study.js';
+
+// ── 零件库 ──
 import { createSolidWall, createDoorWall, createFloor, createCeiling } from './elements/walls.js';
-import { livingRoom } from './rooms/living-room.js';
-import { roomE } from './rooms/room-e.js';
-import { roomG } from './rooms/room-g.js';
-import { roomH } from './rooms/room-h.js';
-import { roomA, roomB, roomC, roomD } from './rooms/bedroom.js';
 
 // ── 公寓系统 ──
 import { Apartment } from './apartment.js';
@@ -115,97 +123,51 @@ const clock = new THREE.Clock();
 const _followTarget = new THREE.Vector3();
 let lookAtBound = false;
 
-// ============================================================
-//  构建公寓（多房间系统）
-// ============================================================
+// ═══ 构建公寓 ═══
 const apartment = new Apartment();
 
-// ── 注册南排 4 间 ──
-apartment.addRoom('room-e', roomE, { x: -12, z: 0 });
-apartment.addRoom('room-f', livingRoom, { x: -4, z: 0 });
-apartment.addRoom('room-g', roomG, { x: 4, z: 0 });
-apartment.addRoom('room-h', roomH, { x: 12, z: 0 });
+// 注册房间
+apartment.addRoom('room-a', room_a, { x: -5.89, z: 2 });
+apartment.addRoom('room-b', room_b, { x: -2.97, z: 2 });
+apartment.addRoom('room-hall', room_hall, { x: 0.05, z: 2 });
+apartment.addRoom('room-c', room_c, { x: 2.92, z: 2 });
+apartment.addRoom('room-d', room_d, { x: 5.79, z: 2 });
+apartment.addRoom('room-laundry', room_laundry, { x: -3.12, z: -1.62 });
+apartment.addRoom('room-guest', room_guest, { x: 0.5, z: -1.62 });
+apartment.addRoom('room-kitchen', room_kitchen, { x: 3.62, z: -1.62 });
+apartment.addRoom('room-bedroom', room_bedroom, { x: -12.12, z: -7.24 });
+apartment.addRoom('room-living', room_living, { x: 0, z: -7.24 });
+apartment.addRoom('room-study', room_study, { x: 12.12, z: -7.24 });
 
-// ── 注册北排 4 间 ──
-apartment.addRoom('room-a', roomA, { x: -12, z: 10 });
-apartment.addRoom('room-b', roomB, { x: -4, z: 10 });
-apartment.addRoom('room-c', roomC, { x: 4, z: 10 });
-apartment.addRoom('room-d', roomD, { x: 12, z: 10 });
+// 房间连接
+apartment.addConnection('room-a', 'room-b', { x: -4.43, z: 2 });
+apartment.addConnection('room-b', 'room-hall', { x: -1.51, z: 2 });
+apartment.addConnection('room-hall', 'room-c', { x: 1.61, z: 2 });
+apartment.addConnection('room-c', 'room-d', { x: 4.23, z: 2 });
+apartment.addConnection('room-laundry', 'room-guest', { x: -1.31, z: -1.62 });
+apartment.addConnection('room-guest', 'room-kitchen', { x: 2.31, z: -1.62 });
+apartment.addConnection('room-living', 'room-study', { x: 8.06, z: -7.24 });
+apartment.addConnection('room-a', 'room-laundry', { x: -4.505, z: 0 });
+apartment.addConnection('room-b', 'room-guest', { x: -1.235, z: 0 });
+apartment.addConnection('room-hall', 'room-guest', { x: 0.275, z: 0 });
+apartment.addConnection('room-c', 'room-kitchen', { x: 3.27, z: 0 });
+apartment.addConnection('room-d', 'room-kitchen', { x: 4.705, z: 0 });
+apartment.addConnection('room-guest', 'room-living', { x: 0.25, z: -3.12 });
+apartment.addConnection('room-kitchen', 'room-study', { x: 4.93, z: -4.43 });
 
-// ── 建立房间 ↔ 走廊连接 ──
-// 南排 → 走廊（北门）
-apartment.addConnection('room-e', 'corridor', { x: -12, z: 3.5 });
-apartment.addConnection('room-f', 'corridor', { x: -4, z: 3.5 });
-apartment.addConnection('room-g', 'corridor', { x: 4, z: 3.5 });
-apartment.addConnection('room-h', 'corridor', { x: 12, z: 3.5 });
-// 北排 → 走廊（南门）
-apartment.addConnection('room-a', 'corridor', { x: -12, z: 6.5 });
-apartment.addConnection('room-b', 'corridor', { x: -4, z: 6.5 });
-apartment.addConnection('room-c', 'corridor', { x: 4, z: 6.5 });
-apartment.addConnection('room-d', 'corridor', { x: 12, z: 6.5 });
+// 无走廊
+apartment.setCorridorBounds(null);
 
-// ── 构建走廊 ──
-const CORRIDOR_WIDTH = 32;
-const CORRIDOR_DEPTH = 3;
-const CORRIDOR_HEIGHT = 3.5;
+apartment.build(scene, 'room-living');
 
-const corridorGroup = new THREE.Group();
-corridorGroup.position.set(0, 0, 5);  // 走廊中心
 
-// 西墙：公寓出口门
-const corridorWestWall = createDoorWall({
-    width: CORRIDOR_DEPTH,
-    height: CORRIDOR_HEIGHT,
-    thickness: 0.12,
-    door: { width: 1.2, height: 2.4, openDirection: 'left' },
-});
-corridorWestWall.position.set(-CORRIDOR_WIDTH / 2, 0, 0);
-corridorWestWall.rotation.y = -Math.PI / 2;
-corridorGroup.add(corridorWestWall);
 
-// 东墙：实心
-const corridorEastWall = createSolidWall({
-    width: CORRIDOR_DEPTH,
-    height: CORRIDOR_HEIGHT,
-    thickness: 0.12,
-});
-corridorEastWall.position.set(CORRIDOR_WIDTH / 2, 0, 0);
-corridorEastWall.rotation.y = Math.PI / 2;
-corridorGroup.add(corridorEastWall);
 
-// 走廊地板 + 天花板
-const corridorFloor = createFloor({ width: CORRIDOR_WIDTH, depth: CORRIDOR_DEPTH });
-const corridorCeiling = createCeiling({ width: CORRIDOR_WIDTH, depth: CORRIDOR_DEPTH, height: CORRIDOR_HEIGHT });
-corridorGroup.add(corridorFloor);
-corridorGroup.add(corridorCeiling);
 
-// 走廊墙壁不投阴影，地板接收阴影
-corridorGroup.traverse(obj => {
-    if (obj.isMesh) {
-        obj.castShadow = false;
-    }
-});
-corridorFloor.receiveShadow = true;
 
-scene.add(corridorGroup);
 
-// 将走廊部件引用传给公寓管理器（用于可见性控制）
-apartment._corridorGroup = corridorGroup;
-apartment._corridorFloor = corridorFloor;
-apartment._corridorCeiling = corridorCeiling;
-apartment._corridorWestWall = corridorWestWall;
-apartment._corridorEastWall = corridorEastWall;
 
-// 设置走廊边界（用于角色位置检测）
-apartment.setCorridorBounds({
-    minX: -CORRIDOR_WIDTH / 2,
-    maxX: CORRIDOR_WIDTH / 2,
-    minZ: 5 - CORRIDOR_DEPTH / 2,
-    maxZ: 5 + CORRIDOR_DEPTH / 2,
-});
 
-// ── 构建所有房间并显示客厅 ──
-apartment.build(scene, 'room-f');
 
 // ── 外壳房子（永远可见）──
 const { group: houseShellGroup, door: shellDoor, grass, grassMesh } = createHouseShell();

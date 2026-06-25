@@ -207,6 +207,184 @@ export function createDoorWall({ width, height, thickness = WALL_T_DEFAULT, door
 }
 
 
+/**
+ * ④ 门窗墙：一面墙上同时有门 + 窗
+ *
+ * 门和窗可以任意排列（左门右窗 / 左窗右门 等），通过各自的 offset 控制位置。
+ *
+ * @param {object} opts
+ * @param {number} opts.width
+ * @param {number} opts.height
+ * @param {number} [opts.thickness=0.12]
+ * @param {object} opts.door
+ * @param {number} opts.door.width             — 门宽
+ * @param {number} opts.door.height            — 门高
+ * @param {number} [opts.door.offset]          — 门水平偏移（0=居中）
+ * @param {string} [opts.door.openDirection='left']
+ * @param {object} opts.window
+ * @param {number} opts.window.width            — 窗宽
+ * @param {number} opts.window.sillHeight       — 窗台离地高度
+ * @param {number} opts.window.topHeight        — 窗顶离地高度
+ * @param {number} [opts.window.offset]         — 窗水平偏移（0=居中）
+ * @param {object} [opts.curtain]
+ * @param {number} [opts.curtain.rodLength]
+ * @returns {THREE.Group}
+ */
+export function createDoorWindowWall({ width, height, thickness = WALL_T_DEFAULT, door: doorCfg, window: winCfg, curtain: curtainCfg }) {
+    const group = new THREE.Group();
+
+    const DW = doorCfg.width;
+    const DH = doorCfg.height;
+    const dOff = doorCfg.offset || 0;
+
+    const WW = winCfg.width;
+    const WSill = winCfg.sillHeight;
+    const WTop = winCfg.topHeight;
+    const wOff = winCfg.offset || 0;
+    const WH = WTop - WSill;
+
+    const halfW = width / 2;
+
+    // 门和窗的水平范围
+    const dLeft = dOff - DW / 2;
+    const dRight = dOff + DW / 2;
+    const wLeft = wOff - WW / 2;
+    const wRight = wOff + WW / 2;
+
+    // 判断门和窗哪个在左
+    const doorIsLeft = dOff < wOff;
+
+    const addWallPiece = (w, h, x, y) => {
+        if (w <= 0.001 || h <= 0.001) return;
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, thickness), matWall);
+        m.position.set(x, y, 0);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        group.add(m);
+    };
+
+    // ── 垂直方向分区 ──
+    // 下段（0 ~ min(WSill, DH)）
+    const botY = Math.min(WSill, DH);
+    if (botY > 0.001) {
+        // 门区域：门下无墙体 → 跳过门宽范围
+        // 窗区域：窗下有墙 → 填实
+        if (doorIsLeft) {
+            addWallPiece(dLeft - (-halfW), botY, (-halfW + dLeft) / 2, botY / 2);                       // 最左
+            addWallPiece(dRight - dLeft, botY, (dLeft + dRight) / 2, botY / 2);                           // 门下无墙 → 已处理为开孔
+            // Actually 门下范围是空的，不需要墙
+            // 门和窗之间
+            const midLeft = dRight;
+            const midRight = wLeft;
+            if (WSill < DH) {
+                // 窗台低于门高：这段是窗下墙，要填
+                addWallPiece(midRight - midLeft, WSill, (midLeft + midRight) / 2, WSill / 2);
+            } else {
+                // 窗台高于门高：这段部分有墙
+                addWallPiece(midRight - midLeft, DH, (midLeft + midRight) / 2, DH / 2);
+            }
+            // 窗区（窗台以下部分）
+            addWallPiece(wRight - wLeft, WSill, (wLeft + wRight) / 2, WSill / 2);
+            // 最右
+            addWallPiece(halfW - wRight, botY, (wRight + halfW) / 2, botY / 2);
+        } else {
+            addWallPiece(wLeft - (-halfW), botY, (-halfW + wLeft) / 2, botY / 2);
+            addWallPiece(wRight - wLeft, WSill, (wLeft + wRight) / 2, WSill / 2);
+            const midLeft = wRight;
+            const midRight = dLeft;
+            addWallPiece(midRight - midLeft, botY, (midLeft + midRight) / 2, botY / 2);
+            addWallPiece(dRight - dLeft, botY, (dLeft + dRight) / 2, botY / 2);  // 门下空 → later correction
+            addWallPiece(halfW - dRight, botY, (dRight + halfW) / 2, botY / 2);
+        }
+    }
+
+    // ── 简单版：用矩形减法 ──
+    // 实际上逐段处理太复杂。让我用更简洁的方式：
+    // 把整面墙当作实心，然后在门和窗的位置"挖洞"。
+    // 但 Three.js 不支持 CSG，所以还是用分块拼。
+
+    // 清除之前的下段分块，改用更清晰的算法
+    group.clear();
+
+    /**
+     * 墙壁分块策略：
+     *
+     * 水平分成最多 3 列：左列 | 中列 | 右列
+     * 门和窗各占据一列。
+     *
+     * 如果 doorIsLeft: 左列=门, 右列=窗
+     * 否则:            左列=窗, 右列=门
+     *
+     * 每列在垂直方向再分成：
+     *   - 上段（开口上方）
+     *   - 开口段（门洞/窗洞 — 门洞全空，窗洞装玻璃）
+     *   - 下段（开口下方，窗户有窗下墙，门无）
+     */
+
+    // 左/中/右 分界点
+    let leftCol, midCol, rightCol;  // {left, right, type}
+    if (doorIsLeft) {
+        leftCol  = { left: -halfW, right: dRight, type: 'door' };
+        midCol   = { left: dRight, right: wLeft, type: 'solid' };
+        rightCol = { left: wLeft, right: halfW, type: 'window' };
+    } else {
+        leftCol  = { left: -halfW, right: wRight, type: 'window' };
+        midCol   = { left: wRight, right: dLeft, type: 'solid' };
+        rightCol = { left: dLeft, right: halfW, type: 'door' };
+    }
+
+    // 对每列生成墙壁分块
+    for (const col of [leftCol, midCol, rightCol]) {
+        const colW = col.right - col.left;
+        const colCX = (col.left + col.right) / 2;
+
+        if (colW <= 0.001) continue;
+
+        if (col.type === 'solid') {
+            // 实心列：完整墙高
+            addWallPiece(colW, height, colCX, height / 2);
+        } else if (col.type === 'door') {
+            // 门列：门上方 + 门洞
+            addWallPiece(colW, height - DH, colCX, DH + (height - DH) / 2);  // 上方
+            // 门下无墙（门洞）
+        } else if (col.type === 'window') {
+            // 窗列：窗上方 + 窗洞 + 窗下方
+            addWallPiece(colW, height - WTop, colCX, WTop + (height - WTop) / 2);  // 上方
+            addWallPiece(colW, WSill, colCX, WSill / 2);                            // 下方
+            // 窗洞不填墙
+        }
+    }
+
+    // ── 门几何体 ──
+    const doorGroup = createDoorGeometry(DW, DH, doorCfg.openDirection || 'left');
+    doorGroup.position.set(dOff, 0, thickness / 2 - 0.01);
+    group.add(doorGroup);
+    group.userData.doorPivot = doorGroup.userData.doorPivot;
+    group.userData.isOpen = false;
+    group.userData.targetRotation = 0;
+
+    // ── 窗几何体 ──
+    const winGroup = createWindowGeometry(WW, WSill, WTop, wOff);
+    winGroup.position.z = -thickness / 2 + WIN_WALL_X_OFFSET;
+    group.add(winGroup);
+    group.userData.window = winGroup;
+
+    // ── 窗帘（可选）──
+    if (curtainCfg) {
+        const rodLength = curtainCfg.rodLength || (WW + 1.0);
+        const curtainGroup = createCurtainGeometry(WW, WSill, WTop, rodLength);
+        curtainGroup.position.z = -thickness / 2 + CURTAIN_GROUP_X_OFFSET;
+        group.add(curtainGroup);
+        group.userData.curtains = curtainGroup;
+    }
+
+    group.userData.wallType = 'doorWindow';
+    group.userData.wallSize = { width, height, thickness };
+    group.userData.isWall = true;
+    return group;
+}
+
+
 // ============================================================
 //  地板 / 天花板
 // ============================================================

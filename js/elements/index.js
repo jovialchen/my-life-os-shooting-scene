@@ -4,7 +4,7 @@
  * buildRoom(config) 读取房间配置，调用各工厂，组装完整的房间 Group。
  */
 import * as THREE from 'three';
-import { createSolidWall, createWindowWall, createDoorWall, createFloor, createCeiling } from './walls.js';
+import { createSolidWall, createWindowWall, createDoorWall, createDoorWindowWall, createFloor, createCeiling } from './walls.js';
 import { createSofa, createChair, createCoffeeTable, createSideTable, createBookshelf, createFloorLamp, BOOKSHELF } from './furniture.js';
 import { createCeilingLight } from './lights.js';
 import { createRug, createWallArt } from './decoration.js';
@@ -129,6 +129,18 @@ export function buildRoom(config) {
                     door: wallDef.door,
                 });
                 door = wall;
+                break;
+            case 'doorWindow':
+                wall = createDoorWindowWall({
+                    width: wallW,
+                    height: size.height,
+                    thickness: 0.12,
+                    door: wallDef.door,
+                    window: wallDef.window,
+                    curtain: wallDef.curtain,
+                });
+                if (wall.userData.curtains) curtains = wall.userData.curtains;
+                if (wall.userData.doorPivot) door = wall;
                 break;
         }
 
