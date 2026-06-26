@@ -8,235 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { overflow: hidden; background: #1a1a2e; font-family: -apple-system, 'Segoe UI', sans-serif; }
         canvas { display: block; }
-        /* 侧边栏 */
-        #sidebar {
-            position: absolute;
-            top: 0; right: 0;
-            width: 260px;
-            height: 100vh;
-            background: rgba(20, 15, 25, 0.88);
-            backdrop-filter: blur(10px);
-            border-left: 1px solid rgba(255,255,255,0.08);
-            display: flex;
-            flex-direction: column;
-            z-index: 10;
-            transition: transform 0.3s ease;
-        }
-        #sidebar.closed { transform: translateX(100%); }
-        /* 收起/展开按钮（侧边栏收起时仍可见） */
-        #sb-toggle {
-            position: absolute;
-            left: -28px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 28px;
-            height: 56px;
-            background: rgba(20, 15, 25, 0.75);
-            backdrop-filter: blur(6px);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-right: none;
-            border-radius: 6px 0 0 6px;
-            color: rgba(255,255,255,0.6);
-            font-size: 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 11;
-            transition: color 0.15s;
-        }
-        #sb-toggle:hover { color: rgba(255,255,255,0.9); }
-        /* Tab 栏 */
-        #sb-tabs {
-            display: flex;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            flex-shrink: 0;
-        }
-        .sb-tab {
-            flex: 1;
-            padding: 10px 4px;
-            background: none;
-            border: none;
-            color: rgba(255,255,255,0.45);
-            font-size: 11px;
-            cursor: pointer;
-            transition: color 0.15s, border-color 0.15s;
-            border-bottom: 2px solid transparent;
-            white-space: nowrap;
-        }
-        .sb-tab:hover { color: rgba(255,255,255,0.7); }
-        .sb-tab.active {
-            color: rgba(255,255,255,0.9);
-            border-bottom-color: #ffcc77;
-        }
-        /* 内容区 */
-        #sb-panels {
-            flex: 1;
-            overflow-y: auto;
-            padding: 12px;
-        }
-        #sb-panels::-webkit-scrollbar { width: 4px; }
-        #sb-panels::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
-        .sb-panel { display: none; }
-        .sb-panel.active { display: block; }
-        /* 物品 tab */
-        .sb-title { color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 600; margin: 16px 0 8px; }
-        .sb-title:first-child { margin-top: 0; }
-        .sb-item {
-            display: flex; align-items: center; gap: 10px;
-            padding: 6px 8px; border-radius: 6px; margin-bottom: 4px;
-            transition: background 0.15s;
-        }
-        .sb-item:hover { background: rgba(255,255,255,0.06); }
-        .sb-thumb {
-            width: 48px; height: 48px; border-radius: 4px;
-            background: rgba(255,255,255,0.04); flex-shrink: 0;
-            overflow: hidden;
-        }
-        .sb-thumb canvas { width: 100%; height: 100%; }
-        .sb-info { flex: 1; min-width: 0; }
-        .sb-name { color: rgba(255,255,255,0.85); font-size: 12px; font-weight: 500; }
-        .sb-meta { color: rgba(255,255,255,0.4); font-size: 10px; margin-top: 2px; }
-        /* 角色 tab */
-        .char-card {
-            display: flex; align-items: center; gap: 10px;
-            padding: 8px; border-radius: 6px; margin-bottom: 6px;
-            background: rgba(255,255,255,0.03);
-        }
-        .char-card .sb-thumb { width: 56px; height: 56px; }
-        .char-name { color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 600; }
-        .char-desc { color: rgba(255,255,255,0.45); font-size: 11px; margin-top: 4px; line-height: 1.5; }
-        /* 规则 tab */
-        .rules-section { margin-bottom: 16px; }
-        .rules-section h3 {
-            color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 600;
-            margin-bottom: 6px;
-        }
-        .rules-section p, .rules-section li {
-            color: rgba(255,255,255,0.55); font-size: 12px; line-height: 1.7;
-        }
-        .rules-section ul { padding-left: 16px; }
-        .rules-section li { margin-bottom: 2px; }
-        /* 指南针 */
-        #compass {
-            position: absolute;
-            bottom: 48px;
-            left: 24px;
-            width: 64px;
-            height: 64px;
-            pointer-events: none;
-            z-index: 20;
-        }
-        #compass-ring {
-            width: 100%;
-            height: 100%;
-        }
-        .compass-label { font: bold 11px sans-serif; fill: rgba(255,255,255,0.7); }
-        .compass-label-s { fill: #ff6b6b; }
-        #compass-indicator {
-            position: absolute;
-            top: -6px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0; height: 0;
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-bottom: 8px solid rgba(255,255,255,0.8);
-        }
-        /* 时间滑块 */
-        #time-bar {
-            position: absolute;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(20,15,25,0.7);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 8px;
-            padding: 8px 18px;
-            z-index: 20;
-            user-select: none;
-        }
-        #time-bar label {
-            color: rgba(255,255,255,0.7);
-            font-size: 12px;
-            white-space: nowrap;
-        }
-        #time-slider {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 280px;
-            height: 4px;
-            background: rgba(255,255,255,0.15);
-            border-radius: 2px;
-            outline: none;
-            cursor: pointer;
-        }
-        #time-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #ffcc77;
-            cursor: pointer;
-        }
-        #time-label {
-            color: rgba(255,255,255,0.9);
-            font-size: 12px;
-            font-weight: 600;
-            min-width: 28px;
-            text-align: center;
-        }
-        /* 季节滑块 */
-        #season-bar {
-            position: absolute;
-            bottom: 50px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(20,15,25,0.7);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 8px;
-            padding: 8px 18px;
-            z-index: 20;
-            user-select: none;
-        }
-        #season-bar label {
-            color: rgba(255,255,255,0.7);
-            font-size: 12px;
-            white-space: nowrap;
-        }
-        #season-slider {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 200px;
-            height: 4px;
-            background: rgba(255,255,255,0.15);
-            border-radius: 2px;
-            outline: none;
-            cursor: pointer;
-        }
-        #season-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #88cc77;
-            cursor: pointer;
-        }
-        #season-label {
-            color: rgba(255,255,255,0.9);
-            font-size: 12px;
-            font-weight: 600;
-            min-width: 28px;
-            text-align: center;
-        }
+
         /* 语言切换球 */
         #lang-globe {
             position: absolute;
@@ -286,9 +58,132 @@
         }
         .lang-opt:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); }
         .lang-opt.active { color: #ffcc77; }
+
+        /* 指南针 */
+        #compass {
+            position: absolute;
+            bottom: 48px;
+            left: 24px;
+            width: 64px;
+            height: 64px;
+            pointer-events: none;
+            z-index: 20;
+        }
+        #compass-ring {
+            width: 100%;
+            height: 100%;
+        }
+        .compass-label { font: bold 11px sans-serif; fill: rgba(255,255,255,0.7); }
+        .compass-label-s { fill: #ff6b6b; }
+        #compass-indicator {
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 8px solid rgba(255,255,255,0.8);
+        }
+
+        /* 时间滑块 */
+        #time-bar {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(20,15,25,0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 8px 18px;
+            z-index: 20;
+            user-select: none;
+        }
+        #time-bar label {
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        #time-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 280px;
+            height: 4px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        #time-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #ffcc77;
+            cursor: pointer;
+        }
+        #time-label {
+            color: rgba(255,255,255,0.9);
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 28px;
+            text-align: center;
+        }
+
+        /* 季节滑块 */
+        #season-bar {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(20,15,25,0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 8px 18px;
+            z-index: 20;
+            user-select: none;
+        }
+        #season-bar label {
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        #season-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 200px;
+            height: 4px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        #season-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #88cc77;
+            cursor: pointer;
+        }
+        #season-label {
+            color: rgba(255,255,255,0.9);
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 28px;
+            text-align: center;
+        }
     </style>
 
-    <!-- Three.js r160 CDN (ES Modules) -->
+    <!-- Three.js r170 CDN (ES Modules) -->
     <script type="importmap">
     {
         "imports": {
@@ -314,40 +209,26 @@
         <button class="lang-opt" data-lang="en">English</button>
     </div>
 </div>
-<div id="sidebar">
-    <div id="sb-toggle" title="收起/展开">◀</div>
-    <div id="sb-tabs">
-        <button class="sb-tab active" data-tab="items">物品</button>
-        <button class="sb-tab" data-tab="characters">人物</button>
-        <button class="sb-tab" data-tab="rules">规则</button>
-    </div>
-    <div id="sb-panels">
-        <div class="sb-panel active" data-panel="items"></div>
-        <div class="sb-panel" data-panel="characters"></div>
-        <div class="sb-panel" data-panel="rules"></div>
-    </div>
-</div>
+
 <div id="time-bar">
     <label>☀ 时间</label>
     <input id="time-slider" type="range" min="0" max="5" step="0.01" value="2">
     <span id="time-label">中午</span>
 </div>
+
 <div id="season-bar">
     <label>🍃 季节</label>
     <input id="season-slider" type="range" min="0" max="3" step="0.01" value="0">
     <span id="season-label">春</span>
 </div>
+
 <div id="compass">
     <div id="compass-indicator"></div>
     <svg id="compass-ring" viewBox="0 0 64 64">
         <circle cx="32" cy="32" r="28" fill="rgba(20,15,25,0.6)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-        <!-- N at top -->
         <text x="32" y="14" text-anchor="middle" class="compass-label" dominant-baseline="auto">N</text>
-        <!-- S at bottom -->
         <text x="32" y="56" text-anchor="middle" class="compass-label compass-label-s" dominant-baseline="auto">S</text>
-        <!-- E at right -->
         <text x="54" y="36" text-anchor="middle" class="compass-label" dominant-baseline="auto">E</text>
-        <!-- W at left -->
         <text x="10" y="36" text-anchor="middle" class="compass-label" dominant-baseline="auto">W</text>
     </svg>
 </div>

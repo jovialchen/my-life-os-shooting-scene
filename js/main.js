@@ -1,12 +1,15 @@
 /**
- * 主入口：场景初始化、组装、灯光、后期处理、动画循环
+ * 主入口：场景初始化、灯光、后期处理、动画循环
  *
- * 架构：
- *   js/elements/    — 零件工厂（墙壁/家具/灯具/装饰/小物品）
- *   js/rooms/       — 房间配置文件
- *   js/elements/index.js — buildRoom 构建器
- *   js/config.js    — 全局常量
- *   js/materials.js — 材质
+ * 场景组成：
+ *   - 绿色草地（CircleGeometry）
+ *   - GLB 房子模型（models/house.glb）
+ *   - VRM 人物（models/hazel-pink.vrm）
+ *   - 相机（OrbitControls + 角色跟随）
+ *   - 灯光系统（环境光 + 太阳方向光 + 补光 + 窗光）
+ *   - 时间系统（6 时段平滑过渡）
+ *   - 季节系统（草地颜色变化）
+ *   - 指南针
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -29,47 +32,19 @@ import {
     FILL_LIGHT_COLOR, FILL_LIGHT_INTENSITY, FILL_LIGHT_POSITION,
     WINDOW_SPOT_COLOR, WINDOW_SPOT_INTENSITY, WINDOW_SPOT_DISTANCE, WINDOW_SPOT_ANGLE, WINDOW_SPOT_PENUMBRA,
     WINDOW_SPOT_POSITION,
-    CURTAIN_CLOSED_X, CURTAIN_OPEN_X, CURTAIN_SNAP_THRESH, CURTAIN_EASE_FACTOR,
-    CURTAIN_ROD_HALF, CURTAIN_PLEAT_COMPRESSION, CURTAIN_PLEAT_FREQ_OX, CURTAIN_PLEAT_FREQ_T, CURTAIN_PLEAT_AMPLITUDE,
     TIME_PRESETS, SUN_ORBIT_RADIUS,
-    CURTAIN_SUN_FACTOR, CURTAIN_SPOT_FACTOR, CURTAIN_FILL_FACTOR, CURTAIN_AMBIENT_BOOST,
-    CLICK_DRAG_THRESHOLD,
-    THUMB_SIZE, THUMB_AMBIENT_COLOR, THUMB_AMBIENT_INTENSITY,
-    THUMB_LIGHT_COLOR, THUMB_LIGHT_INTENSITY, THUMB_LIGHT_POSITION,
-    THUMB_CAMERA_FOV, THUMB_CAMERA_ASPECT, THUMB_CAMERA_NEAR, THUMB_CAMERA_FAR,
-    THUMB_DIST_MULTIPLIER, THUMB_OFFSET_XZ, THUMB_OFFSET_Y,
 } from './config.js';
 
-// （房间配置和公寓系统已移除 — 使用 house.glb 模型替代）
-
-// ── 角色 ──
+// ── 角色系统 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
-import { initWalker, updateWalker, rebuildNavGrid } from './character/walker.js';
-import { initApartmentGrid, rebuildGrid, setTreePositions } from './character/pathfinding.js';
+import { initWalker, updateWalker } from './character/walker.js';
+import { initApartmentGrid, rebuildGrid } from './character/pathfinding.js';
 
-// ── 交互 ──
-import { createDragControls } from './interaction/dragControls.js';
-
-// ── 外壳房子 ──
+// ── 外壳房子（草地 + GLB 模型）──
 import { createHouseShell } from './elements/houseShell.js';
 
-// ── 花卉 ──
-import { createGardenFlowers } from './elements/flowers.js';
-
-// ── 大树 ──
-import { createGardenTrees, TREE_POSITIONS } from './elements/trees.js';
-
-// ── 季节物体 ──
-import { createSeasonalObjects } from './elements/seasonalObjects.js';
-
-// ── 季节系统 ──
+// ── 季节系统（仅草地颜色）──
 import { initSeasons, updateSeason } from './systems/seasons.js';
-
-// ── 栅栏 ──
-import { createFence } from './elements/fence.js';
-
-// ── 墙体遮挡系统 ──
-import { initWallOcclusion, updateWallOcclusion } from './systems/wallOcclusion.js';
 
 // ============================================================
 //  场景 / 相机 / 渲染器
@@ -106,371 +81,32 @@ const clock = new THREE.Clock();
 const _followTarget = new THREE.Vector3();
 let lookAtBound = false;
 
-// ═══ 公寓系统已移除（使用 house.glb 模型替代）═══
-
-
-
-
-
-// ── 外壳房子（永远可见）──
-const { group: houseShellGroup, door: shellDoor, grass, grassMesh } = createHouseShell();
+// ============================================================
+//  草地 + 房子
+// ============================================================
+const { group: houseShellGroup, grass, grassMesh } = createHouseShell();
 scene.add(houseShellGroup);
 
-// ── 花园花卉 ──
-const gardenFlowers = createGardenFlowers(grass);
-scene.add(gardenFlowers);
-
-// ── 花园大树 ──
-const gardenTrees = createGardenTrees(grass);
-scene.add(gardenTrees);
-
-// ── 季节物体（果子/蘑菇/雪人/雪团）──
-const seasonalObjects = createSeasonalObjects(grass, gardenTrees);
-scene.add(seasonalObjects);
-
-// ── 草地栅栏 + 拱形门 ──
-const fence = createFence(grass);
-scene.add(fence);
-
-// ── 初始化寻路网格（草地范围）──
-setTreePositions(TREE_POSITIONS);
+// ============================================================
+//  寻路网格（仅草地范围，无树木障碍）
+// ============================================================
 initApartmentGrid(null, null, grass);
 rebuildGrid(null, null, null, null, grass);
 
-// ── 初始化四季系统 ──
-initSeasons(grassMesh, gardenTrees, gardenFlowers, seasonalObjects);
+// ============================================================
+//  季节系统（仅草地颜色）
+// ============================================================
+initSeasons(grassMesh);
 updateSeason(0); // 默认春天
 
-// ── 房间系统已移除，以下引用全部为空 ──
-let door = null;
-let curtains = null;
-let ceilingLight = null;
-let floorLamp = null;
-let allMovables = [];
-let allSmallItems = [];
-let furnitureList = [];
-
-// 角色
+// ============================================================
+//  角色
+// ============================================================
 const humanoid = createHumanoid();
 scene.add(humanoid);
 
-// 墙体遮挡透明系统（只处理 house GLB 模型和花园）
-initWallOcclusion(null, camera, humanoid, houseShellGroup, [gardenTrees, gardenFlowers, seasonalObjects]);
-
-// 侧边栏物品列表
-let sidebarItems = [];
-
-function rebuildSidebarItems() {
-    sidebarItems.length = 0;
-    // 房间系统已移除，没有家具/灯具/装饰可显示
-}
-
-// 初始构建侧边栏
-rebuildSidebarItems();
-
-// ============================================================
-//  侧边栏：Tab 式面板（物品 / 人物 / 规则 / 语言）
-// ============================================================
-(function initSidebar() {
-    const TEXTS = {
-        zh: {
-            tabs: ['物品', '人物', '规则'],
-            time: '时间',
-            timeNames: TIME_PRESETS.map(p => p.name),
-            season: '季节',
-            seasonNames: ['春', '夏', '秋', '冬'],
-            rules: {
-                title: '游戏规则',
-                controls: '基本操作',
-                controlsList: [
-                    '拖拽旋转视角', '滚轮缩放', '右键平移视角',
-                    '拖拽移动家具 / 角色', '点击窗帘 / 门 开合',
-                    '点击灯具 开/关', '选中物体后 Q/E 旋转45°',
-                    '选中书本后 R 垂直翻转',
-                ],
-                nav: '角色移动',
-                navList: [
-                    '点击地面，角色自动走向目标', '角色会绕开家具障碍物',
-                    '门打开时角色会绕行门板', '移动书架/桌子时，上面的物品会一起带走',
-                    '单独拖拽物品可从家具上拿下来',
-                ],
-                time: '时间系统',
-                timeDesc: '拖动底部时间滑块可切换一天中的不同时段，灯光和天空颜色会随之变化。窗帘的开合也会影响室内光线。',
-            },
-            character: { title: '场景角色', name: '小人', desc: '点击地面让她走动，她会自动避开家具。可以拖拽移动她的位置。' },
-            langLabel: '语言 / Language',
-        },
-        en: {
-            tabs: ['Items', 'Cast', 'Rules'],
-            time: 'Time',
-            timeNames: TIME_PRESETS.map(p => p.nameEn || p.name),
-            season: 'Season',
-            seasonNames: ['Spring', 'Summer', 'Autumn', 'Winter'],
-            rules: {
-                title: 'Game Rules',
-                controls: 'Basic Controls',
-                controlsList: [
-                    'Drag to rotate view', 'Scroll to zoom', 'Right-click to pan',
-                    'Drag furniture / character to move', 'Click curtain / door to open/close',
-                    'Click lights to toggle on/off', 'Q/E to rotate selected object 45°',
-                    'R to flip book vertically',
-                ],
-                nav: 'Character Movement',
-                navList: [
-                    'Click on the floor to walk', 'Character avoids furniture obstacles',
-                    'Character walks around open doors', 'Moving shelf/table carries items on top',
-                    'Drag items off furniture to detach them',
-                ],
-                time: 'Time System',
-                timeDesc: 'Drag the time slider at the bottom to switch between times of day. Lighting and sky colors change accordingly. Curtain state also affects indoor lighting.',
-            },
-            character: { title: 'Scene Characters', name: 'Character', desc: 'Click the floor to make her walk — she avoids furniture automatically. Drag to reposition.' },
-            langLabel: '语言 / Language',
-        },
-    };
-
-    let lang = localStorage.getItem('scene-lang') || 'zh';
-    function t(key) {
-        return key.split('.').reduce((o, k) => o && o[k], TEXTS[lang]) || key;
-    }
-
-    // ── 缩略图渲染器 ──
-    const thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    thumbRenderer.setSize(THUMB_SIZE, THUMB_SIZE);
-    thumbRenderer.setPixelRatio(1);
-    thumbRenderer.shadowMap.enabled = false;
-    thumbRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    thumbRenderer.toneMappingExposure = TONE_MAPPING_EXPOSURE;
-    const thumbScene = new THREE.Scene();
-    thumbScene.background = new THREE.Color(BG_COLOR);
-    thumbScene.add(new THREE.AmbientLight(THUMB_AMBIENT_COLOR, THUMB_AMBIENT_INTENSITY));
-    const thumbLight = new THREE.DirectionalLight(THUMB_LIGHT_COLOR, THUMB_LIGHT_INTENSITY);
-    thumbLight.position.set(THUMB_LIGHT_POSITION.x, THUMB_LIGHT_POSITION.y, THUMB_LIGHT_POSITION.z);
-    thumbScene.add(thumbLight);
-    const thumbCam = new THREE.PerspectiveCamera(THUMB_CAMERA_FOV, THUMB_CAMERA_ASPECT, THUMB_CAMERA_NEAR, THUMB_CAMERA_FAR);
-
-    function renderThumbnail(obj) {
-        const box = new THREE.Box3().setFromObject(obj);
-        if (!isFinite(box.min.x) || !isFinite(box.max.x)) {
-            const fallback = document.createElement('canvas');
-            fallback.width = fallback.height = THUMB_SIZE;
-            return fallback.toDataURL();
-        }
-        const center = new THREE.Vector3();
-        const size = new THREE.Vector3();
-        box.getCenter(center);
-        box.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const dist = maxDim * THUMB_DIST_MULTIPLIER;
-        thumbCam.position.set(
-            center.x + dist * THUMB_OFFSET_XZ,
-            center.y + dist * THUMB_OFFSET_Y,
-            center.z + dist * THUMB_OFFSET_XZ,
-        );
-        thumbCam.lookAt(center);
-        thumbCam.updateProjectionMatrix();
-        const parent = obj.parent;
-        if (parent) parent.remove(obj);
-        thumbScene.add(obj);
-        thumbRenderer.render(thumbScene, thumbCam);
-        const url = thumbRenderer.domElement.toDataURL();
-        thumbScene.remove(obj);
-        if (parent) parent.add(obj);
-        return url;
-    }
-
-    // ── 渲染物品面板 ──
-    const itemsPanel = document.querySelector('[data-panel="items"]');
-    const categories = [
-        { zh: '家具', en: 'Furniture' },
-        { zh: '灯具', en: 'Lighting' },
-        { zh: '挂画', en: 'Wall Art' },
-        { zh: '小物品', en: 'Small Items' },
-        { zh: '窗帘', en: 'Curtains' },
-        { zh: '地毯', en: 'Rug' },
-    ];
-
-    function renderItems() {
-        itemsPanel.innerHTML = '';
-        categories.forEach(cat => {
-            const catItems = sidebarItems.filter(i => i.cat === cat.zh);
-            if (catItems.length === 0) return;
-            const title = document.createElement('div');
-            title.className = 'sb-title';
-            title.textContent = `${lang === 'zh' ? cat.zh : cat.en}（${catItems.length}）`;
-            itemsPanel.appendChild(title);
-            catItems.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'sb-item';
-                const thumb = document.createElement('div');
-                thumb.className = 'sb-thumb';
-                const img = document.createElement('img');
-                img.src = renderThumbnail(item.obj);
-                img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
-                thumb.appendChild(img);
-                const info = document.createElement('div');
-                info.className = 'sb-info';
-                const itemName = lang === 'zh' ? item.name : item.nameEn;
-                const itemCat  = lang === 'zh' ? item.cat  : item.catEn;
-                info.innerHTML = `<div class="sb-name">${itemName}</div><div class="sb-meta">${itemCat}</div>`;
-                div.appendChild(thumb);
-                div.appendChild(info);
-                itemsPanel.appendChild(div);
-            });
-        });
-    }
-    renderItems();
-
-    // ── 渲染人物面板 ──
-    const charPanel = document.querySelector('[data-panel="characters"]');
-    function renderCharacters() {
-        charPanel.innerHTML = '';
-        const card = document.createElement('div');
-        card.className = 'char-card';
-        const thumb = document.createElement('div');
-        thumb.className = 'sb-thumb';
-        const img = document.createElement('img');
-        img.src = renderThumbnail(humanoid);
-        img.style.cssText = 'width:100%;height:100%;object-fit:contain;';
-        thumb.appendChild(img);
-        const info = document.createElement('div');
-        info.className = 'sb-info';
-        info.innerHTML = `<div class="char-name">${t('character.name')}</div><div class="char-desc">${t('character.desc')}</div>`;
-        card.appendChild(thumb);
-        card.appendChild(info);
-        charPanel.appendChild(card);
-    }
-    renderCharacters();
-
-    // ── 渲染规则面板 ──
-    const rulesPanel = document.querySelector('[data-panel="rules"]');
-    function renderRules() {
-        rulesPanel.innerHTML = '';
-        const r = TEXTS[lang].rules;
-        const secControls = document.createElement('div');
-        secControls.className = 'rules-section';
-        secControls.innerHTML = `<h3>${r.controls}</h3><ul>${r.controlsList.map(i => `<li>${i}</li>`).join('')}</ul>`;
-        rulesPanel.appendChild(secControls);
-        const secNav = document.createElement('div');
-        secNav.className = 'rules-section';
-        secNav.innerHTML = `<h3>${r.nav}</h3><ul>${r.navList.map(i => `<li>${i}</li>`).join('')}</ul>`;
-        rulesPanel.appendChild(secNav);
-        const secTime = document.createElement('div');
-        secTime.className = 'rules-section';
-        secTime.innerHTML = `<h3>${r.time}</h3><p>${r.timeDesc}</p>`;
-        rulesPanel.appendChild(secTime);
-    }
-    renderRules();
-
-    // ── 语言切换球 ──
-    const langGlobe = document.getElementById('lang-globe');
-    function updateGlobeOpts() {
-        langGlobe.querySelectorAll('.lang-opt').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.lang === lang);
-        });
-    }
-    langGlobe.addEventListener('click', (e) => {
-        const opt = e.target.closest('.lang-opt');
-        if (opt) {
-            const code = opt.dataset.lang;
-            if (lang !== code) {
-                lang = code;
-                localStorage.setItem('scene-lang', lang);
-                refreshAll();
-            }
-            langGlobe.classList.remove('open');
-            return;
-        }
-        langGlobe.classList.toggle('open');
-    });
-    document.addEventListener('click', (e) => {
-        if (!langGlobe.contains(e.target)) langGlobe.classList.remove('open');
-    });
-    updateGlobeOpts();
-
-    function refreshAll() {
-        document.querySelectorAll('.sb-tab').forEach((tab, i) => {
-            tab.textContent = TEXTS[lang].tabs[i];
-        });
-        const timeBarLabel = document.querySelector('#time-bar label');
-        if (timeBarLabel) timeBarLabel.textContent = `☀ ${t('time')}`;
-        const slider = document.getElementById('time-slider');
-        const timeLabelEl = document.getElementById('time-label');
-        if (slider && timeLabelEl) {
-            timeLabelEl.textContent = t('timeNames')[Math.round(parseFloat(slider.value))] || '';
-        }
-        // 季节标签
-        const seasonBarLabel = document.querySelector('#season-bar label');
-        if (seasonBarLabel) seasonBarLabel.textContent = `🍃 ${t('season')}`;
-        const seasonSliderEl = document.getElementById('season-slider');
-        const seasonLabelEl = document.getElementById('season-label');
-        if (seasonSliderEl && seasonLabelEl) {
-            seasonLabelEl.textContent = t('seasonNames')[Math.round(parseFloat(seasonSliderEl.value))] || '';
-        }
-        renderItems();
-        renderCharacters();
-        renderRules();
-        updateGlobeOpts();
-    }
-
-    document.querySelectorAll('.sb-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.sb-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.sb-panel').forEach(p => p.classList.remove('active'));
-            tab.classList.add('active');
-            const panel = document.querySelector(`[data-panel="${tab.dataset.tab}"]`);
-            if (panel) panel.classList.add('active');
-        });
-    });
-
-    const sidebar = document.getElementById('sidebar');
-    const toggle  = document.getElementById('sb-toggle');
-    if (toggle && sidebar) {
-        toggle.addEventListener('click', () => {
-            sidebar.classList.toggle('closed');
-            toggle.textContent = sidebar.classList.contains('closed') ? '▶' : '◀';
-        });
-    }
-
-    window._sidebarRefresh = refreshAll;
-    window._sidebarLang = () => lang;
-})();
-
-// ============================================================
-//  拖拽交互
-// ============================================================
-const dragControlsInstance = createDragControls([humanoid], camera, renderer, controls, scene, {
-    onDrop: rebuildNavGrid,
-    apartment: null,
-});
-
-// ============================================================
-//  角色点击走动
-// ============================================================
+// 角色点击走动
 initWalker(humanoid, camera, renderer, scene, null, null, grass);
-
-// 点击检测（区分点击与拖拽）
-const clickRaycaster = new THREE.Raycaster();
-const clickMouse = new THREE.Vector2();
-let pointerDownPos = null;
-
-renderer.domElement.addEventListener('pointerdown', e => {
-    pointerDownPos = { x: e.clientX, y: e.clientY };
-});
-
-renderer.domElement.addEventListener('pointerup', e => {
-    if (!pointerDownPos) return;
-    const dx = e.clientX - pointerDownPos.x;
-    const dy = e.clientY - pointerDownPos.y;
-    pointerDownPos = null;
-    if (Math.sqrt(dx * dx + dy * dy) > CLICK_DRAG_THRESHOLD) return;
-
-    clickMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    clickMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    clickRaycaster.setFromCamera(clickMouse, camera);
-
-    // 房间系统已移除，窗帘/门/灯具点击交互不再需要
-});
 
 // ============================================================
 //  灯光系统
@@ -501,7 +137,6 @@ const windowLight = new THREE.SpotLight(
     WINDOW_SPOT_COLOR, WINDOW_SPOT_INTENSITY, WINDOW_SPOT_DISTANCE,
     WINDOW_SPOT_ANGLE, WINDOW_SPOT_PENUMBRA,
 );
-// room-f 中心在 (-4, 0)，南墙在 z = -3.5
 windowLight.position.set(-4 + WINDOW_SPOT_POSITION.x, WINDOW_SPOT_POSITION.y, -3.5 - 0.5);
 windowLight.target.position.set(-4, 0, 0);
 windowLight.castShadow = false;
@@ -552,36 +187,87 @@ function updateTimeOfDay(value) {
     scene.background = bgColor;
 }
 
-updateTimeOfDay(2);
+updateTimeOfDay(2); // 默认中午
 
+// ============================================================
+//  时间 + 季节滑块
+// ============================================================
 const timeSlider = document.getElementById('time-slider');
 const timeLabel  = document.getElementById('time-label');
+
+const SEASON_NAMES = { zh: ['春', '夏', '秋', '冬'], en: ['Spring', 'Summer', 'Autumn', 'Winter'] };
+
+function currentLang() {
+    return localStorage.getItem('scene-lang') || 'zh';
+}
+
 if (timeSlider) {
     timeSlider.addEventListener('input', () => {
         const v = parseFloat(timeSlider.value);
         updateTimeOfDay(v);
         const preset = TIME_PRESETS[Math.round(v)];
-        if (timeLabel) timeLabel.textContent = (window._sidebarLang && window._sidebarLang() === 'en') ? preset.nameEn : preset.name;
+        if (timeLabel) timeLabel.textContent = currentLang() === 'en' ? preset.nameEn : preset.name;
     });
 }
 
-// ── 季节滑块 ──
-const SEASON_PRESETS_REF = [
-    { name: '春', nameEn: 'Spring' },
-    { name: '夏', nameEn: 'Summer' },
-    { name: '秋', nameEn: 'Autumn' },
-    { name: '冬', nameEn: 'Winter' },
-];
 const seasonSlider = document.getElementById('season-slider');
 const seasonLabel  = document.getElementById('season-label');
 if (seasonSlider) {
     seasonSlider.addEventListener('input', () => {
         const v = parseFloat(seasonSlider.value);
         updateSeason(v);
-        const preset = SEASON_PRESETS_REF[Math.round(v)];
-        if (seasonLabel) seasonLabel.textContent = (window._sidebarLang && window._sidebarLang() === 'en') ? preset.nameEn : preset.name;
+        const idx = Math.round(v);
+        if (seasonLabel) seasonLabel.textContent = SEASON_NAMES[currentLang()][idx];
     });
 }
+
+// ============================================================
+//  语言切换
+// ============================================================
+(function initLanguageToggle() {
+    const langGlobe = document.getElementById('lang-globe');
+    if (!langGlobe) return;
+
+    function updateGlobeOpts() {
+        langGlobe.querySelectorAll('.lang-opt').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.lang === currentLang());
+        });
+    }
+
+    langGlobe.addEventListener('click', (e) => {
+        const opt = e.target.closest('.lang-opt');
+        if (opt) {
+            const code = opt.dataset.lang;
+            if (currentLang() !== code) {
+                localStorage.setItem('scene-lang', code);
+                updateGlobeOpts();
+                // 刷新时间 & 季节标签
+                if (timeSlider) {
+                    const v = parseFloat(timeSlider.value);
+                    const preset = TIME_PRESETS[Math.round(v)];
+                    if (timeLabel) timeLabel.textContent = code === 'en' ? preset.nameEn : preset.name;
+                }
+                if (seasonSlider) {
+                    const idx = Math.round(parseFloat(seasonSlider.value));
+                    if (seasonLabel) seasonLabel.textContent = SEASON_NAMES[code][idx];
+                }
+                // 刷新时间栏 label
+                const timeBarLabel = document.querySelector('#time-bar label');
+                if (timeBarLabel) timeBarLabel.textContent = code === 'en' ? '☀ Time' : '☀ 时间';
+                // 刷新季节栏 label
+                const seasonBarLabel = document.querySelector('#season-bar label');
+                if (seasonBarLabel) seasonBarLabel.textContent = code === 'en' ? '🍃 Season' : '🍃 季节';
+            }
+            langGlobe.classList.remove('open');
+            return;
+        }
+        langGlobe.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+        if (!langGlobe.contains(e.target)) langGlobe.classList.remove('open');
+    });
+    updateGlobeOpts();
+})();
 
 // ============================================================
 //  后期处理
@@ -626,6 +312,7 @@ function animate() {
         controls.target.lerp(_followTarget, t);
     }
 
+    // 指南针旋转
     if (compassRing) {
         const camAngle = Math.atan2(
             controls.target.x - camera.position.x,
@@ -634,6 +321,7 @@ function animate() {
         compassRing.style.transform = `rotate(${camAngle * 180 / Math.PI}deg)`;
     }
 
+    // 角色头部追踪相机（首次绑定）
     if (!lookAtBound && humanoid.userData.vrm) {
         setHumanoidLookAt(camera);
         lookAtBound = true;
@@ -642,10 +330,11 @@ function animate() {
     updateHumanoid(delta);
     updateWalker(delta);
 
-    // 门动画 / 窗帘动画已移除（房间系统已不再使用）
-
-    // 墙体遮挡透明
-    updateWallOcclusion(delta);
+    // 灯光强度随一天时间变化
+    sun.intensity     = sunBaseIntensity;
+    ambientLight.intensity = ambientBaseIntensity;
+    fill.intensity    = fillBaseIntensity;
+    windowLight.intensity = spotBaseIntensity;
 
     composer.render();
 }
