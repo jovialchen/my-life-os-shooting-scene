@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check /root/projects/my-life-os-shooting-scene/js/elements/houseShell.js)",
+      "Bash(node --check /root/projects/my-life-os-shooting-scene/js/main.js)",
+      "Bash(node --check /root/projects/my-life-os-shooting-scene/js/systems/wallOcclusion.js)",
+      "Bash(node --check /root/projects/my-life-os-shooting-scene/js/character/pathfinding.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/models/house.glb)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/js/main.js)",
+      "Bash(curl -s http://localhost:8080/)"
+    ]
+  }
+}

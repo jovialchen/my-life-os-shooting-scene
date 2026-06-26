@@ -137,28 +137,26 @@ function collectVisibleWallMeshes() {
         }
     };
 
-    // 各房间的墙体 + 天花板（房间 group 始终 visible，墙体始终加载）
-    for (const [, room] of apartment.rooms) {
-        for (const child of room.result.group.children) {
-            if (child.userData?.isWall) {
-                collect(child);
-            } else if (child.userData?.isOccluder) {
-                _meshCache.push(child);
+    // 公寓房间和走廊已移除 — 改用 house.glb 模型
+    if (apartment) {
+        for (const [, room] of apartment.rooms) {
+            for (const child of room.result.group.children) {
+                if (child.userData?.isWall) {
+                    collect(child);
+                } else if (child.userData?.isOccluder) {
+                    _meshCache.push(child);
+                }
             }
         }
-    }
 
-    // 走廊门墙（独立 group）
-    for (const [, doorWall] of apartment.corridorDoorWalls) {
-        if (doorWall.visible) {
-            collect(doorWall);
+        for (const [, doorWall] of apartment.corridorDoorWalls) {
+            if (doorWall.visible) collect(doorWall);
         }
-    }
 
-    // 走廊东西墙 + 天花板
-    if (apartment._corridorWestWall?.visible) collect(apartment._corridorWestWall);
-    if (apartment._corridorEastWall?.visible) collect(apartment._corridorEastWall);
-    if (apartment._corridorCeiling?.visible) _meshCache.push(apartment._corridorCeiling);
+        if (apartment._corridorWestWall?.visible) collect(apartment._corridorWestWall);
+        if (apartment._corridorEastWall?.visible) collect(apartment._corridorEastWall);
+        if (apartment._corridorCeiling?.visible) _meshCache.push(apartment._corridorCeiling);
+    }
 
     // 外壳房子（isOccluder 标记的 group 或单个 mesh）
     if (houseShellGroup?.visible) {

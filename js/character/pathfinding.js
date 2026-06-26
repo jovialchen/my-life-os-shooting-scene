@@ -41,14 +41,16 @@ export function initApartmentGrid(rooms, corridorBounds, grass) {
     let minX = Infinity, maxX = -Infinity;
     let minZ = Infinity, maxZ = -Infinity;
 
-    for (const [, room] of rooms) {
-        const p = room.position;
-        const hw = room.bounds.halfW;
-        const hd = room.bounds.halfD;
-        minX = Math.min(minX, p.x - hw);
-        maxX = Math.max(maxX, p.x + hw);
-        minZ = Math.min(minZ, p.z - hd);
-        maxZ = Math.max(maxZ, p.z + hd);
+    if (rooms) {
+        for (const [, room] of rooms) {
+            const p = room.position;
+            const hw = room.bounds.halfW;
+            const hd = room.bounds.halfD;
+            minX = Math.min(minX, p.x - hw);
+            maxX = Math.max(maxX, p.x + hw);
+            minZ = Math.min(minZ, p.z - hd);
+            maxZ = Math.max(maxZ, p.z + hd);
+        }
     }
 
     // 走廊边界也纳入网格范围
@@ -59,7 +61,7 @@ export function initApartmentGrid(rooms, corridorBounds, grass) {
         maxZ = Math.max(maxZ, corridorBounds.maxZ);
     }
 
-    // 圆形草地范围
+    // 圆形草地范围（始终使用）
     if (grass) {
         minX = Math.min(minX, grass.centerX - grass.radius);
         maxX = Math.max(maxX, grass.centerX + grass.radius);
@@ -96,40 +98,38 @@ export function rebuildGrid(rooms, corridorBounds, corridorExitDoor, shellDoor, 
     const inflate = CHAR_RADIUS + OBSTACLE_PAD;
     const box = new THREE.Box3();
 
-    // 标记圆形草地范围外为障碍
+    // 标记圆形草地范围外为障碍（始终生效）
     if (grass) {
         _markOutsideCircle(grass.centerX, grass.centerZ, grass.radius);
     }
 
-    // 标记走廊墙壁（东西两端）
+    // 走廊墙壁（东西两端）
     if (corridorBounds) {
         _markCorridorWalls(corridorBounds, corridorExitDoor);
     }
 
-    for (const [id, room] of rooms) {
-        if (!room.result.group.visible) {
-            // 不可见房间 → 整个区域标记为障碍
-            _markRoomBounds(room, true);
-            continue;
-        }
+    if (rooms) {
+        for (const [id, room] of rooms) {
+            if (!room.result.group.visible) {
+                _markRoomBounds(room, true);
+                continue;
+            }
 
-        // 可见房间 → 标记墙壁边界
-        _markRoomWalls(room);
+            _markRoomWalls(room);
 
-        // 标记家具障碍
-        for (const f of room.result.furniture) {
-            if (!f.group.visible) continue;
-            box.setFromObject(f.group);
-            _markBox(box, inflate);
-        }
-
-        // 门打开时，门板甩入房间内，作为动态障碍（只标记门板，不标记墙壁面板）
-        const door = room.result.door;
-        if (door && door.userData.isOpen) {
-            const doorPivot = door.userData.doorPivot;
-            if (doorPivot) {
-                box.setFromObject(doorPivot);
+            for (const f of room.result.furniture) {
+                if (!f.group.visible) continue;
+                box.setFromObject(f.group);
                 _markBox(box, inflate);
+            }
+
+            const door = room.result.door;
+            if (door && door.userData.isOpen) {
+                const doorPivot = door.userData.doorPivot;
+                if (doorPivot) {
+                    box.setFromObject(doorPivot);
+                    _markBox(box, inflate);
+                }
             }
         }
     }
