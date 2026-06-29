@@ -7,7 +7,29 @@
       "Bash(node --check /root/projects/my-life-os-shooting-scene/js/character/pathfinding.js)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/models/house.glb)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/js/main.js)",
-      "Bash(curl -s http://localhost:8080/)"
+      "Bash(curl -s http://localhost:8080/)",
+      "Bash(apt list *)",
+      "Bash(python3 -c \"import bpy\")",
+      "Bash(snap list *)",
+      "Bash(flatpak list *)",
+      "Bash(chmod +x /root/projects/my-life-os-shooting-scene/run_decompose.sh)",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/root/projects/my-life-os-shooting-scene/decompose_model.py'\\).read\\(\\)\\); print\\('decompose_model.py: OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/root/projects/my-life-os-shooting-scene/decompose_cli.py'\\).read\\(\\)\\); print\\('decompose_cli.py: OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/root/projects/my-life-os-shooting-scene/decompose_v2.py'\\).read\\(\\)\\); print\\('decompose_v2.py: OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('/root/projects/my-life-os-shooting-scene/decompose_v3.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(blender --version)",
+      "Read(//usr/lib/**)",
+      "Bash(sudo apt-get update -qq)",
+      "Bash(sudo apt-get install -y blender)",
+      "Bash(blender models/191.blend --background --python decompose_v3.py)",
+      "Bash(blender models/191.blend --background --python decompose_v4.py)",
+      "Bash(blender models/191.blend --background --python decompose_v5.py)",
+      "Bash(blender models/191_decomposed.blend --background --python apply_smart_materials.py)",
+      "Bash(blender models/191_decomposed.blend --background --python analyze_groups.py)",
+      "Bash(blender models/191_decomposed.blend --background --python refine_mixed.py)",
+      "Bash(blender models/191_decomposed_refined.blend --background --python classify_color_v3.py)",
+      "Bash(blender models/191_decomposed_refined_colored.blend --background --python fix_roof_faces.py)",
+      "Bash(blender models/191_decomposed_refined_colored_fixed.blend --background --python-expr ' *)"
     ]
   }
 }
