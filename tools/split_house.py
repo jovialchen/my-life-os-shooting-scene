@@ -292,7 +292,8 @@ def main():
     slot_mat = {
         'wall': mats['MAT_wall'], 'roof': mats['MAT_roof'],
         'floor': mats['MAT_floor'], 'door': mats['MAT_door'],
-        'window': mats['MAT_glass'], 'trim': mats['MAT_trim'],
+        # 窗户是镂空格栅没有玻璃，刷窗框暖白而不是玻璃蓝（MAT_glass 弃用）
+        'window': mats['MAT_frame'], 'trim': mats['MAT_trim'],
     }
     obj.data.materials.clear()
     for cat in SLOTS:
