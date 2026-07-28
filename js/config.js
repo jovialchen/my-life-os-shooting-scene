@@ -168,10 +168,10 @@ export const TIME_PRESETS = [
     { name: '夜晚', nameEn: 'Night',   az: 180, el: -10, h: 0.6,  s: 0.3,  l: 0.1,  sun: 0,    ambient: 0.03, fill: 0.02, spot: 0,    bg: 0x0a0a1a },
 ];
 
-// ── 四季预设（仅草地颜色）──
+// ── 四季预设（草地 + 树叶颜色；秋→冬树叶缩放落叶，见 systems/seasons.js）──
 export const SEASON_PRESETS = [
-    { name: '春', nameEn: 'Spring', grass: 0x7acc68 },
-    { name: '夏', nameEn: 'Summer', grass: 0x4a8c3f },
-    { name: '秋', nameEn: 'Autumn', grass: 0xb8a040 },
-    { name: '冬', nameEn: 'Winter', grass: 0xe8e8e8 },
+    { name: '春', nameEn: 'Spring', grass: 0x7acc68, leaves: 0x7cc46a },
+    { name: '夏', nameEn: 'Summer', grass: 0x4a8c3f, leaves: 0x3e7c33 },
+    { name: '秋', nameEn: 'Autumn', grass: 0xb8a040, leaves: 0xd08a3a },
+    { name: '冬', nameEn: 'Winter', grass: 0xe8e8e8, leaves: 0xa07838 },
 ];

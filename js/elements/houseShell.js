@@ -1,31 +1,24 @@
 /**
- * 外壳房子 —— 从 GLB 模型加载
- * 加载 models/house.glb，包裹整个场景
+ * 外壳房子 + 岛屿地面 —— 从 GLB 模型加载
+ * 加载 models/house.glb（房子）与 models/island.glb（岛屿地面 + 四季树）
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { registerDoor } from '../systems/doors.js';
 
-// ── 草地参数（花园/栅栏/寻路等模块依赖）──
+// ── 草地/岛屿参数（花园/栅栏/寻路等模块依赖）──
 const GRASS_RADIUS = 25;
 const GRASS_CENTER_X = 0;
 const GRASS_CENTER_Z = 5; // 公寓中心 z=5
 
 // ── 主函数 ──
 
-export function createHouseShell() {
+/**
+ * @param {{ onIslandLoaded?: (info: { trees: Array, leaves: Array, grassMaterials: Array }) => void }} callbacks
+ */
+export function createHouseShell({ onIslandLoaded } = {}) {
     const house = new THREE.Group();
     house.name = 'houseShell';
-
-    // ── 绿色草地圆（同步创建，花园/季节系统需要）──
-    const grassMesh = new THREE.Mesh(
-        new THREE.CircleGeometry(GRASS_RADIUS, 64),
-        new THREE.MeshStandardMaterial({ color: 0x7a9e6d, roughness: 1.0 }),
-    );
-    grassMesh.rotation.x = -Math.PI / 2;
-    grassMesh.position.set(GRASS_CENTER_X, -0.02, GRASS_CENTER_Z);
-    grassMesh.receiveShadow = true;
-    house.add(grassMesh);
 
     const grass = {
         centerX: GRASS_CENTER_X,
@@ -33,8 +26,69 @@ export function createHouseShell() {
         radius: GRASS_RADIUS,
     };
 
-    // ── 异步加载 GLB 房子模型 ──
     const loader = new GLTFLoader();
+
+    // ── 异步加载岛屿模型（地面 + 树，替代原平面草地）──
+    loader.load(
+        './models/island.glb',
+        (gltf) => {
+            const island = gltf.scene;
+            island.name = 'islandModel';
+
+            const trees = [];           // 树干障碍 {x, z, r}
+            const leaves = [];          // 四季树叶 mesh（含缩放基点）
+            const grassMaterials = [];  // 草顶材质（季节变色目标）
+            const box = new THREE.Box3();
+
+            island.traverse((child) => {
+                if (!child.isMesh) return;
+                child.castShadow = true;
+                child.receiveShadow = true;
+
+                // WALK_ 顶面是逻辑行走面，不渲染（寻路系统用）
+                if (child.name.startsWith('WALK_')) {
+                    child.visible = false;
+                    child.castShadow = false;
+                    child.receiveShadow = false;
+                    return;
+                }
+
+                if (child.name.endsWith('_trunk')) {
+                    // 树干为圆柱障碍：取世界包围盒水平半径
+                    box.setFromObject(child);
+                    const r = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2;
+                    trees.push({ name: child.name, x: child.position.x, z: child.position.z, r });
+                } else if (child.userData.season_leaves) {
+                    // 树叶顶点为世界坐标（原点在岛中心），冬季缩放需绕树干基点
+                    leaves.push({ mesh: child, anchor: null });
+                }
+
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                for (const m of mats) {
+                    if (m.name === 'MAT_grass' && !grassMaterials.includes(m)) {
+                        grassMaterials.push(m);
+                    }
+                }
+            });
+
+            // 树叶缩放基点 = 同编号树干位置（树根处）
+            for (const leaf of leaves) {
+                const trunk = trees.find(t =>
+                    t.name.replace('_trunk', '') === leaf.mesh.name.replace('_leaves', ''));
+                if (trunk) leaf.anchor = new THREE.Vector3(trunk.x, 0, trunk.z);
+            }
+
+            house.add(island);
+            console.log('[HouseShell] island.glb loaded');
+            onIslandLoaded?.({ trees, leaves, grassMaterials });
+        },
+        undefined,
+        (error) => {
+            console.error('[HouseShell] Failed to load island.glb:', error);
+        },
+    );
+
+    // ── 异步加载 GLB 房子模型 ──
     loader.load(
         './models/house.glb',
         (gltf) => {
@@ -72,6 +126,5 @@ export function createHouseShell() {
         group: house,
         door: null,          // 门已改由 systems/doors.js 管理（GLB custom properties）
         grass,
-        grassMesh,
     };
 }

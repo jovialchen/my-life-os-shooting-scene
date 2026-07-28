@@ -2,12 +2,12 @@
  * 主入口：场景初始化 + 各系统组装 + 动画循环
  *
  * 场景组成：
- *   - 绿色草地 + GLB 房子模型（elements/houseShell.js，models/house.glb）
+ *   - 岛屿地面（models/island.glb：可行走顶面 + 四季树）+ GLB 房子模型
  *   - VRM 人物（character/humanoid.js，models/hazel-pink.vrm）
  *   - 相机（区域机位 + 限定范围轨道 + 跟随模式，systems/cameraZones.js）
  *   - 灯光系统（systems/lighting.js：环境光 + 太阳 + 补光 + 窗光）
  *   - 时间系统（systems/timeOfDay.js：6 时段平滑过渡）
- *   - 季节系统（systems/seasons.js：草地颜色变化）
+ *   - 季节系统（systems/seasons.js：草地颜色 + 树叶变色/落叶）
  *   - 门交互（systems/doors.js：点击开/关门）
  *   - UI（ui.js：时间/季节滑块、语言切换、指南针）
  */
@@ -26,10 +26,10 @@ import {
     ORBIT_DAMPING, ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
 } from './config.js';
 
-// ── 角色系统 ──
+// 角色系统 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
 import { initWalker, updateWalker } from './character/walker.js';
-import { initApartmentGrid, rebuildGrid } from './character/pathfinding.js';
+import { initApartmentGrid, rebuildGrid, setTreePositions } from './character/pathfinding.js';
 
 // ── 外壳房子（草地 + GLB 模型）──
 import { createHouseShell } from './elements/houseShell.js';
@@ -79,22 +79,32 @@ const clock = new THREE.Clock();
 let lookAtBound = false;
 
 // ============================================================
-//  草地 + 房子
+//  岛屿地面 + 房子
 // ============================================================
-const { group: houseShellGroup, grass, grassMesh } = createHouseShell();
+let seasonValue = 0;   // 当前季节滑块值（岛屿加载完成后补刷）
+
+const { group: houseShellGroup, grass } = createHouseShell({
+    onIslandLoaded: ({ trees, leaves, grassMaterials }) => {
+        // 树干成为寻路障碍
+        setTreePositions(trees);
+        rebuildGrid(null, null, null, null, grass);
+        // 季节系统接管草地/树叶
+        initSeasons({ grassMaterials, leaves });
+        updateSeason(seasonValue);
+    },
+});
 scene.add(houseShellGroup);
 
 // ============================================================
-//  寻路网格（仅草地范围，无树木障碍）
+//  寻路网格（仅草地范围；树干障碍在岛屿加载后重建）
 // ============================================================
 initApartmentGrid(null, null, grass);
 rebuildGrid(null, null, null, null, grass);
 
 // ============================================================
-//  季节系统（仅草地颜色）
+//  季节系统（草地 + 树叶；具体目标在岛屿加载后注入）
 // ============================================================
-initSeasons(grassMesh);
-updateSeason(0); // 默认春天
+initSeasons();
 
 // ============================================================
 //  角色
@@ -123,7 +133,7 @@ timeOfDay.update(2); // 默认中午
 // ============================================================
 initUI({
     onTimeChange: (v) => timeOfDay.update(v),
-    onSeasonChange: (v) => updateSeason(v),
+    onSeasonChange: (v) => { seasonValue = v; updateSeason(v); },
 });
 
 // ============================================================
