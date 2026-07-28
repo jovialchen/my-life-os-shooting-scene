@@ -92,6 +92,11 @@ def classify(s):
         if s['n'] <= 8:
             return 'wall'
         return 'window'
+    # 1b. 窗棂竖梃: 截面极薄(≤0.06×0.12)、不超过窗洞高的竖条是窗框中梃，
+    #     归窗框色；横向窗台条保持 trim 深木不变
+    if (d1 <= 0.06 and d2 <= 0.12 and sz.z >= max(sz.x, sz.y)
+            and d3 <= 1.6):
+        return 'window'
     # 2. 地板: 水平薄板，大面积（必须在屋顶规则之前，
     #    否则 z>6 的阁楼地板会因 up>0.15 被误判成屋顶）
     if sz.z < 0.2 and s['area'] > 4:
