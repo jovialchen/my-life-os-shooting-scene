@@ -245,6 +245,38 @@ def adjust_interior_faces(obj, face_cat):
     return n
 
 
+def repaint_interior_trim(obj, face_cat, z_max=6.2):
+    """把朝向屋内的 trim 面（竖梁/横梁在房间内可见的面）改刷屋内色(wall)。
+
+    判定（面级）：从面心沿 ±X/±Y/±Z 六个方向打射线，全部命中房子
+    几何才算"被房子包围"（屋内）-> 改 wall。外立面半木架的外侧面临空、
+    凹槽墙朝外开敞，都至少有一个方向打空，保持深木色。
+    z_max 限制只处理一二楼（阁楼由 task5 统一处理）。
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    scene = bpy.context.scene
+    mw = obj.matrix_world
+    DIRS = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0),
+            (0, 0, 1), (0, 0, -1)]
+    n = 0
+    for p in obj.data.polygons:
+        if face_cat.get(p.index) != 'trim':
+            continue
+        c = mw @ p.center
+        if z_max is not None and c.z >= z_max:
+            continue
+        enclosed = True
+        for d in DIRS:
+            off = Vector(d) * 0.03
+            if not scene.ray_cast(depsgraph, c + off, Vector(d))[0]:
+                enclosed = False
+                break
+        if enclosed:
+            face_cat[p.index] = 'wall'
+            n += 1
+    return n
+
+
 def main():
     obj = next(o for o in bpy.data.objects if o.type == 'MESH')
     print(f'分析 {obj.name}: {len(obj.data.polygons)} 面')
@@ -288,6 +320,10 @@ def main():
     # 屋顶/地板的内侧可见面改刷屋内色
     n_in = adjust_interior_faces(obj, face_cat)
     print(f'内侧面改色: {n_in} 面')
+
+    # 屋内 trim（竖梁/横梁）朝房间的面改刷屋内色
+    n_trim = repaint_interior_trim(obj, face_cat)
+    print(f'屋内木架改色: {n_trim} 面')
 
     # 建材质 + 材质槽
     mats = build_all_materials()
