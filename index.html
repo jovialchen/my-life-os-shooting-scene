@@ -209,6 +209,22 @@
         }
         .cam-zone-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.95); }
         .cam-zone-btn.active { color: #ffcc77; border-color: rgba(255,204,119,0.4); }
+        /* 机位分组 */
+        .cam-group { display: flex; flex-direction: column; gap: 4px; }
+        .cam-group-header {
+            padding: 4px 10px;
+            background: rgba(20, 15, 25, 0.45);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 6px;
+            color: rgba(255,255,255,0.4);
+            font-size: 11px;
+            text-align: left;
+            cursor: pointer;
+            transition: color 0.12s;
+        }
+        .cam-group-header:hover { color: rgba(255,255,255,0.8); }
+        .cam-group-body { display: flex; flex-direction: column; gap: 4px; padding-left: 8px; }
     </style>
 
     <!-- Three.js r170 CDN (ES Modules) -->

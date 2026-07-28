@@ -7,6 +7,9 @@ export function currentLang() {
     return localStorage.getItem('scene-lang') || 'zh';
 }
 
+/** 语言切换后派发的事件名（cameraZones 等监听此事件重刷文案） */
+export const LANG_CHANGE_EVENT = 'scene-lang-change';
+
 /**
  * 初始化滑块和语言切换
  * @param {{ onTimeChange: (v: number) => void, onSeasonChange: (v: number) => void }} handlers
@@ -65,6 +68,7 @@ export function initUI({ onTimeChange, onSeasonChange }) {
                     if (timeBarLabel) timeBarLabel.textContent = code === 'en' ? '☀ Time' : '☀ 时间';
                     const seasonBarLabel = document.querySelector('#season-bar label');
                     if (seasonBarLabel) seasonBarLabel.textContent = code === 'en' ? '🍃 Season' : '🍃 季节';
+                    window.dispatchEvent(new CustomEvent(LANG_CHANGE_EVENT));
                 }
                 langGlobe.classList.remove('open');
                 return;

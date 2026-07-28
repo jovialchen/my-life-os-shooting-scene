@@ -14,11 +14,11 @@
  */
 import * as THREE from 'three';
 import {
-    CAMERA_ZONES, CAMERA_ZONE_TRANSITION,
+    CAMERA_ZONES, CAMERA_ZONE_CATEGORIES, CAMERA_ZONE_TRANSITION,
     CAMERA_FOLLOW_SPEED, CAMERA_FOLLOW_Y, CAMERA_FOLLOW_DEADZONE,
     ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR,
 } from '../config.js';
-import { currentLang } from '../ui.js';
+import { currentLang, LANG_CHANGE_EVENT } from '../ui.js';
 
 let camera = null;
 let controls = null;
@@ -38,6 +38,9 @@ export function initCameraZones(cam, ctrl, renderer, humanoidGroup) {
     humanoid = humanoidGroup;
 
     buildButtons();
+
+    // 语言切换后重刷按钮文案
+    window.addEventListener(LANG_CHANGE_EVENT, refreshButtons);
 
     // 过渡中用户按下指针 -> 立即接管
     renderer.domElement.addEventListener('pointerdown', () => {
@@ -163,19 +166,41 @@ function toggleFollow() {
     }
 }
 
-// ── 机位按钮 ────────────────────────────────────────────
+// ── 机位按钮（按 category 分组，可折叠）────────────────────
+
+// 各分组折叠状态，默认全部展开
+const collapsed = Object.fromEntries(CAMERA_ZONE_CATEGORIES.map(c => [c.id, false]));
 
 function buildButtons() {
     const bar = document.getElementById('camera-bar');
     if (!bar) return;
-    for (const zone of CAMERA_ZONES) {
-        const btn = document.createElement('button');
-        btn.className = 'cam-zone-btn';
-        btn.dataset.zone = zone.id;
-        btn.addEventListener('click', () => {
-            if (zone !== currentZone || mode !== 'zone') goToZone(zone);
+    for (const cat of CAMERA_ZONE_CATEGORIES) {
+        const group = document.createElement('div');
+        group.className = 'cam-group';
+        group.dataset.category = cat.id;
+
+        const header = document.createElement('button');
+        header.className = 'cam-group-header';
+        header.dataset.category = cat.id;
+        header.addEventListener('click', () => {
+            collapsed[cat.id] = !collapsed[cat.id];
+            refreshButtons();
         });
-        bar.appendChild(btn);
+        group.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'cam-group-body';
+        for (const zone of CAMERA_ZONES.filter(z => z.category === cat.id)) {
+            const btn = document.createElement('button');
+            btn.className = 'cam-zone-btn';
+            btn.dataset.zone = zone.id;
+            btn.addEventListener('click', () => {
+                if (zone !== currentZone || mode !== 'zone') goToZone(zone);
+            });
+            body.appendChild(btn);
+        }
+        group.appendChild(body);
+        bar.appendChild(group);
     }
     const followBtn = document.createElement('button');
     followBtn.className = 'cam-zone-btn cam-follow-btn';
@@ -188,6 +213,16 @@ function refreshButtons() {
     const bar = document.getElementById('camera-bar');
     if (!bar) return;
     const en = currentLang() === 'en';
+    // 当前机位所在分组强制展开，其余按用户折叠状态
+    const activeCat = mode === 'zone' ? currentZone.category : null;
+    for (const group of bar.querySelectorAll('.cam-group')) {
+        const catId = group.dataset.category;
+        const cat = CAMERA_ZONE_CATEGORIES.find(c => c.id === catId);
+        const isCollapsed = collapsed[catId] && catId !== activeCat;
+        group.querySelector('.cam-group-body').style.display = isCollapsed ? 'none' : '';
+        const header = group.querySelector('.cam-group-header');
+        header.textContent = `${isCollapsed ? '▸' : '▾'} ${en ? cat.nameEn : cat.name}`;
+    }
     for (const btn of bar.querySelectorAll('.cam-zone-btn')) {
         if (btn.classList.contains('cam-follow-btn')) {
             btn.textContent = en ? 'Follow' : '跟随';
