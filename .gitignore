@@ -5,3 +5,9 @@ tools/__pycache__/
 
 # 调试渲染产物（tools/preview.py 等可随时重新生成）
 tools/preview/
+
+# Blender 自动备份
+*.blend1
+
+# Node 依赖（仅本地测试用）
+node_modules/

@@ -1,12 +1,16 @@
 /**
- * 角色步行控制：点击地面 → 角色走过去（自动绕开家具）
+ * 角色步行控制：点击可行走面 → 角色走过去（模型驱动导航网格）
  * 程序化走路动画（无外部 .vrma 文件）
  *
- * 使用统一寻路网格，支持跨房间行走：点击任意可见地面，角色直接走过去
+ * 导航网格由 GLB 的 walkable/obstacle 表面生成（pathfinding.js），
+ * 路径点自带地面高度，角色沿高度行走（可爬楼梯）
  */
 import * as THREE from 'three';
 import { CLICK_DRAG_THRESHOLD } from '../config.js';
-import { rebuildGrid, findPath, smoothPath, isPathClear, isWalkableWorld } from './pathfinding.js';
+import {
+    findPath, smoothPath, isPathClear, isWalkableWorld,
+    groundHeightAt, getWalkableMeshes,
+} from './pathfinding.js';
 
 // ── 移动参数 ──────────────────────────────────────────
 const WALK = {
@@ -57,14 +61,8 @@ let humanoidGroup = null;
 let stuckCounter = 0;       // 卡住检测计数器
 let prevDistance = Infinity; // 上一帧到当前路径点的距离
 
-/** @type {import('../apartment.js').Apartment|null} */
-let apartment = null;
-let shellDoor = null;
-let grass = null;
-
 // 预分配向量（避免每帧分配）
 const _toTarget = new THREE.Vector3();
-
 // ── 点击标记 ──────────────────────────────────────────
 let marker = null;
 const markerGeometry = new THREE.RingGeometry(0.15, 0.2, 32);
@@ -87,15 +85,9 @@ let pointerDownPos = null;
  * @param {THREE.Camera} camera
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Scene} scene
- * @param {import('../apartment.js').Apartment|null} apt - 公寓管理器
- * @param {object|null} door - 外壳门
- * @param {object|null} g - 草地参数
  */
-export function initWalker(humanoid, camera, renderer, scene, apt, door, g) {
+export function initWalker(humanoid, camera, renderer, scene) {
     humanoidGroup = humanoid;
-    apartment = apt;
-    shellDoor = door;
-    grass = g;
 
     // 创建点击标记
     marker = new THREE.Mesh(markerGeometry, markerMaterial);
@@ -115,50 +107,41 @@ export function initWalker(humanoid, camera, renderer, scene, apt, door, g) {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > CLICK_DRAG_THRESHOLD) return;
 
+        const meshes = getWalkableMeshes();
+        if (meshes.length === 0) return;
+
         pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
         pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(pointer, camera);
 
-        // 检测地面平面
-        const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-        const hit = new THREE.Vector3();
-        const intersectResult = raycaster.ray.intersectPlane(floorPlane, hit);
+        // 射线打可行走面（含隐藏的 WALK_ 逻辑面），取最近命中点
+        const hits = raycaster.intersectObjects(meshes, false);
+        if (hits.length === 0) return;
+        const hit = hits[0].point;
 
-        if (intersectResult) {
-            hit.y = 0;
-            const walkable = isWalkableWorld(hit.x, hit.z);
-            const path = walkable ? findPath(humanoidGroup.position, hit) : null;
-            if (!walkable) return;
-            if (!path || path.length === 0) return;
+        if (!isWalkableWorld(hit.x, hit.z, hit.y)) return;
+        const path = findPath(humanoidGroup.position, hit);
+        if (!path || path.length === 0) return;
 
-            const smoothed = smoothPath(path);
+        const smoothed = smoothPath(path);
 
-            // 尝试用实际点击位置替换最后一个路径点
-            const lastIdx = smoothed.length - 1;
-            const prevPt = lastIdx >= 1 ? smoothed[lastIdx - 1] : humanoidGroup.position;
-            if (isPathClear(prevPt.x, prevPt.z, hit.x, hit.z)) {
-                smoothed[lastIdx] = hit.clone();
-            }
-
-            waypoints = smoothed;
-            targetPos = hit.clone();
-            state = 'walking';
-            stuckCounter = 0;
-            prevDistance = Infinity;
-
-            marker.position.copy(hit);
-            marker.position.y = WALK.floorY;
-            marker.visible = true;
+        // 尝试用实际点击位置替换最后一个路径点
+        const lastIdx = smoothed.length - 1;
+        const prevPt = lastIdx >= 1 ? smoothed[lastIdx - 1] : humanoidGroup.position;
+        if (isPathClear(prevPt.x, prevPt.z, hit.x, hit.z, prevPt.y, hit.y)) {
+            smoothed[lastIdx] = hit.clone();
         }
-    });
-}
 
-/**
- * 重建寻路网格（门开合、家具拖拽后调用）
- */
-export function rebuildNavGrid() {
-    if (!apartment) return;
-    rebuildGrid(apartment.rooms, apartment.corridorBounds, apartment._corridorWestWall, shellDoor, grass);
+        waypoints = smoothed;
+        targetPos = hit.clone();
+        state = 'walking';
+        stuckCounter = 0;
+        prevDistance = Infinity;
+
+        marker.position.copy(hit);
+        marker.position.y = hit.y + WALK.floorY;
+        marker.visible = true;
+    });
 }
 
 /**
@@ -174,10 +157,6 @@ export function updateWalker(delta) {
     }
 
     // 更新当前房间（基于角色位置）
-    if (apartment) {
-        apartment.updateCurrentRoomByPos(humanoidGroup.position);
-    }
-
     if (state === 'walking') {
         updateMovement(delta);
     }
@@ -242,7 +221,7 @@ function updateMovement(delta) {
                 return;
             }
 
-            if (isWalkableWorld(targetPos.x, targetPos.z)) {
+            if (isWalkableWorld(targetPos.x, targetPos.z, targetPos.y)) {
                 moveToward(targetPos, delta);
                 return;
             }
@@ -305,7 +284,7 @@ function updateMovement(delta) {
 }
 
 /**
- * 向目标点移动一步（转向 + 直线前进）
+ * 向目标点移动一步（转向 + 直线前进 + 跟随地面高度）
  */
 function moveToward(target, delta) {
     const pos = humanoidGroup.position;
@@ -327,9 +306,14 @@ function moveToward(target, delta) {
     const newX = pos.x + (_toTarget.x / dist) * step;
     const newZ = pos.z + (_toTarget.z / dist) * step;
 
-    if (isWalkableWorld(newX, newZ)) {
+    if (isWalkableWorld(newX, newZ, pos.y)) {
         pos.x = newX;
         pos.z = newZ;
+        // 跟随地面高度（楼梯/坡面平滑过渡）
+        const gy = groundHeightAt(newX, newZ, pos.y);
+        if (gy !== null) {
+            pos.y += (gy - pos.y) * Math.min(1, 12 * delta);
+        }
     }
 }
 

@@ -23,6 +23,12 @@ const DOOR_SPEED = 1.5;    // 开/关进度速度（0→1 约 0.67s）
 
 const doors = [];          // 已注册的门
 let camera = null;
+let onDoorToggle = null;   // 门开合状态变化回调（导航网格重建用）
+
+/** 注册门开合回调（导航动态障碍重建） */
+export function setOnDoorToggle(fn) {
+    onDoorToggle = fn;
+}
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -107,6 +113,7 @@ function toggleDoor(door) {
         return;
     }
     door.targetT = door.targetT > 0.5 ? 0 : 1;
+    onDoorToggle?.();
 }
 
 function easeInOut(t) {

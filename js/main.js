@@ -26,17 +26,17 @@ import {
     ORBIT_DAMPING, ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
 } from './config.js';
 
-// 角色系统 ──
+// ── 角色系统 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
 import { initWalker, updateWalker } from './character/walker.js';
-import { initApartmentGrid, rebuildGrid, setTreePositions } from './character/pathfinding.js';
+import { buildNavGrid, rebuildDynamicObstacles } from './character/pathfinding.js';
 
-// ── 外壳房子（草地 + GLB 模型）──
+// ── 外壳房子（岛屿 + GLB 模型）──
 import { createHouseShell } from './elements/houseShell.js';
 
 // ── 各系统 ──
 import { initSeasons, updateSeason } from './systems/seasons.js';
-import { initDoors, updateDoors, getDoors, pickDoorAt } from './systems/doors.js';
+import { initDoors, updateDoors, getDoors, pickDoorAt, setOnDoorToggle } from './systems/doors.js';
 import { createLighting } from './systems/lighting.js';
 import { createTimeOfDay } from './systems/timeOfDay.js';
 import { initCameraZones, updateCameraZones, getCameraZonesDebug } from './systems/cameraZones.js';
@@ -79,30 +79,32 @@ const clock = new THREE.Clock();
 let lookAtBound = false;
 
 // ============================================================
-//  岛屿地面 + 房子
+//  岛屿地面 + 房子（加载完成后解析 surface → 导航网格 + 季节目标）
 // ============================================================
-let seasonValue = 0;   // 当前季节滑块值（岛屿加载完成后补刷）
+let seasonValue = 0;   // 当前季节滑块值（模型加载完成后补刷）
 
-const { group: houseShellGroup, grass } = createHouseShell({
-    onIslandLoaded: ({ trees, leaves, grassMaterials }) => {
-        // 树干成为寻路障碍
-        setTreePositions(trees);
-        rebuildGrid(null, null, null, null, grass);
+/** 门开合时重建导航动态障碍（关着的门板是障碍） */
+function refreshNavDoors() {
+    const closed = getDoors()
+        .filter(d => d.targetT < 0.5)
+        .map(d => new THREE.Box3().setFromObject(d.obj));
+    rebuildDynamicObstacles(closed);
+}
+
+const { group: houseShellGroup } = createHouseShell({
+    onModelsReady: ({ walkable, obstacles, leaves, grassMaterials }) => {
         // 季节系统接管草地/树叶
         initSeasons({ grassMaterials, leaves });
         updateSeason(seasonValue);
+        // 模型驱动的导航网格（walkable/obstacle 表面）
+        buildNavGrid({ walkable, obstacles });
+        refreshNavDoors();
     },
 });
 scene.add(houseShellGroup);
 
 // ============================================================
-//  寻路网格（仅草地范围；树干障碍在岛屿加载后重建）
-// ============================================================
-initApartmentGrid(null, null, grass);
-rebuildGrid(null, null, null, null, grass);
-
-// ============================================================
-//  季节系统（草地 + 树叶；具体目标在岛屿加载后注入）
+//  季节系统（草地 + 树叶；具体目标在模型加载后注入）
 // ============================================================
 initSeasons();
 
@@ -114,9 +116,10 @@ scene.add(humanoid);
 
 // 门交互（必须在 initWalker 之前注册，点到门时阻止角色走动）
 initDoors(camera, renderer);
+setOnDoorToggle(refreshNavDoors);
 
 // 角色点击走动
-initWalker(humanoid, camera, renderer, scene, null, null, grass);
+initWalker(humanoid, camera, renderer, scene);
 
 // 相机区域系统（机位切换 + 跟随模式）
 initCameraZones(camera, controls, renderer, humanoid);
