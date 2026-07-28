@@ -7,6 +7,8 @@
   - 密排竖梁隔一根删一根（间距 ~0.25m 的深色细条太多，墙面显得乱），
     每面墙保留首尾两列和通高角柱，并以左半墙为基准镜像对称
   - 背坡右半缺失的 5 根长斜梁从左半镜像补齐
+  - 屋顶/地板的内侧可见面（阁楼天花板、各层顶棚）改刷屋内色(wall)，
+    外侧面保持屋顶红/地板木色
   - 最后按材质拆成 6 个 object，导出 GLB
 
 用法: tools/blender.sh -b models_src/house.blend --python tools/split_house.py
@@ -86,24 +88,33 @@ def classify(s):
     # 1. 窗格/玻璃: 极薄小板
     if d1 <= 0.06 and d3 <= 1.2 and s['area'] < 1.2:
         return 'window'
-    # 2. 屋顶: 高处以斜朝上为主的面片
-    if zmid > 6.0 and up > 0.15:
-        return 'roof'
-    # 2b. 屋顶附件: 完全位于 z>6 的非窗构件（坡面斜梁/底板等侧立板，
-    #     面法线朝上比例低，会被规则 5 误判成白墙）
-    if s['mins'].z > 6.0:
-        return 'roof'
-    # 3. 地板: 水平薄板，大面积
+    # 2. 地板: 水平薄板，大面积（必须在屋顶规则之前，
+    #    否则 z>6 的阁楼地板会因 up>0.15 被误判成屋顶）
     if sz.z < 0.2 and s['area'] > 4:
         return 'floor'
-    # 4. 门: 落地的竖直薄板，比墙板更薄更矮（该模型可能没有门板，是开放门洞）
+    # 3. 山墙区域(两翼前端 y<-4.8、z>6)：
+    #    - 竖直山墙板(y 向薄、z 跨度大) -> wall 米白
+    #    - 其余(斜向封边板/檐口板/椽尾/窗套板) -> trim 深木色，
+    #      与半木结构木架同色，不再用屋顶红
+    if s['maxs'].y < -4.8 and s['mins'].z > 6.0:
+        if sz.y < 0.3 and sz.z > 1.5:
+            return 'wall'
+        return 'trim'
+    # 4. 屋顶: 高处以斜朝上为主的面片
+    if zmid > 6.0 and up > 0.15:
+        return 'roof'
+    # 4b. 屋顶附件: 完全位于 z>6 的非窗构件（坡面斜梁/底板等侧立板，
+    #     面法线朝上比例低，会被规则 6 误判成白墙）
+    if s['mins'].z > 6.0:
+        return 'roof'
+    # 5. 门: 落地的竖直薄板，比墙板更薄更矮（该模型可能没有门板，是开放门洞）
     if (s['mins'].z < 0.45 and 1.7 < sz.z < 2.5 and up < 0.3
             and d1 <= 0.12 and 1.0 < s['area'] < 3.0):
         return 'door'
-    # 5. 墙: 板状（两个方向都大），较薄
+    # 6. 墙: 板状（两个方向都大），较薄
     if d2 > 0.8 and d1 < 0.45 and up < 0.45:
         return 'wall'
-    # 6. 其余: 木架条、装饰件
+    # 7. 其余: 木架条、装饰件
     return 'trim'
 
 
@@ -196,6 +207,35 @@ def mirror_ribs(comps, obj):
     return len(new_faces)
 
 
+def adjust_interior_faces(obj, face_cat):
+    """把屋顶/地板的内侧可见面改刷屋内色(wall)，返回改色面数。
+
+    屋顶和地板在 Blender 里是双面渲染的薄板，外侧面和内侧面共用材质：
+    - 屋顶面朝下(nz<-0.3)、z>6、在房屋平面范围内 -> 阁楼天花板(屋内色)；
+      范围限制避免把屋檐外侧的挑檐底面(soffit)也刷成屋内色
+    - 地板面朝下(nz<-0.5)、z>1.5 -> 下层房间的天花板(一楼地板底面
+      在地面以下不可见，不动)
+    """
+    mw = obj.matrix_world
+    rot = mw.to_3x3()
+    n = 0
+    for p in obj.data.polygons:
+        cat = face_cat.get(p.index)
+        if cat not in ('roof', 'floor'):
+            continue
+        nz = (rot @ p.normal).normalized().z
+        c = mw @ p.center
+        if cat == 'roof':
+            if nz < -0.3 and c.z > 6.0 \
+                    and abs(c.x) < 9.3 and -5.0 < c.y < 4.9:
+                face_cat[p.index] = 'wall'
+                n += 1
+        elif nz < -0.5 and c.z > 1.5:
+            face_cat[p.index] = 'wall'
+            n += 1
+    return n
+
+
 def main():
     obj = next(o for o in bpy.data.objects if o.type == 'MESH')
     print(f'分析 {obj.name}: {len(obj.data.polygons)} 面')
@@ -235,6 +275,10 @@ def main():
             face_cat[fi] = cat
     print('部件数:', dict(cnt_parts))
     print('面数:', dict(cnt_faces))
+
+    # 屋顶/地板的内侧可见面改刷屋内色
+    n_in = adjust_interior_faces(obj, face_cat)
+    print(f'内侧面改色: {n_in} 面')
 
     # 建材质 + 材质槽
     mats = build_all_materials()

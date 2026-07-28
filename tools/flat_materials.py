@@ -32,6 +32,10 @@ def make_flat_material(name, hex_color, emission=0.0):
     if mat is None:
         mat = bpy.data.materials.new(name)
     mat.use_nodes = True
+    # 视口显示色（Workbench/实体模式用，sRGB 直接写，不转线性）
+    h = hex_color.lstrip('#')
+    mat.diffuse_color = tuple(int(h[i:i+2], 16) / 255.0
+                              for i in (0, 2, 4)) + (1.0,)
     nt = mat.node_tree
     nt.nodes.clear()
     out = nt.nodes.new('ShaderNodeOutputMaterial')
