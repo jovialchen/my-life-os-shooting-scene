@@ -4,7 +4,7 @@
  * 场景组成：
  *   - 绿色草地 + GLB 房子模型（elements/houseShell.js，models/house.glb）
  *   - VRM 人物（character/humanoid.js，models/hazel-pink.vrm）
- *   - 相机（OrbitControls + 角色跟随）
+ *   - 相机（区域机位 + 限定范围轨道 + 跟随模式，systems/cameraZones.js）
  *   - 灯光系统（systems/lighting.js：环境光 + 太阳 + 补光 + 窗光）
  *   - 时间系统（systems/timeOfDay.js：6 时段平滑过渡）
  *   - 季节系统（systems/seasons.js：草地颜色变化）
@@ -24,7 +24,6 @@ import {
     TONE_MAPPING_EXPOSURE,
     BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,
     ORBIT_DAMPING, ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
-    CAMERA_FOLLOW_SPEED, CAMERA_FOLLOW_Y,
 } from './config.js';
 
 // ── 角色系统 ──
@@ -40,6 +39,7 @@ import { initSeasons, updateSeason } from './systems/seasons.js';
 import { initDoors, updateDoors, getDoors, pickDoorAt } from './systems/doors.js';
 import { createLighting } from './systems/lighting.js';
 import { createTimeOfDay } from './systems/timeOfDay.js';
+import { initCameraZones, updateCameraZones, getCameraZonesDebug } from './systems/cameraZones.js';
 
 // ── UI ──
 import { initUI, updateCompass } from './ui.js';
@@ -76,7 +76,6 @@ controls.update();
 
 // ── 动画时钟 ──
 const clock = new THREE.Clock();
-const _followTarget = new THREE.Vector3();
 let lookAtBound = false;
 
 // ============================================================
@@ -108,6 +107,9 @@ initDoors(camera, renderer);
 
 // 角色点击走动
 initWalker(humanoid, camera, renderer, scene, null, null, grass);
+
+// 相机区域系统（机位切换 + 跟随模式）
+initCameraZones(camera, controls, renderer, humanoid);
 
 // ============================================================
 //  灯光 + 时间系统
@@ -155,12 +157,8 @@ function animate() {
     const delta = clock.getDelta();
     controls.update();
 
-    // 相机跟随角色
-    if (humanoid.userData.vrm) {
-        const t = 1 - Math.exp(-CAMERA_FOLLOW_SPEED * delta);
-        _followTarget.set(humanoid.position.x, CAMERA_FOLLOW_Y, humanoid.position.z);
-        controls.target.lerp(_followTarget, t);
-    }
+    // 相机区域系统（自动切换机位 / 跟随模式 / 过渡动画）
+    updateCameraZones(delta);
 
     updateCompass(camera, controls);
 
@@ -179,4 +177,4 @@ function animate() {
 animate();
 
 // 调试句柄（控制台/自动化测试用）：window.__app
-window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting };
+window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug() };

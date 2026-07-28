@@ -181,6 +181,34 @@
             min-width: 28px;
             text-align: center;
         }
+
+        /* 相机机位切换 */
+        #camera-bar {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 20;
+            user-select: none;
+            max-height: 85vh;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        .cam-zone-btn {
+            padding: 6px 14px;
+            background: rgba(20, 15, 25, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: rgba(255,255,255,0.65);
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.12s, color 0.12s;
+        }
+        .cam-zone-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.95); }
+        .cam-zone-btn.active { color: #ffcc77; border-color: rgba(255,204,119,0.4); }
     </style>
 
     <!-- Three.js r170 CDN (ES Modules) -->
@@ -221,6 +249,8 @@
     <input id="season-slider" type="range" min="0" max="3" step="0.01" value="0">
     <span id="season-label">春</span>
 </div>
+
+<div id="camera-bar"></div>
 
 <div id="compass">
     <div id="compass-indicator"></div>

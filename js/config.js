@@ -21,6 +21,89 @@ export const CAMERA_FOLLOW_SPEED = 3;
 export const CAMERA_FOLLOW_Y     = 1.2;
 export const MAX_PIXEL_RATIO     = 2;
 
+// ── 相机区域机位（区域相机 + 限定范围轨道，见 systems/cameraZones.js）──
+// 注意坐标系为 three.js（y 向上）：Blender(x,y,z) 对应 three(x, z, -y)
+// bounds 为角色自动切换的触发范围（three 坐标），null = 仅手动切换
+// 室内机位用 minPolar/maxPolar/maxDist 把轨道限制在房间内，转不出去
+export const CAMERA_ZONES = [
+    { id: 'overview', name: '全景', nameEn: 'Overview',
+      pos: [13, 11, 15], target: [0, 2, 0],
+      minDist: 4, maxDist: 40, maxPolar: Math.PI * 0.49,
+      bounds: null },
+    { id: 'courtyard', name: '庭院', nameEn: 'Courtyard',
+      pos: [0, 3.2, 9.5], target: [0, 1.2, 2],
+      minDist: 2, maxDist: 12, maxPolar: Math.PI * 0.49,
+      bounds: { x: [-3.5, 3.5], z: [0.9, 5.5] } },
+    { id: 'back', name: '背面', nameEn: 'Back',
+      pos: [0, 5.5, -15], target: [0, 3, -4],
+      minDist: 3, maxDist: 22, maxPolar: Math.PI * 0.49,
+      bounds: { x: [-11, 11], z: [-20, -5.5] } },
+
+    // ── 阁楼（z 6.2~11.4，坡顶）──
+    { id: 'attic1', name: '阁楼1', nameEn: 'Attic 1',
+      pos: [4, 8.6, -1], target: [-5, 7.2, 2.5],
+      minDist: 0.8, maxDist: 11, minPolar: Math.PI * 0.25, maxPolar: Math.PI * 0.7,
+      bounds: null },
+    { id: 'attic2', name: '阁楼2', nameEn: 'Attic 2',
+      pos: [-4, 8.6, -1], target: [5, 7.2, 2.5],
+      minDist: 0.8, maxDist: 11, minPolar: Math.PI * 0.25, maxPolar: Math.PI * 0.7,
+      bounds: null },
+    { id: 'attic3', name: '阁楼3', nameEn: 'Attic 3',
+      pos: [0, 8.2, -3.5], target: [0, 7.2, 4.5],
+      minDist: 0.8, maxDist: 9, minPolar: Math.PI * 0.25, maxPolar: Math.PI * 0.7,
+      bounds: null },
+    { id: 'attic4', name: '阁楼4', nameEn: 'Attic 4',
+      pos: [-6.5, 7.5, 3.5], target: [6.5, 8.5, -3],
+      minDist: 0.8, maxDist: 15, minPolar: Math.PI * 0.25, maxPolar: Math.PI * 0.7,
+      bounds: null },
+
+    // ── 一楼（z 0~3，翼间 x±(3.6~9.4)， z -4.9~3.9）──
+    { id: 'f1w1', name: '一楼西1', nameEn: '1F W1',
+      pos: [-4.3, 1.7, 3.0], target: [-7.8, 1.1, -2.5],
+      minDist: 0.5, maxDist: 7, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+    { id: 'f1w2', name: '一楼西2', nameEn: '1F W2',
+      pos: [-8.6, 1.7, -3.5], target: [-5.0, 1.2, 2.5],
+      minDist: 0.5, maxDist: 8, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+    { id: 'f1e1', name: '一楼东1', nameEn: '1F E1',
+      pos: [4.3, 1.7, 3.0], target: [7.8, 1.1, -2.5],
+      minDist: 0.5, maxDist: 7, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+    { id: 'f1e2', name: '一楼东2', nameEn: '1F E2',
+      pos: [8.6, 1.7, -3.5], target: [5.0, 1.2, 2.5],
+      minDist: 0.5, maxDist: 8, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+    { id: 'f1c', name: '一楼中', nameEn: '1F C',
+      pos: [0, 1.7, 0.5], target: [0, 1.2, -4],
+      minDist: 0.5, maxDist: 8.5, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+
+    // ── 二楼（z 3.1~6.1）──
+    { id: 'f2w1', name: '二楼西1', nameEn: '2F W1',
+      pos: [-4.3, 4.8, 3.0], target: [-7.8, 4.2, -2.5],
+      minDist: 0.5, maxDist: 7, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+    { id: 'f2w2', name: '二楼西2', nameEn: '2F W2',
+      pos: [-8.6, 4.8, -3.5], target: [-5.0, 4.3, 2.5],
+      minDist: 0.5, maxDist: 8, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+    { id: 'f2e1', name: '二楼东1', nameEn: '2F E1',
+      pos: [4.3, 4.8, 3.0], target: [7.8, 4.2, -2.5],
+      minDist: 0.5, maxDist: 7, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+    { id: 'f2e2', name: '二楼东2', nameEn: '2F E2',
+      pos: [8.6, 4.8, -3.5], target: [5.0, 4.3, 2.5],
+      minDist: 0.5, maxDist: 8, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+    { id: 'f2c', name: '二楼中', nameEn: '2F C',
+      pos: [0, 4.8, 0.5], target: [0, 4.3, -4],
+      minDist: 0.5, maxDist: 8.5, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
+      bounds: null },
+];
+export const CAMERA_ZONE_TRANSITION = 0.9;   // 机位切换过渡时长（秒）
+export const CAMERA_FOLLOW_DEADZONE = 2.5;   // 跟随死区：角色离 target 超过此距离才跟随
+
 // 渲染器参数
 export const TONE_MAPPING_EXPOSURE = 1.1;
 
