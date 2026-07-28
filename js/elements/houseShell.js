@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { registerDoor } from '../systems/doors.js';
 
 // ── 草地参数（花园/栅栏/寻路等模块依赖）──
 const GRASS_RADIUS = 25;
@@ -41,11 +42,15 @@ export function createHouseShell() {
             model.name = 'houseModel';
 
             // 给所有 mesh 打上 isOccluder 标记（墙体遮挡透明系统用）
+            // 带 interactable_type='door' 的门板注册到门交互系统
             model.traverse((child) => {
                 if (child.isMesh) {
                     child.userData.isOccluder = true;
                     child.castShadow = true;
                     child.receiveShadow = true;
+                }
+                if (child.userData.interactable_type === 'door') {
+                    registerDoor(child);
                 }
             });
 
@@ -65,7 +70,7 @@ export function createHouseShell() {
 
     return {
         group: house,
-        door: null,          // GLB 模型的门不是交互式的
+        door: null,          // 门已改由 systems/doors.js 管理（GLB custom properties）
         grass,
         grassMesh,
     };

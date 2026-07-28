@@ -1,0 +1,6 @@
+tools/
+
+# Blender 源文件与中间产物（规范见 doc/blender-workflow-instructions.md：源文件不入库）
+models/191.blend
+models/191-split.blend*
+models/191.glb

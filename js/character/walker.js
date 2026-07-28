@@ -128,15 +128,6 @@ export function initWalker(humanoid, camera, renderer, scene, apt, door, g) {
             hit.y = 0;
             const walkable = isWalkableWorld(hit.x, hit.z);
             const path = walkable ? findPath(humanoidGroup.position, hit) : null;
-            console.log(`[Click] hit(${hit.x.toFixed(2)},${hit.z.toFixed(2)}) walk=${walkable} path=${path ? path.length : 'null'} char(${humanoidGroup.position.x.toFixed(2)},${humanoidGroup.position.z.toFixed(2)})`);
-            if (!path && walkable) {
-                // 门口区域诊断：打印 z=3.0 到 4.5 每 0.1m 的状态
-                console.log('  doorway scan x=0:');
-                for (let z = 3.0; z <= 4.5; z += 0.1) {
-                    const w = isWalkableWorld(0, z);
-                    if (!w) console.log(`    z=${z.toFixed(1)} BLOCKED`);
-                }
-            }
             if (!walkable) return;
             if (!path || path.length === 0) return;
 
