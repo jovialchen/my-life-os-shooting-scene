@@ -1,4 +1,7 @@
-tools/
+# Blender 便携版运行时（1.3G）与配套系统库，重新下载即可，不入库
+tools/blender-5.1/
+tools/xlibs/
+tools/__pycache__/
 
-# Blender 源文件与中间产物（规范见 doc/blender-workflow-instructions.md：源文件不入库）
-models_src/
+# 调试渲染产物（tools/preview.py 等可随时重新生成）
+tools/preview/
