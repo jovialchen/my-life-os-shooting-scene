@@ -85,7 +85,7 @@ export function buildNavGrid({ walkable, obstacles }) {
     //    userData.nav_no_inflate 的障碍（如楼梯踏步）不膨胀：
     //    楼梯坡度陡，膨胀会把上一级踏步的净空判定扩散到坡面格上
     for (const mesh of obstacles) {
-        const inflate = !mesh.userData.nav_no_inflate;
+        const inflate = !mesh.userData?.nav_no_inflate;
         rasterizeMesh(mesh, (cell, y) => blockAt(staticCounts, staticHeights, cell, y, inflate));
     }
 
