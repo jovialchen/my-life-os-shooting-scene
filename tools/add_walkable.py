@@ -3,16 +3,15 @@
 1. WALK_floors：抽取 FLOOR_01 所有朝上面（nz>0.7），复制为
    WALK_floors（surface_walkable=True），JS 端隐藏只作导航数据。
 2. 打开楼梯井（删除井道内的楼板托梁/封边/装饰斜板）。
-3. 楼梯：西北角楼梯井（x -1.5..-0.5, y 3.2..4.9，2F/阁楼楼板开口）
-   内做双折返楼梯：
-   - A 段：后厅 1F(y=1.3,z=0.06) -> 平台(y=3.2,z=1.35)（北行，37°）
-   - 平台：y 3.2..3.5, z=1.35（上方净空 >1.6）
-   - B 段：平台(y=3.5,z=1.35) -> 2F 楼板 B 西缘(y=4.85,z=3.18)（北行，51°）
-   路线：门廊 -> 翼门 -> 翼 1F -> 后厅 -> A/B 段 -> 2F 楼板 B
+3. 楼梯（原模型自带白色踏步，北墙 y≈4.0 东西向直跑）：
+   - 第一跑 1F(x≈-5.4,z=0.13) -> 东行上行，原资产在 x=-2.04 处
+     装饰性中断（距 2F 还差 5 级），补 5 级白色踏步接通 2F 楼板
+   - 第二跑 2F(x≈-5.4,z=3.19) -> 阁楼(z=6.17)，原模型完整
+   路线：门廊 -> 翼门 -> 翼 1F -> 后厅 -> 第一跑 -> 2F 楼板
    -> 中厅 2F -> 东翼门洞(x≈3.57,y≈-0.6)。
-   （阁楼暂不通楼梯：井道仅 0.8m 宽，第二折返净空不足，属后续改造。）
-   踏步为可见几何（MAT_trim 深木），配斜坡 WALK 面
-   （navmesh 从顶点 Y 取高度，比踏步更平滑）。
+   （阁楼仍不通导航：第二跑暂不配 WALK 面，属后续改造。）
+   新增踏步为可见几何（MAT_wall 白色，与原踏步一致），第一跑配
+   斜坡 WALK 面（navmesh 从顶点 Y 取高度，比踏步更平滑）。
 4. WALK_threshold_±1：两个翼门门口的过渡面（门槛会封岛面高度格）。
 
 管线顺序（重新生成 models/house.glb）：
@@ -23,21 +22,21 @@
 """
 import bmesh
 import bpy
-from mathutils import Vector
 
 ROOT_BLEND = 'models_src/house-split.blend'
 
-# ── 楼梯参数（世界坐标，Blender z-up）──
-FA_X = (-1.35, -0.55)        # 楼梯/井 x 范围（宽 0.8m，避开西侧托梁膨胀带）
-FA_Y0, FA_Z0 = 1.30, 0.06    # A 段起点（后厅 1F，楼板 A/C 下方净空够）
-FA_Y1, FA_Z1 = 3.20, 1.35    # A 段终点（井口平台；板缘梁底 3.0 - 1.6 > 1.35）
-LP_X = (-1.35, -0.55)        # 平台（井内，上方无楼板）
-LP_Y = (3.20, 3.50)
-LP_Z = 1.35
-FB_Y0, FB_Z0 = 3.50, 1.35    # B 段起点（平台，北行）
-FB_Y1, FB_Z1 = 4.85, 3.18    # B 段终点（2F 楼板 B 西缘，东出上板）
+# ── 白楼梯（原模型自带踏步）参数：北墙 y≈4.0 东西向直跑 ──
+WS_Y = (3.26, 4.76)          # WALK 坡面 y 范围（踏面 3.22..4.80 内缩）
+WS_X0, WS_Z0 = -5.51, 0.066  # 坡面西端（1F 地面，踏步线延长点）
+WS_X1, WS_Z1 = -0.83, 3.06   # 坡面东端（补全后末级踏面，东出上 2F 楼板）
+# 原模型第一跑在 x=-2.04 处中断（装饰性缺失），补 5 级接通 2F：
+# (踏面中心 x, 踏面顶 z)，沿用原踏步 0.306 进深 / 0.194 步高；
+# 末级(x=-0.67, z=3.18) 与 2F 楼板(z=3.17)齐平，南出一步上板
+WS_NEW_TREADS = [(-1.89, 2.404), (-1.585, 2.598), (-1.28, 2.792),
+                 (-0.975, 2.986), (-0.67, 3.180)]
+WS_TREAD_W = 0.28            # 踏步 x 向宽（与原模型一致）
+WS_TREAD_Y = (3.22, 4.80)    # 踏步 y 范围（与原模型一致）
 
-STEP_RISE = 0.182         # 踏步高
 WALK_LIFT = 0.08          # WALK 斜坡面抬升（高过踏面沿，防止踏步净空判定封坡面）
 
 
@@ -70,26 +69,25 @@ def make_walk_slope(name, x0, x1, y0, z0, y1, z1, mat):
     return o
 
 
-def make_flight(name, x_range, y0, z0, y1, z1, mat):
-    """一段直跑楼梯的可见踏步（每级一个踢面高的薄盒，坐在上级上）"""
-    rise = z1 - z0
-    run = y1 - y0
-    n_steps = max(2, round(rise / STEP_RISE))
-    parts = []
-    for i in range(n_steps):
-        zi = z0 + rise * (i + 1) / n_steps
-        z_prev = z0 + rise * i / n_steps
-        ya = y0 + run * i / n_steps
-        yb = y0 + run * (i + 1) / n_steps
-        parts.append(make_box(f'{name}_step{i:02d}',
-                              x_range[0], x_range[1],
-                              min(ya, yb) - 0.02, max(ya, yb) + 0.02,
-                              z_prev - 0.03, zi, mat))
-    return parts
+def make_walk_slope_x(name, y0, y1, x0, z0, x1, z1, mat):
+    """沿 x 向爬坡的 walkable 面：从 (x0,z0) 到 (x1,z1) 的四边形"""
+    z0 += WALK_LIFT
+    z1 += WALK_LIFT
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(
+        [(x0, y0, z0), (x1, y0, z1), (x1, y1, z1), (x0, y1, z0)],
+        [],
+        [(0, 1, 2, 3)],
+    )
+    if mat:
+        mesh.materials.append(mat)
+    o = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(o)
+    o['surface_walkable'] = True
+    return o
 
 
 def main():
-    trim_mat = bpy.data.materials.get('MAT_trim')
     floor_mat = bpy.data.materials.get('MAT_floor')
 
     # ── 0. 打开楼梯井 ──
@@ -178,36 +176,37 @@ def main():
                         min(dx * 5.90, dx * 7.15), max(dx * 5.90, dx * 7.15),
                         -4.10, 0.06, -3.75, 0.06, floor_mat)
 
-    # ── 2. 楼梯（井内双折返：A 段 + 平台 + B 段）──
-    stair_parts = []
-    # A 段 1F -> 平台
-    stair_parts += make_flight('STAIRS_fa', FA_X, FA_Y0, FA_Z0, FA_Y1, FA_Z1, trim_mat)
-    make_walk_slope('WALK_stairs_fa', FA_X[0], FA_X[1],
-                    FA_Y0, FA_Z0, FA_Y1, FA_Z1, floor_mat)
-    # 平台
-    stair_parts.append(make_box('STAIRS_lp', LP_X[0], LP_X[1], LP_Y[0], LP_Y[1],
-                                LP_Z - 0.12, LP_Z, trim_mat))
-    make_walk_slope('WALK_lp', LP_X[0], LP_X[1],
-                    LP_Y[0], LP_Z - WALK_LIFT + 0.10,
-                    LP_Y[1], LP_Z - WALK_LIFT + 0.10, floor_mat)
-    # B 段 平台 -> 2F（南行折返）
-    stair_parts += make_flight('STAIRS_fb', FA_X, FB_Y0, FB_Z0, FB_Y1, FB_Z1, trim_mat)
-    make_walk_slope('WALK_stairs_fb', FA_X[0], FA_X[1],
-                    FB_Y0, FB_Z0, FB_Y1, FB_Z1, floor_mat)
-
-    # 合并可见踏步
+    # ── 2. 白楼梯：补全第一跑缺失踏步 + WALK 坡面 ──
+    # 原模型白色踏步（在 WALL_01 里，navmesh 不膨胀也能用——踏面顶都在
+    # 坡面线下方 0.08，不触发净空剔除）；新补的 4 级单独成对象并设
+    # nav_no_inflate（楼梯坡度陡，膨胀会把上一级踏步的净空判定
+    # 扩散到坡面格上，导致坡面被自己的踏步封死）
+    wall_mat = bpy.data.materials.get('MAT_wall')
+    treads = []
+    for i, (cx, top) in enumerate(WS_NEW_TREADS):
+        treads.append(make_box(f'STAIRS_new{i}',
+                               cx - WS_TREAD_W / 2, cx + WS_TREAD_W / 2,
+                               WS_TREAD_Y[0], WS_TREAD_Y[1],
+                               top - 0.06, top, wall_mat))
     bpy.ops.object.select_all(action='DESELECT')
-    for o in stair_parts:
+    for o in treads:
         o.select_set(True)
-    bpy.context.view_layer.objects.active = stair_parts[0]
+    bpy.context.view_layer.objects.active = treads[0]
     bpy.ops.object.join()
     obj = bpy.context.object
     obj.name = 'STAIRS_01'
     obj['part_category'] = 'trim'
-    # 踏步障碍不膨胀：楼梯坡度陡，角色半径膨胀会把上一级踏步的
-    # 净空判定扩散到坡面格上，导致坡面被自己的踏步封死
     obj['nav_no_inflate'] = True
-    print(f'楼梯: {len(stair_parts)} 个部件 -> STAIRS_01')
+    # 第一跑 WALK 坡面：1F(x=-5.51,z=0.13) -> 坡顶(x=-0.83,z=3.06)
+    make_walk_slope_x('WALK_stairs_1f2f', WS_Y[0], WS_Y[1],
+                      WS_X0, WS_Z0, WS_X1, WS_Z1, floor_mat)
+    # 东向过渡面：2F 楼板北侧延伸板(x -0.51..3.66, z=3.17) 紧贴末级
+    # 踏步东侧，铺一块 z=3.14 的过渡面覆盖板缝，保证坡面 -> 楼板连通。
+    # （南出不可行：第二跑楼梯的阶梯状侧板在 y≈3.17 悬在 0.3~1m 高，
+    #   净空不足；北侧 3.86 的窄条同理被挡）
+    make_walk_slope_x('WALK_stairs_2fout', 3.30, 4.70,
+                      -1.10, 3.06, -0.35, 3.06, floor_mat)
+    print(f'白楼梯: 补 {len(treads)} 级踏步 -> STAIRS_01 + WALK 坡面/过渡面')
 
     bpy.ops.wm.save_as_mainfile(filepath=ROOT_BLEND, check_existing=False)
     print(f'已保存 {ROOT_BLEND}')

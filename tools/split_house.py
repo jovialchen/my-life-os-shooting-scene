@@ -249,6 +249,38 @@ _DIRS = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0),
          (0, 0, 1), (0, 0, -1)]
 
 
+def repaint_ground_floor(obj, face_cat):
+    """把一楼被误判成墙的室内地板面改刷地板色(floor)，返回改色面数。
+
+    两翼一楼地板的连通块与墙体/木架相连，classify() 落到了 wall 或
+    trim（trim 面随后又被 repaint_interior_trim 刷白），导致一楼地板
+    "中间木色、两边白色"。按面修正：wall/trim 类、朝上(nz>0.7)、
+    z<0.2（一楼地面高度；z≈0.25 的楼梯首级踏步不受影响）、
+    面心被房子包围（min_hits=5，允许门洞方向打空；
+    门廊台阶等室外台面朝天/朝外至少两个方向打空，不会被误刷）。
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    scene = bpy.context.scene
+    mw = obj.matrix_world
+    rot = mw.to_3x3()
+    n = 0
+    n_cand = 0
+    for p in obj.data.polygons:
+        if face_cat.get(p.index) not in ('wall', 'trim'):
+            continue
+        if (rot @ p.normal).normalized().z < 0.7:
+            continue
+        c = mw @ p.center
+        if c.z >= 0.2:
+            continue
+        n_cand += 1
+        if _is_enclosed(scene, depsgraph, c, min_hits=5):
+            face_cat[p.index] = 'floor'
+            n += 1
+    print(f'  (一楼地板候选 {n_cand} 面)')
+    return n
+
+
 def _is_enclosed(scene, depsgraph, c, min_hits=6):
     """点 c 是否被房子包围：从 c 沿 ±X/±Y/±Z 六向打射线，命中数 >= min_hits。
 
@@ -387,6 +419,10 @@ def main():
     # 屋顶/地板的内侧可见面改刷屋内色
     n_in = adjust_interior_faces(obj, face_cat)
     print(f'内侧面改色: {n_in} 面')
+
+    # 一楼两翼被误判成墙的室内地板改刷地板色
+    n_gf = repaint_ground_floor(obj, face_cat)
+    print(f'一楼地板改色: {n_gf} 面')
 
     # 屋内 trim（竖梁/横梁）朝房间的面改刷屋内色
     n_trim = repaint_interior_trim(obj, face_cat)

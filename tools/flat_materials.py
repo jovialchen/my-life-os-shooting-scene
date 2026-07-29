@@ -20,7 +20,7 @@ PALETTE = {
     'MAT_wall':  '#F2E9D8',  # 米白墙面
     'MAT_roof':  '#A84E32',  # 砖红棕屋顶
     'MAT_door':  '#8A5A3B',  # 原木棕门
-    'MAT_frame': '#FAF6EE',  # 暖白窗框
+    'MAT_frame': '#6E4B32',  # 胡桃棕窗框（与米白墙面强对比，与门/木架同色系）
     'MAT_glass': '#A9D3DE',  # 浅青蓝玻璃
     'MAT_trim':  '#5F3F2A',  # 深木色装饰
 }

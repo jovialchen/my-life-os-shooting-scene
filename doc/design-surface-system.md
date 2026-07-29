@@ -527,9 +527,11 @@ Phase 1/2 已落地，与本文档有出入的实现细节：
   blender -b models_src/house-split.blend --python tools/add_door.py
   ```
   `add_walkable.py` 提取楼板/台面朝上面为 WALK_floors、加门口过渡面、
-  并在西北角楼梯井内建双折返楼梯（1F→2F，配斜坡 WALK 面）。
-- **楼梯现状**：角色可上 2F（翼门→翼 1F→后厅→楼梯→楼板 B→中厅→东翼）。
-  阁楼暂不通楼梯（井道宽仅 0.8m，第二折返净空不足，属后续改造）。
+  并补全原模型北墙白色楼梯第一跑缺失的 5 级踏步（1F→2F，配斜坡
+  WALK 面 + 东出 2F 楼板的过渡面）。
+- **楼梯现状**：角色可上 2F（翼门→翼 1F→后厅→北墙白楼梯→2F 楼板
+  →中厅→东翼）。阁楼暂不通导航（第二跑 2F→阁楼未配 WALK 面，
+  属后续改造）。
 - **测试**：`node tools/test-nav.mjs`（合成场景单测）、
   `node tools/test-nav-real.mjs`（真实 GLB 全链路端到端）。
 - Phase 3/4/5（坐躺交互、小物品摆放、四季叠加层）未做。
