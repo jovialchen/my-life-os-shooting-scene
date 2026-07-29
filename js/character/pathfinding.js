@@ -82,8 +82,11 @@ export function buildNavGrid({ walkable, obstacles }) {
     }
 
     // 3. 光栅化障碍物 → 按净空规则剔除高度层（含角色半径膨胀）
+    //    userData.nav_no_inflate 的障碍（如楼梯踏步）不膨胀：
+    //    楼梯坡度陡，膨胀会把上一级踏步的净空判定扩散到坡面格上
     for (const mesh of obstacles) {
-        rasterizeMesh(mesh, (cell, y) => blockAt(staticCounts, staticHeights, cell, y));
+        const inflate = !mesh.userData.nav_no_inflate;
+        rasterizeMesh(mesh, (cell, y) => blockAt(staticCounts, staticHeights, cell, y, inflate));
     }
 
     // 4. 复制到动态网格
@@ -110,6 +113,15 @@ export function rebuildDynamicObstacles(closedDoorBoxes) {
 /** 点击走动时射线检测的可行走 mesh 列表 */
 export function getWalkableMeshes() {
     return walkMeshes;
+}
+
+/** 调试：取某格的所有高度层 */
+export function debugLevelsAt(wx, wz) {
+    const gx = worldToGridX(wx);
+    const gz = worldToGridZ(wz);
+    if (gx < 0 || gx >= GRID_W || gz < 0 || gz >= GRID_D) return [];
+    const cell = gz * GRID_W + gx;
+    return Array.from(heights.slice(cell * MAX_LEVELS, cell * MAX_LEVELS + counts[cell]));
 }
 
 /**
@@ -339,10 +351,11 @@ function addLevel(cnt, hgt, cell, y) {
 }
 
 /** 障碍点 (cell, y)：剔除净空冲突的高度层，并按角色半径膨胀到邻居格 */
-function blockAt(cnt, hgt, cell, y) {
+function blockAt(cnt, hgt, cell, y, inflate = true) {
     // 先查本格有没有会被挡的层，没有就跳过膨胀（绝大多数采样走这里）
     if (!hasBlockedLevel(cnt, hgt, cell, y)) return;
     removeBlockedLevels(cnt, hgt, cell, y);
+    if (!inflate) return;
 
     const gx = cell % GRID_W;
     const gz = (cell / GRID_W) | 0;
