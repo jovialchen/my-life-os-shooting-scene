@@ -245,19 +245,36 @@ def adjust_interior_faces(obj, face_cat):
     return n
 
 
+_DIRS = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0),
+         (0, 0, 1), (0, 0, -1)]
+
+
+def _is_enclosed(scene, depsgraph, c, min_hits=6):
+    """点 c 是否被房子包围：从 c 沿 ±X/±Y/±Z 六向打射线，命中数 >= min_hits。
+
+    屋内点全中；外立面外侧、屋檐挑檐底面、屋脊瓦片等临空的点
+    至少有一个方向打空。min_hits=5 用于阁楼：屋面板拼缝会漏掉
+    一条朝天射线，但那些面从阁楼内部确实可见，也应统一刷屋内色。
+    """
+    hits = 0
+    for d in _DIRS:
+        v = Vector(d)
+        if scene.ray_cast(depsgraph, c + v * 0.03, v)[0]:
+            hits += 1
+    return hits >= min_hits
+
+
 def repaint_interior_trim(obj, face_cat, z_max=6.2):
     """把朝向屋内的 trim 面（竖梁/横梁在房间内可见的面）改刷屋内色(wall)。
 
-    判定（面级）：从面心沿 ±X/±Y/±Z 六个方向打射线，全部命中房子
-    几何才算"被房子包围"（屋内）-> 改 wall。外立面半木架的外侧面临空、
-    凹槽墙朝外开敞，都至少有一个方向打空，保持深木色。
-    z_max 限制只处理一二楼（阁楼由 task5 统一处理）。
+    判定（面级）：面心被房子包围（六向射线全中）-> wall。
+    外立面半木架的外侧面临空、凹槽墙朝外开敞，保持深木色。
+    z_max 限制只处理一二楼（阁楼 trim 由 repaint_attic_roof 的
+    视线判定统一处理）。
     """
     depsgraph = bpy.context.evaluated_depsgraph_get()
     scene = bpy.context.scene
     mw = obj.matrix_world
-    DIRS = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0),
-            (0, 0, 1), (0, 0, -1)]
     n = 0
     for p in obj.data.polygons:
         if face_cat.get(p.index) != 'trim':
@@ -265,15 +282,65 @@ def repaint_interior_trim(obj, face_cat, z_max=6.2):
         c = mw @ p.center
         if z_max is not None and c.z >= z_max:
             continue
-        enclosed = True
-        for d in DIRS:
-            off = Vector(d) * 0.03
-            if not scene.ray_cast(depsgraph, c + off, Vector(d))[0]:
-                enclosed = False
-                break
-        if enclosed:
+        if _is_enclosed(scene, depsgraph, c):
             face_cat[p.index] = 'wall'
             n += 1
+    return n
+
+
+_ATTIC_REFS = [Vector((0, 2, 8)), Vector((-4, 2, 7.5)), Vector((4, 2, 7.5)),
+               Vector((0, -2, 8)), Vector((-4, -2, 7.5)), Vector((4, -2, 7.5)),
+               Vector((0, 0, 9)), Vector((-6, 0, 7)), Vector((6, 0, 7)),
+               Vector((0, 3.5, 7)), Vector((0, -3.5, 7))]
+
+# 外部天空参考点：任何能看见这些点的面都是外表面，禁止改色
+# （瓦片顶面会被板缝漏下的阁楼视线误中，靠这个否决掉）
+_SKY_REFS = [Vector((0, 0, 40)), Vector((15, 0, 30)), Vector((-15, 0, 30)),
+             Vector((0, 15, 30)), Vector((0, -15, 30))]
+
+
+def repaint_attic_roof(obj, face_cat):
+    """阁楼内侧可见面统一刷屋内色（阁楼内墙/天花板同色），返回改色面数。
+
+    判定（面级）：roof/trim 面、在阁楼范围内、面心到任一阁楼参考点
+    视线通畅（= 站在阁楼里能看见）、且到所有天空参考点视线不通
+    （= 不是外表面）-> wall。
+    注意模型大量单面片、法线方向不可靠，故不检查法线；
+    屋面板拼缝边、瓦片底沿、椽子侧棱都能覆盖。
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    scene = bpy.context.scene
+    mw = obj.matrix_world
+
+    def clear_sky(c):
+        for ref in _SKY_REFS:
+            d = ref - c
+            dist = d.length
+            if not scene.ray_cast(depsgraph, c + (d / dist) * 0.03,
+                                  d / dist, distance=dist - 0.1)[0]:
+                return True
+        return False
+
+    n = 0
+    for p in obj.data.polygons:
+        if face_cat.get(p.index) not in ('roof', 'trim'):
+            continue
+        c = mw @ p.center
+        if c.z <= 6.0 or abs(c.x) >= 9.5 or not -5.2 < c.y < 5.3:
+            continue
+        for ref in _ATTIC_REFS:
+            d = ref - c
+            dist = d.length
+            if dist < 0.3:
+                continue
+            d = d / dist
+            if scene.ray_cast(depsgraph, c + d * 0.03, d, distance=dist - 0.1)[0]:
+                continue
+            if clear_sky(c):
+                continue
+            face_cat[p.index] = 'wall'
+            n += 1
+            break
     return n
 
 
@@ -324,6 +391,10 @@ def main():
     # 屋内 trim（竖梁/横梁）朝房间的面改刷屋内色
     n_trim = repaint_interior_trim(obj, face_cat)
     print(f'屋内木架改色: {n_trim} 面')
+
+    # 阁楼屋顶剩余内侧可见面统一刷屋内色（阁楼内墙/天花板同色）
+    n_attic = repaint_attic_roof(obj, face_cat)
+    print(f'阁楼内侧改色: {n_attic} 面')
 
     # 建材质 + 材质槽
     mats = build_all_materials()
