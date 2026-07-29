@@ -1,2 +1,16 @@
+# 启动方式（必须通过 HTTP 服务打开，双击 index.html 会黑屏）
+
+# Windows（本机，Python 的 py 启动器）:
+cd /d/something/my-life-os-shooting-scene
+py -m http.server 8000
+
+# Linux:
 cd /root/projects/my-life-os-shooting-scene
 python3 -m http.server 8000
+
+# 然后浏览器打开：
+http://localhost:8000
+
+# 注意：
+# - three.js 从 unpkg CDN 加载，需要联网
+# - 改过代码后如果页面异常，先 Ctrl+F5 强制刷新（清缓存）
