@@ -502,3 +502,34 @@ placeable 表面（桌面、柜面等）：
 | **Phase 3** | `interactionMap.js` → 角色能检测到椅子并坐下 | Phase 2 |
 | **Phase 4** | `itemPlacement.js` + `items_catalog.json` → 小物品自动摆放 | Phase 2 |
 | **Phase 5** | `seasons.js` 增强 → 四季叠加层 | 无（独立） |
+
+---
+
+## 10. 实施现状（2026-07-28 更新）
+
+Phase 1/2 已落地，与本文档有出入的实现细节：
+
+- **`surfaceParser.js`**：按本文档实现（walkable / door / obstacle 三类）。
+- **导航网格没有单独建 `navmeshFromGLB.js`**，而是重写了 `character/pathfinding.js`：
+  格子存多个高度层（每格最多 4 层，0.4m 内合并），A* 状态 = (格子, 层)，
+  相邻层高差 ≤ 0.35m 可通行；障碍物按净空规则（障碍点 y ∈ 层高+0.15 ~ +1.6）
+  剔除高度层并膨胀一个角色半径。`userData.nav_no_inflate` 的障碍（楼梯踏步）
+  不膨胀（陡坡会被自己的踏步封死）。
+- **旧的 `_mark*` 硬编码已全部删除**，寻路范围由 walkable 面包围盒决定。
+- **walker**：点击用射线打 walkable mesh（含隐藏 WALK_ 面），移动时 y 跟随
+  `groundHeightAt`（楼梯平滑爬升）；门开合通过 `setOnDoorToggle` 触发
+  `rebuildDynamicObstacles`（关门门板为动态障碍）。
+- **房屋管线**（重新生成 `models/house.glb`，四步）：
+  ```
+  blender -b models_src/house.blend       --python tools/split_house.py
+  blender -b models_src/house-split.blend --python tools/fill_gaps.py
+  blender -b models_src/house-split.blend --python tools/add_walkable.py
+  blender -b models_src/house-split.blend --python tools/add_door.py
+  ```
+  `add_walkable.py` 提取楼板/台面朝上面为 WALK_floors、加门口过渡面、
+  并在西北角楼梯井内建双折返楼梯（1F→2F，配斜坡 WALK 面）。
+- **楼梯现状**：角色可上 2F（翼门→翼 1F→后厅→楼梯→楼板 B→中厅→东翼）。
+  阁楼暂不通楼梯（井道宽仅 0.8m，第二折返净空不足，属后续改造）。
+- **测试**：`node tools/test-nav.mjs`（合成场景单测）、
+  `node tools/test-nav-real.mjs`（真实 GLB 全链路端到端）。
+- Phase 3/4/5（坐躺交互、小物品摆放、四季叠加层）未做。
