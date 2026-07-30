@@ -15,6 +15,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
 
@@ -23,12 +24,14 @@ import {
     CAMERA_FOV, CAMERA_NEAR, CAMERA_FAR, CAMERA_POS, CAMERA_TARGET,
     TONE_MAPPING_EXPOSURE,
     BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,
+    OUTLINE_STRENGTH, OUTLINE_THICKNESS, OUTLINE_COLOR,
     ORBIT_DAMPING, ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
+    CAMERA_ZONES,
 } from './config.js';
 
 // ── 角色系统 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
-import { initWalker, updateWalker } from './character/walker.js';
+import { initWalker, updateWalker, debugWalkLoop } from './character/walker.js';
 import { buildNavGrid, rebuildDynamicObstacles } from './character/pathfinding.js';
 
 // ── 外壳房子（岛屿 + GLB 模型）──
@@ -39,7 +42,7 @@ import { initSeasons, updateSeason } from './systems/seasons.js';
 import { initDoors, updateDoors, getDoors, pickDoorAt, setOnDoorToggle } from './systems/doors.js';
 import { createLighting } from './systems/lighting.js';
 import { createTimeOfDay } from './systems/timeOfDay.js';
-import { initCameraZones, updateCameraZones, getCameraZonesDebug } from './systems/cameraZones.js';
+import { initCameraZones, updateCameraZones, getCameraZonesDebug, setCameraCollisionRoot } from './systems/cameraZones.js';
 
 // ── UI ──
 import { initUI, updateCompass } from './ui.js';
@@ -77,6 +80,7 @@ controls.update();
 // ── 动画时钟 ──
 const clock = new THREE.Clock();
 let lookAtBound = false;
+let shotFramesLeft = Infinity;   // 截图模式：渲染 N 帧后停帧（?frames=N）
 
 // ============================================================
 //  岛屿地面 + 房子（加载完成后解析 surface → 导航网格 + 季节目标）
@@ -99,6 +103,13 @@ const { group: houseShellGroup } = createHouseShell({
         // 模型驱动的导航网格（walkable/obstacle 表面）
         buildNavGrid({ walkable, obstacles });
         refreshNavDoors();
+        // 相机墙体碰撞（target→相机射线，撞墙收缩）
+        setCameraCollisionRoot(houseShellGroup);
+        // 截图调试：往返走
+        if (pendingWalkLoop) {
+            debugWalkLoop(...pendingWalkLoop);
+            pendingWalkLoop = null;
+        }
     },
 });
 scene.add(houseShellGroup);
@@ -145,6 +156,19 @@ initUI({
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
+// 三渲二描边（房子/岛屿/角色）
+const outline = new OutlinePass(
+    new THREE.Vector2(innerWidth, innerHeight), scene, camera
+);
+outline.edgeStrength = OUTLINE_STRENGTH;
+outline.edgeGlow = 0.0;
+outline.edgeThickness = OUTLINE_THICKNESS;
+outline.pulsePeriod = 0;
+outline.visibleEdgeColor.set(OUTLINE_COLOR);
+outline.hiddenEdgeColor.set(OUTLINE_COLOR);
+outline.selectedObjects = [houseShellGroup, humanoid];
+composer.addPass(outline);
+
 const bloom = new UnrealBloomPass(
     new THREE.Vector2(innerWidth, innerHeight),
     BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD
@@ -166,6 +190,7 @@ window.addEventListener('resize', () => {
 //  动画循环
 // ============================================================
 function animate() {
+    if (shotFramesLeft-- <= 0) return;   // 截图模式：停在最后一帧
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
     controls.update();
@@ -191,3 +216,46 @@ animate();
 
 // 调试句柄（控制台/自动化测试用）：window.__app
 window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug() };
+
+// ============================================================
+//  截图调试模式（无头浏览器验收用，不影响正常交互）
+//  ?cam=zoneId  立即切到机位   ?az=°&pol=°&dist=m  强制轨道位姿
+//  ?time=0-5  时段            ?season=0-3  季节
+//  ?lookat=x,y,z  强制轨道 target
+//  ?walkloop=x1,z1,x2,z2  角色两点往返走（模型就绪后启动）
+// ============================================================
+let pendingWalkLoop = null;   // onModelsReady 后启动
+{
+    const q = new URLSearchParams(location.search);
+    if (q.has('time')) timeOfDay.update(parseFloat(q.get('time')));
+    if (q.has('season')) {
+        seasonValue = parseFloat(q.get('season'));
+        updateSeason(seasonValue);
+    }
+    if (q.has('cam')) {
+        const z = CAMERA_ZONES.find(z => z.id === q.get('cam'));
+        if (z) getCameraZonesDebug().goToZone(z, true);
+    }
+    if (q.has('lookat')) {
+        const [x, y, z] = q.get('lookat').split(',').map(Number);
+        controls.target.set(x, y, z);
+    }
+    if (q.has('az') || q.has('pol') || q.has('dist')) {
+        const az = THREE.MathUtils.degToRad(parseFloat(q.get('az') ?? '0'));
+        const pol = THREE.MathUtils.degToRad(parseFloat(q.get('pol') ?? '70'));
+        const d = parseFloat(q.get('dist') ?? '8');
+        const t = controls.target;
+        camera.position.set(
+            t.x + d * Math.sin(pol) * Math.sin(az),
+            t.y + d * Math.cos(pol),
+            t.z + d * Math.sin(pol) * Math.cos(az),
+        );
+        controls.update();
+    }
+    if (q.has('walkloop')) {
+        pendingWalkLoop = q.get('walkloop').split(',').map(Number);
+    }
+    if (q.has('frames')) {
+        shotFramesLeft = parseInt(q.get('frames'), 10);
+    }
+}

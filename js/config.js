@@ -120,6 +120,11 @@ export const BLOOM_STRENGTH  = 0.15;
 export const BLOOM_RADIUS    = 0.6;
 export const BLOOM_THRESHOLD = 0.85;
 
+// 后期处理 — 三渲二描边（OutlinePass，见 systems/toon.js）
+export const OUTLINE_STRENGTH  = 2.5;
+export const OUTLINE_THICKNESS = 1.0;
+export const OUTLINE_COLOR     = '#4a3f35';   // 深棕，比纯黑柔和
+
 // 点击检测（拖动 vs 点击阈值，px）
 export const CLICK_DRAG_THRESHOLD = 5;
 

@@ -30,6 +30,19 @@ let transition = null;                // { t, fromPos, toPos, fromTarget, toTarg
 
 const _followTarget = new THREE.Vector3();
 
+// ── 墙体碰撞收缩（方案B：target→相机打射线，撞墙就收距离）──
+const COLLISION = {
+    margin: 0.3,          // 相机离墙的最小间隙（米）
+    minRadius: 0.3,       // 收缩下限，防止贴脸穿模
+    growSpeed: 8,         // 障碍消失后距离恢复速度（指数趋近）
+    zoomEps: 0.03,        // 判定「用户主动缩放」的半径差阈值
+};
+let collisionMeshes = [];   // 参与碰撞的 mesh（房子/岛屿/门，模型就绪后注入）
+let userRadius = 0;         // 用户想要的轨道半径（缩放输入会更新它）
+let appliedRadius = 0;      // 实际施加的半径（被墙收缩后 < userRadius）
+const _colRay = new THREE.Raycaster();
+const _colDir = new THREE.Vector3();
+
 // ── 初始化 ──────────────────────────────────────────────
 
 export function initCameraZones(cam, ctrl, renderer, humanoidGroup) {
@@ -59,6 +72,19 @@ export function initCameraZones(cam, ctrl, renderer, humanoidGroup) {
     goToZone(CAMERA_ZONES[0], true);
 }
 
+/**
+ * 注入相机碰撞体（模型加载完成后调用一次）
+ * @param {THREE.Object3D} root - 房子/岛屿容器，取其中所有可见 mesh
+ */
+export function setCameraCollisionRoot(root) {
+    collisionMeshes = [];
+    root.updateWorldMatrix(true, true);
+    root.traverse((child) => {
+        if (child.isMesh && child.visible) collisionMeshes.push(child);
+    });
+    console.log(`[CameraZones] 碰撞 mesh 数: ${collisionMeshes.length}`);
+}
+
 // ── 每帧更新（在 animate 中调用）─────────────────────────
 
 export function updateCameraZones(delta) {
@@ -66,7 +92,10 @@ export function updateCameraZones(delta) {
         updateTransition(delta);
         return;
     }
-    if (!humanoid?.userData.vrm) return;
+    if (!humanoid?.userData.vrm) {
+        applyWallCollision(delta);
+        return;
+    }
 
     if (mode === 'follow') {
         // 死区弱跟随：角色没走远镜头不动
@@ -77,16 +106,63 @@ export function updateCameraZones(delta) {
             _followTarget.set(humanoid.position.x, CAMERA_FOLLOW_Y, humanoid.position.z);
             controls.target.lerp(_followTarget, t);
         }
-        return;
+    } else {
+        // zone 模式：按角色位置自动切换
+        const z = zoneAt(humanoid.position.x, humanoid.position.z);
+        if (z && z !== currentZone) {
+            goToZone(z);
+        } else if (!z && currentZone.bounds) {
+            goToZone(CAMERA_ZONES[0]);   // 离开触发区 -> 回全景
+        }
     }
 
-    // zone 模式：按角色位置自动切换
-    const z = zoneAt(humanoid.position.x, humanoid.position.z);
-    if (z && z !== currentZone) {
-        goToZone(z);
-    } else if (!z && currentZone.bounds) {
-        goToZone(CAMERA_ZONES[0]);   // 离开触发区 -> 回全景
+    applyWallCollision(delta);
+}
+
+// ── 墙体碰撞收缩 ────────────────────────────────────────
+// 每帧从 target 向相机方向打射线，撞到墙就把距离收回来；
+// 墙消失后平滑恢复到用户想要的半径。收缩立即、恢复渐进。
+
+function applyWallCollision(delta) {
+    if (!controls.enabled) return;
+    // 室外机位（全景/庭院/背面）target 常在屋内，做收缩会把相机拉进房子——跳过；
+    // 室内机位和跟随模式才需要「相机出不了房间」
+    if (mode === 'zone' && currentZone.category === 'outside') return;
+
+    const target = controls.target;
+    _colDir.subVectors(camera.position, target);
+    const dist = _colDir.length();
+    if (dist < 1e-4) return;
+    _colDir.divideScalar(dist);
+
+    // 实际半径与上帧施加值不同 -> 用户主动缩放了，更新期望半径
+    if (Math.abs(dist - appliedRadius) > COLLISION.zoomEps) userRadius = dist;
+    userRadius = THREE.MathUtils.clamp(userRadius, controls.minDistance, controls.maxDistance);
+
+    let allowed = userRadius;
+    if (collisionMeshes.length > 0) {
+        _colRay.set(target, _colDir);
+        _colRay.far = userRadius;
+        const hits = _colRay.intersectObjects(collisionMeshes, false);
+        if (hits.length > 0) {
+            allowed = Math.min(allowed, Math.max(COLLISION.minRadius, hits[0].distance - COLLISION.margin));
+        }
     }
+
+    if (allowed < appliedRadius) {
+        appliedRadius = allowed;    // 收缩立即生效，不穿墙
+    } else {
+        const t = 1 - Math.exp(-COLLISION.growSpeed * delta);
+        appliedRadius += (allowed - appliedRadius) * t;
+    }
+
+    if (Math.abs(appliedRadius - dist) > 0.005) {
+        camera.position.copy(target).addScaledVector(_colDir, appliedRadius);
+    }
+}
+
+function resetRadius() {
+    userRadius = appliedRadius = camera.position.distanceTo(controls.target);
 }
 
 // ── 内部 ────────────────────────────────────────────────
@@ -107,6 +183,7 @@ function goToZone(zone, instant = false) {
         controls.target.set(...zone.target);
         applyConstraints(zone);
         controls.update();
+        resetRadius();
         return;
     }
     transition = {
@@ -128,6 +205,7 @@ function updateTransition(delta) {
         transition = null;
         controls.enabled = true;
         applyConstraints(currentZone);
+        resetRadius();
     }
 }
 
@@ -162,6 +240,7 @@ function toggleFollow() {
         transition = null;
         controls.enabled = true;
         applyFollowConstraints();
+        resetRadius();
         refreshButtons();
     }
 }

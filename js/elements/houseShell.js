@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { registerDoor } from '../systems/doors.js';
 import { parseSurfaces } from '../systems/surfaceParser.js';
+import { applyToonShading } from '../systems/toon.js';
 
 // ── 草地/岛屿参数（花园/栅栏/寻路等模块依赖）──
 const GRASS_RADIUS = 25;
@@ -51,6 +52,7 @@ export function createHouseShell({ onModelsReady } = {}) {
         (gltf) => {
             const island = gltf.scene;
             island.name = 'islandModel';
+            applyToonShading(island);   // 三渲二：Standard → MeshToonMaterial
 
             const trees = [];           // 树干 {name, x, z}（树叶缩放基点用）
             const leaves = [];          // 四季树叶 mesh（含缩放基点）
@@ -109,6 +111,7 @@ export function createHouseShell({ onModelsReady } = {}) {
         (gltf) => {
             const model = gltf.scene;
             model.name = 'houseModel';
+            applyToonShading(model);   // 三渲二：Standard → MeshToonMaterial
 
             // 给所有 mesh 打上 isOccluder 标记（墙体遮挡透明系统用）
             // 带 interactable_type='door' 的门板注册到门交互系统
