@@ -528,10 +528,12 @@ Phase 1/2 已落地，与本文档有出入的实现细节：
   ```
   `add_walkable.py` 提取楼板/台面朝上面为 WALK_floors、加门口过渡面、
   并补全原模型北墙白色楼梯第一跑缺失的 5 级踏步（1F→2F，配斜坡
-  WALK 面 + 东出 2F 楼板的过渡面）。
-- **楼梯现状**：角色可上 2F（翼门→翼 1F→后厅→北墙白楼梯→2F 楼板
-  →中厅→东翼）。阁楼暂不通导航（第二跑 2F→阁楼未配 WALK 面，
-  属后续改造）。
+  WALK 面 + 东出 2F 楼板的过渡面）；第二跑（2F→阁楼）配
+  `WALK_stairs_2f_attic` 斜坡面 + `WALK_stairs_atticout` 平台过渡面。
+- **楼梯现状**：三层全部贯通（翼门→翼 1F→后厅→北墙白楼梯第一跑→2F
+  →第二跑→阁楼楼板→阁楼内部）。阁楼近檐口净空 <1.6m 的区域按屋顶
+  障碍自动剔除，角色只在屋脊下高净空区活动。
 - **测试**：`node tools/test-nav.mjs`（合成场景单测）、
-  `node tools/test-nav-real.mjs`（真实 GLB 全链路端到端）。
+  `node tools/test-nav-real.mjs`（真实 GLB 全链路端到端）、
+  `node tools/test-nav-attic.mjs`（2F→阁楼端到端）。
 - Phase 3/4/5（坐躺交互、小物品摆放、四季叠加层）未做。

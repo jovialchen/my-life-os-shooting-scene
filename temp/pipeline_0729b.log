@@ -1,0 +1,108 @@
+00:00.609  blend            | Read blend: "D:\something\my-life-os-shooting-scene\models_src\house.blend"
+分析 191: 134774 面
+4667 个连通块
+删除冗余竖梁: 1742 面
+删除后 4600 个连通块
+镜像斜梁: 新增 130 面
+镜像后 4605 个连通块
+部件数: {'roof': 2638, 'trim': 331, 'wall': 76, 'window': 1534, 'floor': 26}
+面数: {'roof': 76292, 'trim': 8154, 'wall': 3540, 'window': 39884, 'floor': 5292}
+内侧面改色: 24760 面
+  (一楼地板候选 450 面)
+一楼地板改色: 446 面
+屋内木架改色: 4421 面
+阁楼内侧改色: 16319 面
+WINDOW_01  faces=39884
+WALL_01    faces=49040
+ROOF_01    faces=37079
+TRIM_01    faces=3113
+FLOOR_01   faces=4046
+ROOF_01    faces=37079
+TRIM_01    faces=3113
+WALL_01    faces=49040
+WINDOW_01  faces=39884
+Info: Saved as "house-split.blend"
+INFO Draco mesh compression is available, use library at C:\Program Files\Blender Foundation\Blender 5.1\5.1\scripts\addons_core\io_scene_gltf2\extern_draco.dll
+18:33:04 | INFO: Starting glTF 2.0 export
+18:33:04 | INFO: Extracting primitive: 191
+18:33:04 | INFO: Primitives created: 1
+18:33:04 | INFO: Extracting primitive: 191.001
+18:33:05 | INFO: Primitives created: 1
+18:33:05 | INFO: Extracting primitive: 191.002
+18:33:05 | INFO: Primitives created: 1
+18:33:05 | INFO: Extracting primitive: 191.003
+18:33:05 | INFO: Primitives created: 1
+18:33:05 | INFO: Extracting primitive: 191.004
+18:33:05 | INFO: Primitives created: 1
+18:33:05 | INFO: Finished glTF 2.0 export in 0.27195072174072266 s
+
+已保存 D:\something\my-life-os-shooting-scene\models_src\house-split.blend
+已导出 D:\something\my-life-os-shooting-scene\models_src\house-split.glb
+Blender 5.1.2 (hash ec6e62d40fa9 built 2026-05-19 01:37:34)
+
+Blender quit
+00:00.390  blend            | Read blend: "D:\something\my-life-os-shooting-scene\models_src\house-split.blend"
+填补 13 道缝 / 13 段 -> WALL_gapfill
+Info: Saved as "house-split.blend"
+已保存 models_src/house-split.blend
+Blender 5.1.2 (hash ec6e62d40fa9 built 2026-05-19 01:37:34)
+
+Blender quit
+00:00.391  blend            | Read blend: "D:\something\my-life-os-shooting-scene\models_src\house-split.blend"
+楼梯井开口: FLOOR_01 删除 42 面
+楼梯井开口: WALL_01 删除 266 面
+楼梯井开口: WINDOW_01 删除 561 面
+WALK_floors: 2304 面
+白楼梯: 补 5 级踏步 -> STAIRS_01 + WALK 坡面/过渡面
+第二跑: WALK 坡面(2F->阁楼平台) + 平台过渡面
+Info: Saved as "house-split.blend"
+已保存 models_src/house-split.blend
+Blender 5.1.2 (hash ec6e62d40fa9 built 2026-05-19 01:37:34)
+
+Blender quit
+00:00.391  blend            | Read blend: "D:\something\my-life-os-shooting-scene\models_src\house-split.blend"
+门已安装: DOOR_entrance hinge_x=-7.085 dir=left
+门已安装: DOOR_entrance_east hinge_x=7.085 dir=right
+Info: Saved as "house-split.blend"
+INFO Draco mesh compression is available, use library at C:\Program Files\Blender Foundation\Blender 5.1\5.1\scripts\addons_core\io_scene_gltf2\extern_draco.dll
+18:33:08 | INFO: Starting glTF 2.0 export
+18:33:08 | INFO: Extracting primitive: 191
+18:33:08 | INFO: Primitives created: 1
+18:33:08 | INFO: Extracting primitive: 191.001
+18:33:08 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: 191.002
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: 191.003
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: 191.004
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: Cube
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | WARNING: Mesh WALK_floors is not valid, and may be exported wrongly
+18:33:09 | INFO: Extracting primitive: WALK_floors
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: WALK_threshold_1
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: WALK_threshold_-1
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: Cube.001
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: WALK_stairs_1f2f
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: WALK_stairs_2fout
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: WALK_stairs_2f_attic
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: WALK_stairs_atticout
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: Cube.002
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Extracting primitive: Cube.003
+18:33:09 | INFO: Primitives created: 1
+18:33:09 | INFO: Finished glTF 2.0 export in 0.30344223976135254 s
+
+已保存 D:\something\my-life-os-shooting-scene\models_src\house-split.blend
+已导出 D:\something\my-life-os-shooting-scene\models\house.glb
+Blender 5.1.2 (hash ec6e62d40fa9 built 2026-05-19 01:37:34)
+
+Blender quit

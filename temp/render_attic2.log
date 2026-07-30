@@ -1,0 +1,14 @@
+00:00.407  blend            | Read blend: "D:\something\my-life-os-shooting-scene\models_src\house-split.blend"
+00:02.594  render           | Saved: 'D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_from_2f.png'
+00:02.735  render           | Saved: 'D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_landing.png'
+00:02.875  render           | Saved: 'D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_attic_east.png'
+00:03.032  render           | Saved: 'D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_both.png'
+00:03.203  render           | Saved: 'D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_strip.png'
+渲染 D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_from_2f.png
+渲染 D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_landing.png
+渲染 D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_attic_east.png
+渲染 D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_both.png
+渲染 D:\something\my-life-os-shooting-scene\tools\preview\chk_a2_strip.png
+Blender 5.1.2 (hash ec6e62d40fa9 built 2026-05-19 01:37:34)
+
+Blender quit
