@@ -536,4 +536,29 @@ Phase 1/2 已落地，与本文档有出入的实现细节：
 - **测试**：`node tools/test-nav.mjs`（合成场景单测）、
   `node tools/test-nav-real.mjs`（真实 GLB 全链路端到端）、
   `node tools/test-nav-attic.mjs`（2F→阁楼端到端）。
-- Phase 3/4/5（坐躺交互、小物品摆放、四季叠加层）未做。
+- Phase 3/4（坐躺交互、小物品摆放）未做。
+
+### 岛屿花园 & 四季（2026-07-30 更新，Phase 5 的落地方式与 §5 不同）
+
+四季没有走"叠加层 GLB"方案，而是**单一 island.glb + extras 驱动**
+（`tools/make_island.py` 重新生成）：
+
+- **地形**：岛面 48×10 同心环网格，低频正弦起伏（±0.3m，坡度 ≤13%），
+  房子周边 2m 与岛缘自动压平；`WALK_island_top` 用同一高度场。
+- **石板路**：绕屋圆角矩形环路 + 南向蜿蜒支路，石板高出地面 0.03m
+  （< STEP_TOL，不挡导航）。
+- **树 15 棵**：9 落叶树（主干 + 3~4 分枝，冬季枝干不"一根棍"）+
+  6 松树（层叠锥冠，常青）。extras：`tree_type`、`leaf_spring`、
+  `leaf_autumn`；每树叶球独立 mesh（JS 克隆材质单独着色）。
+- **秋果**：`TREE_XX_fruits`（`season_fruits`），每树一种果色
+  （深紫/红/橙，材质烘焙），秋季窗口绕树干锚点缩放显现。
+- **雪**：`TREE_XX_snow`（`season_snow`）冬季显现；`SNOWMAN`
+  （`season_snowman`，原点在底座直接整体缩放）。
+- **应季花卉**：7 个 `FLOWERS_<种>` mesh，extras `flower_bloom_in/out`
+  花期窗口（郁金香=春；绣球/薰衣草/向日葵=夏；波斯菊=夏秋；菊=秋；
+  腊梅=冬），JS 按窗口透明度淡入淡出。
+- **`nav_ignore`**：surfaceParser 新增第三类跳过规则（草丛/花/雪人，
+  纯视觉不进导航）。
+- **测试**：`node tools/test-seasons.mjs`（四季状态机冒烟）。
+- 预览渲染：`tools/render_island_preview.py`、
+  `tools/render_seasons_preview.py`（Blender 侧模拟四季状态出图）。

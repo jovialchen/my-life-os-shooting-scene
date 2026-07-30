@@ -1,6 +1,6 @@
 /**
- * 外壳房子 + 岛屿地面 —— 从 GLB 模型加载
- * 加载 models/house.glb（房子）与 models/island.glb（岛屿地面 + 四季树）
+ * 外壳房子 + 岛屿花园 —— 从 GLB 模型加载
+ * 加载 models/house.glb（房子）与 models/island.glb（岛屿地面 + 季节树 + 花园）
  * 两个模型都加载完成后解析 surface 属性（walkable/obstacle），驱动导航网格
  */
 import * as THREE from 'three';
@@ -19,7 +19,8 @@ const GRASS_CENTER_Z = 5; // 公寓中心 z=5
 /**
  * @param {{ onModelsReady?: (info: {
  *   walkable: THREE.Mesh[], obstacles: THREE.Mesh[],
- *   leaves: Array, grassMaterials: Array,
+ *   trees: Array, flowerGroups: Array, snowman: THREE.Mesh|null,
+ *   grassMaterials: Array,
  * }) => void }} callbacks - 房子和岛屿都加载解析完成后触发
  */
 export function createHouseShell({ onModelsReady } = {}) {
@@ -41,12 +42,14 @@ export function createHouseShell({ onModelsReady } = {}) {
         onModelsReady?.({
             walkable: [...pending.island.walkable, ...pending.house.walkable],
             obstacles: [...pending.island.obstacles, ...pending.house.obstacles],
-            leaves: pending.island.leaves,
+            trees: pending.island.trees,
+            flowerGroups: pending.island.flowerGroups,
+            snowman: pending.island.snowman,
             grassMaterials: pending.island.grassMaterials,
         });
     }
 
-    // ── 异步加载岛屿模型（地面 + 树，替代原平面草地）──
+    // ── 异步加载岛屿模型（地面 + 季节树 + 花园，替代原平面草地）──
     loader.load(
         './models/island.glb',
         (gltf) => {
@@ -54,9 +57,17 @@ export function createHouseShell({ onModelsReady } = {}) {
             island.name = 'islandModel';
             applyToonShading(island);   // 三渲二：Standard → MeshToonMaterial
 
-            const trees = [];           // 树干 {name, x, z}（树叶缩放基点用）
-            const leaves = [];          // 四季树叶 mesh（含缩放基点）
-            const grassMaterials = [];  // 草顶材质（季节变色目标）
+            const trunks = new Map();       // treeKey → {x, z}（缩放锚点用）
+            const treeParts = new Map();    // treeKey → { leaves, fruits, snow }
+            const flowerGroups = [];        // 应季花卉 [{ mesh, bloomIn, bloomOut }]
+            let snowman = null;
+            const grassMaterials = [];      // 草顶材质（季节变色目标）
+
+            const partOf = (key) => {
+                if (!treeParts.has(key)) treeParts.set(key, {});
+                return treeParts.get(key);
+            };
+            const hexToInt = (h) => (h ? parseInt(h.slice(1), 16) : undefined);
 
             island.traverse((child) => {
                 if (!child.isMesh) return;
@@ -70,11 +81,26 @@ export function createHouseShell({ onModelsReady } = {}) {
                     child.receiveShadow = false;
                 }
 
+                const ud = child.userData;
                 if (child.name.endsWith('_trunk')) {
-                    trees.push({ name: child.name, x: child.position.x, z: child.position.z });
-                } else if (child.userData.season_leaves) {
-                    // 树叶顶点为世界坐标（原点在岛中心），冬季缩放需绕树干基点
-                    leaves.push({ mesh: child, anchor: null });
+                    trunks.set(child.name.replace(/_trunk$/, ''),
+                               { x: child.position.x, z: child.position.z });
+                } else if (ud.season_leaves) {
+                    // 每棵树克隆独立材质：各自的花色/秋色需要单独着色
+                    child.material = child.material.clone();
+                    partOf(child.name.replace(/_leaves$/, '')).leaves = child;
+                } else if (ud.season_fruits) {
+                    partOf(child.name.replace(/_fruits$/, '')).fruits = child;
+                } else if (ud.season_snow) {
+                    partOf(child.name.replace(/_snow$/, '')).snow = child;
+                } else if (ud.season_snowman) {
+                    snowman = child;
+                } else if (ud.flower_bloom_in !== undefined) {
+                    flowerGroups.push({
+                        mesh: child,
+                        bloomIn: ud.flower_bloom_in,
+                        bloomOut: ud.flower_bloom_out,
+                    });
                 }
 
                 const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -85,18 +111,28 @@ export function createHouseShell({ onModelsReady } = {}) {
                 }
             });
 
-            // 树叶缩放基点 = 同编号树干位置（树根处）
-            for (const leaf of leaves) {
-                const trunk = trees.find(t =>
-                    t.name.replace('_trunk', '') === leaf.mesh.name.replace('_leaves', ''));
-                if (trunk) leaf.anchor = new THREE.Vector3(trunk.x, 0, trunk.z);
+            // 组装季节树：树叶 + 锚点（同 key 树干位置）+ 秋果 + 雪盖
+            const trees = [];
+            for (const [key, part] of treeParts) {
+                if (!part.leaves) continue;
+                const tp = trunks.get(key);
+                trees.push({
+                    leaves: part.leaves,
+                    type: part.leaves.userData.tree_type || 'deciduous',
+                    spring: hexToInt(part.leaves.userData.leaf_spring) ?? 0xf2a7c3,
+                    autumn: hexToInt(part.leaves.userData.leaf_autumn) ?? 0xc9562e,
+                    anchor: tp ? new THREE.Vector3(tp.x, 0, tp.z) : null,
+                    fruits: part.fruits || null,
+                    snow: part.snow || null,
+                });
             }
 
             house.add(island);
-            console.log('[HouseShell] island.glb loaded');
+            console.log('[HouseShell] island.glb loaded '
+                + `(${trees.length} 棵树, ${flowerGroups.length} 组花卉)`);
 
             const surfaces = parseSurfaces(island);
-            pending.island = { ...surfaces, leaves, grassMaterials };
+            pending.island = { ...surfaces, trees, flowerGroups, snowman, grassMaterials };
             maybeReady();
         },
         undefined,

@@ -2,7 +2,7 @@
 tools/blender-5.1/
 tools/xlibs/
 tools/__pycache__/
-
+tools/e2e/.cache
 # 调试渲染产物（tools/preview.py 等可随时重新生成）
 tools/preview/
 

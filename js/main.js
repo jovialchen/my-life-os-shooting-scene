@@ -7,7 +7,7 @@
  *   - 相机（区域机位 + 限定范围轨道 + 跟随模式，systems/cameraZones.js）
  *   - 灯光系统（systems/lighting.js：环境光 + 太阳 + 补光 + 窗光）
  *   - 时间系统（systems/timeOfDay.js：6 时段平滑过渡）
- *   - 季节系统（systems/seasons.js：草地颜色 + 树叶变色/落叶）
+ *   - 季节系统（systems/seasons.js：草地/树木/花果/雪盖/雪人）
  *   - 门交互（systems/doors.js：点击开/关门）
  *   - UI（ui.js：时间/季节滑块、语言切换、指南针）
  */
@@ -96,9 +96,9 @@ function refreshNavDoors() {
 }
 
 const { group: houseShellGroup } = createHouseShell({
-    onModelsReady: ({ walkable, obstacles, leaves, grassMaterials }) => {
-        // 季节系统接管草地/树叶
-        initSeasons({ grassMaterials, leaves });
+    onModelsReady: ({ walkable, obstacles, trees, flowerGroups, snowman, grassMaterials }) => {
+        // 季节系统接管草地/树木/花卉/雪人
+        initSeasons({ grassMaterials, trees, flowerGroups, snowman });
         updateSeason(seasonValue);
         // 模型驱动的导航网格（walkable/obstacle 表面）
         buildNavGrid({ walkable, obstacles });
@@ -115,7 +115,7 @@ const { group: houseShellGroup } = createHouseShell({
 scene.add(houseShellGroup);
 
 // ============================================================
-//  季节系统（草地 + 树叶；具体目标在模型加载后注入）
+//  季节系统（草地 + 树木/花果；具体目标在模型加载后注入）
 // ============================================================
 initSeasons();
 

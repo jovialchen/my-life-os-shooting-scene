@@ -66,11 +66,14 @@ for node in gltf.get('nodes', []):
         cx = (acc['min'][0] + acc['max'][0]) / 2
         cz = (acc['min'][2] + acc['max'][2]) / 2
         rx = (acc['max'][0] - acc['min'][0]) / 2
-        y = acc['max'][1]
-        print(f'  → three 中心=({cx}, {cz}) 半径≈{rx:.2f} 高度 y={y:.3f}')
+        y_min, y_max = acc['min'][1], acc['max'][1]
+        print(f'  → three 中心=({cx}, {cz}) 半径≈{rx:.2f} '
+              f'高度 y∈[{y_min:.3f}, {y_max:.3f}]')
+        # 起伏地形：顶面在 -0.01 基准上下波动（幅度 ~±0.4），中心/半径不变
         if not (abs(cx) < 0.01 and abs(cz - 5.0) < 0.01
-                and abs(rx - 25.0) < 0.01 and abs(y - (-0.01)) < 0.001):
-            print('    !! 与旧草地参数（中心(0,5) 半径25 顶面-0.01）不符')
+                and abs(rx - 25.0) < 0.01
+                and -0.45 < y_min < -0.01 <= y_max < 0.45):
+            print('    !! 与岛屿参数（中心(0,5) 半径25 基准顶面-0.01 ±起伏）不符')
             ok = False
 
 print('\n结果:', 'PASS' if ok else 'FAIL')
