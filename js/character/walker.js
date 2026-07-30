@@ -25,14 +25,26 @@ const WALK = {
 
 // ── 走路动画参数 ──────────────────────────────────────
 const ANIM = {
-    frequency: 4.5,         // 步频（越大越快）
-    legSwing: 0.5,          // 腿部前后摆动幅度（弧度）
-    kneeBend: 1.1,          // 膝盖弯曲幅度
-    armSwing: 0.35,         // 手臂摆动幅度
-    armBend: 0.2,           // 手臂弯曲
-    bodyBob: 0.02,          // 身体上下起伏（米）
-    spineTwist: 0.04,       // 脊椎左右扭转
+    frequency: 3.6,         // 步频（越大越快）
+    legSwing: 0.45,         // 腿部前后摆动幅度（弧度）
+    kneeBend: 0.7,          // 膝盖弯曲幅度（摆动相抬膝）
+    armSwing: 0.4,          // 手臂摆动幅度
+    armBend: 0.25,          // 手臂基础弯曲
+    footRock: 0.25,         // 脚踝随步伐滚动
+    bodyBob: 0.025,         // 身体上下起伏（米）
+    hipSway: 0.03,          // 髋部左右重心移动（米）
+    hipRoll: 0.05,          // 髋部左右滚动（弧度）
+    spineTwist: 0.06,       // 脊椎左右扭转（与髋反向）
+    spineLean: 0.05,        // 前进时躯干前倾
     blendSpeed: 8.0,        // 动画混合速度（idle ↔ walk 过渡）
+};
+
+// ── 待机呼吸/重心参数 ─────────────────────────────────
+const IDLE = {
+    breathSpeed: 1.6,       // 呼吸频率（弧度/秒）
+    breathAmount: 0.02,     // 胸椎呼吸起伏（弧度）
+    swaySpeed: 0.8,         // 重心摇摆频率
+    swayAmount: 0.008,      // 髋部重心横移（米）
 };
 
 // ── 骨骼名称 ──────────────────────────────────────────
@@ -41,8 +53,10 @@ const BONE_NAMES = {
     spine: 'spine',
     leftUpperLeg: 'leftUpperLeg',
     leftLowerLeg: 'leftLowerLeg',
+    leftFoot: 'leftFoot',
     rightUpperLeg: 'rightUpperLeg',
     rightLowerLeg: 'rightLowerLeg',
+    rightFoot: 'rightFoot',
     leftUpperArm: 'leftUpperArm',
     leftLowerArm: 'leftLowerArm',
     rightUpperArm: 'rightUpperArm',
@@ -318,12 +332,38 @@ function moveToward(target, delta) {
 }
 
 function finishWalking() {
+    // 截图调试：往返巡逻模式（无头浏览器验收用，见 main.js ?walkloop=）
+    if (loopA && loopB) {
+        loopDest = (loopDest === loopB) ? loopA : loopB;
+        startDebugWalk(loopDest);
+        return;
+    }
     state = 'idle';
     targetPos = null;
     waypoints = [];
     stuckCounter = 0;
     prevDistance = Infinity;
     marker.visible = false;
+}
+
+// ── 截图调试（无头浏览器验收用）：让角色在两点间往返走 ──
+let loopA = null, loopB = null, loopDest = null;
+
+export function debugWalkLoop(ax, az, bx, bz) {
+    if (!humanoidGroup) return;
+    loopA = new THREE.Vector3(ax, humanoidGroup.position.y, az);
+    loopB = new THREE.Vector3(bx, humanoidGroup.position.y, bz);
+    loopDest = loopB;
+    startDebugWalk(loopDest);
+}
+
+function startDebugWalk(p) {
+    const path = findPath(humanoidGroup.position, p);
+    waypoints = path && path.length > 0 ? smoothPath(path) : [p.clone()];
+    targetPos = p.clone();
+    state = 'walking';
+    stuckCounter = 0;
+    prevDistance = Infinity;
 }
 
 function updateWalkAnimation(delta) {
@@ -334,7 +374,7 @@ function updateWalkAnimation(delta) {
     walkBlend = THREE.MathUtils.clamp(walkBlend, 0, 1);
 
     if (walkBlend < 0.01 && state === 'idle') {
-        resetPose();
+        updateIdleAnimation(delta);
         return;
     }
 
@@ -343,7 +383,9 @@ function updateWalkAnimation(delta) {
 
     const t = walkBlend;
     const sin = Math.sin(walkPhase);
+    const cos = Math.cos(walkPhase);
 
+    // 腿：前后摆动；膝盖在「由后向前迈」的摆动相抬起（cos 同相），支撑相伸直
     if (boneNodes.leftUpperLeg) {
         boneNodes.leftUpperLeg.rotation.x = boneDefaults.leftUpperLeg.x + sin * ANIM.legSwing * t;
     }
@@ -351,13 +393,21 @@ function updateWalkAnimation(delta) {
         boneNodes.rightUpperLeg.rotation.x = boneDefaults.rightUpperLeg.x - sin * ANIM.legSwing * t;
     }
     if (boneNodes.leftLowerLeg) {
-        const knee = Math.max(0, sin) * ANIM.kneeBend * t;
+        const knee = Math.max(0, cos) * ANIM.kneeBend * t;
         boneNodes.leftLowerLeg.rotation.x = boneDefaults.leftLowerLeg.x + knee;
     }
     if (boneNodes.rightLowerLeg) {
-        const knee = Math.max(0, -sin) * ANIM.kneeBend * t;
+        const knee = Math.max(0, -cos) * ANIM.kneeBend * t;
         boneNodes.rightLowerLeg.rotation.x = boneDefaults.rightLowerLeg.x + knee;
     }
+    // 脚踝：随步伐滚动（勾脚/绷脚）， approx 保持足底贴地感
+    if (boneNodes.leftFoot) {
+        boneNodes.leftFoot.rotation.x = boneDefaults.leftFoot.x - sin * ANIM.footRock * t;
+    }
+    if (boneNodes.rightFoot) {
+        boneNodes.rightFoot.rotation.x = boneDefaults.rightFoot.x + sin * ANIM.footRock * t;
+    }
+    // 手臂：与对侧腿同相摆动，后摆时肘部多弯一点
     if (boneNodes.leftUpperArm) {
         boneNodes.leftUpperArm.rotation.x = boneDefaults.leftUpperArm.x - sin * ANIM.armSwing * t;
     }
@@ -365,17 +415,45 @@ function updateWalkAnimation(delta) {
         boneNodes.rightUpperArm.rotation.x = boneDefaults.rightUpperArm.x + sin * ANIM.armSwing * t;
     }
     if (boneNodes.leftLowerArm) {
-        boneNodes.leftLowerArm.rotation.x = boneDefaults.leftLowerArm.x - ANIM.armBend * t;
+        boneNodes.leftLowerArm.rotation.x = boneDefaults.leftLowerArm.x - (ANIM.armBend + Math.max(0, sin) * 0.2) * t;
     }
     if (boneNodes.rightLowerArm) {
-        boneNodes.rightLowerArm.rotation.x = boneDefaults.rightLowerArm.x - ANIM.armBend * t;
+        boneNodes.rightLowerArm.rotation.x = boneDefaults.rightLowerArm.x - (ANIM.armBend + Math.max(0, -sin) * 0.2) * t;
     }
     if (boneNodes.hips) {
-        const bob = Math.abs(sin) * ANIM.bodyBob * t;
+        // 双倍频起伏（两脚交替承重）+ 重心左右移动 + 髋部滚动
+        const bob = (1 - Math.cos(walkPhase * 2)) * 0.5 * ANIM.bodyBob * t;
         boneNodes.hips.position.y = boneDefaults.hipsPosition.y + bob;
+        boneNodes.hips.position.x = boneDefaults.hipsPosition.x - cos * ANIM.hipSway * t;
+        boneNodes.hips.rotation.z = boneDefaults.hips.z + cos * ANIM.hipRoll * t;
     }
     if (boneNodes.spine) {
-        boneNodes.spine.rotation.y = boneDefaults.spine.y + sin * ANIM.spineTwist * t;
+        // 胸椎与髋反向扭转 + 轻微前倾
+        boneNodes.spine.rotation.y = boneDefaults.spine.y - sin * ANIM.spineTwist * t;
+        boneNodes.spine.rotation.x = boneDefaults.spine.x + ANIM.spineLean * t;
+        boneNodes.spine.rotation.z = boneDefaults.spine.z - cos * ANIM.hipRoll * 0.6 * t;
+    }
+}
+
+// ── 待机：静态姿势 + 呼吸/重心微调 ─────────────────────
+let idleTime = 0;
+
+function updateIdleAnimation(delta) {
+    idleTime += delta;
+    resetPose();
+    const breath = Math.sin(idleTime * IDLE.breathSpeed) * IDLE.breathAmount;
+    if (boneNodes.spine) {
+        boneNodes.spine.rotation.x = boneDefaults.spine.x + breath;
+    }
+    if (boneNodes.hips) {
+        boneNodes.hips.position.x = boneDefaults.hipsPosition.x
+            + Math.sin(idleTime * IDLE.swaySpeed) * IDLE.swayAmount;
+    }
+    if (boneNodes.leftUpperArm) {
+        boneNodes.leftUpperArm.rotation.x = boneDefaults.leftUpperArm.x + breath * 0.5;
+    }
+    if (boneNodes.rightUpperArm) {
+        boneNodes.rightUpperArm.rotation.x = boneDefaults.rightUpperArm.x + breath * 0.5;
     }
 }
 
@@ -383,7 +461,6 @@ function resetPose() {
     if (!boneNodes || !boneDefaults) return;
 
     for (const [key, node] of Object.entries(boneNodes)) {
-        if (key === 'hips') continue;
         const def = boneDefaults[key];
         if (def) {
             node.rotation.x = def.x;
