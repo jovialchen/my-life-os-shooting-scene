@@ -34,14 +34,16 @@ function parseGlb(path) {
     const nodes = [];
     for (const n of gltf.nodes) {
         if (n.mesh === undefined) continue;
-        const prim = gltf.meshes[n.mesh].primitives[0];
-        const pos = readAccessor(prim.attributes.POSITION);
-        const idx = prim.indices !== undefined ? readAccessor(prim.indices) : null;
-        nodes.push({
-            name: n.name || '',
-            extras: n.extras || {},
-            pos, idx, translation: n.translation || [0, 0, 0],
-        });
+        // 多材质 mesh 会拆成多个 primitive（浏览器端为 Group + 子 mesh）
+        for (const prim of gltf.meshes[n.mesh].primitives) {
+            const pos = readAccessor(prim.attributes.POSITION);
+            const idx = prim.indices !== undefined ? readAccessor(prim.indices) : null;
+            nodes.push({
+                name: n.name || '',
+                extras: n.extras || {},
+                pos, idx, translation: n.translation || [0, 0, 0],
+            });
+        }
     }
     return nodes;
 }
@@ -74,6 +76,7 @@ export function parseGlbNodes(paths) {
     const doors = [];
     for (const path of paths) {
         for (const n of parseGlb(path)) {
+            if (n.extras.nav_ignore) continue;   // 与 js/systems/surfaceParser.js 一致
             if (n.extras.interactable_type === 'door') {
                 doors.push(toMesh(n));
             } else if (n.extras.surface_walkable) {

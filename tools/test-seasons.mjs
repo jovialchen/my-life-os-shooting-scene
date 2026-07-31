@@ -22,9 +22,20 @@ function fakeMat() {
 }
 function fakeMesh(mat) {
     return {
+        isMesh: true,
         material: mat, visible: true,
         scale: { s: 1, setScalar(s) { this.s = s; } },
         position: { set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
+    };
+}
+// 多材质 mesh 在 GLTFLoader 里是 Group：extras 在 Group 上，材质在子 mesh 上
+function fakeGroup(children) {
+    return {
+        isMesh: false,
+        children, visible: true,
+        scale: { s: 1, setScalar(s) { this.s = s; } },
+        position: { set(x, y, z) { this.x = x; this.y = y; this.z = z; } },
+        traverse(cb) { cb(this); for (const c of children) cb(c); },
     };
 }
 
@@ -37,11 +48,11 @@ const decFruits = fakeMesh(fakeMat());
 const decSnow = fakeMesh(fakeMat());
 const pineLeaves = fakeMesh(fakeMat());
 const pineSnow = fakeMesh(fakeMat());
-const tulip = fakeMesh(fakeMat());
+const tulip = fakeGroup([fakeMesh(fakeMat()), fakeMesh(fakeMat())]);  // 多色花=Group
 const sunflower = fakeMesh(fakeMat());
 const mum = fakeMesh(fakeMat());
 const wintersweet = fakeMesh(fakeMat());
-const snowman = fakeMesh(fakeMat());
+const snowman = fakeGroup([fakeMesh(fakeMat()), fakeMesh(fakeMat())]);  // 雪人=Group
 
 const anchor = new THREE.Vector3(-18, 0, 6);
 initSeasons({
@@ -66,9 +77,11 @@ updateSeason(0.3);
 check('春: 落叶树有叶且偏花色', decLeaves.visible && decLeaves.material.color.value !== SUMMER_LEAF);
 check('春: 落叶树满冠', decLeaves.scale.s === 1);
 check('春: 无果无雪无雪人', !decFruits.visible && !decSnow.visible && !snowman.visible);
-check('春: 郁金香开', tulip.visible && tulip.material.opacity > 0.9);
+check('春: 郁金香开（Group 子材质全部淡入）',
+    tulip.visible && tulip.children.every(c => c.material.opacity > 0.9));
 check('春: 向日葵未开', !sunflower.visible);
-check('春: 花卉材质已设为透明', tulip.material.transparent === true);
+check('春: 花卉 Group 子材质已设为透明',
+    tulip.children.every(c => c.material.transparent === true));
 
 // ── 夏初 (1.0)：纯色基准 ──
 updateSeason(1.0);

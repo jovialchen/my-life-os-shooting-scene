@@ -132,8 +132,20 @@ function window01(v, a, b, c, d) {
         * (1 - smoothstep((v - c) / (d - c)));
 }
 
-function matsOf(mesh) {
-    return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+/** 收集对象（含 Group 子树）的所有材质——多材质 mesh 在 GLB 里是 Group+子 mesh */
+function matsOf(obj) {
+    const mats = [];
+    const push = (m) => { if (m && !mats.includes(m)) mats.push(m); };
+    if (typeof obj.traverse === 'function') {
+        obj.traverse((c) => {
+            if (!c.isMesh) return;
+            for (const m of Array.isArray(c.material) ? c.material : [c.material]) push(m);
+        });
+    }
+    if (mats.length === 0) {
+        for (const m of Array.isArray(obj.material) ? obj.material : [obj.material]) push(m);
+    }
+    return mats;
 }
 
 function smoothstep(t) {
