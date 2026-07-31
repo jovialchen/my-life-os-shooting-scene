@@ -112,6 +112,16 @@ export const CAMERA_ZONES = [
 export const CAMERA_ZONE_TRANSITION = 0.9;   // 机位切换过渡时长（秒）
 export const CAMERA_FOLLOW_DEADZONE = 2.5;   // 跟随死区：角色离 target 超过此距离才跟随
 
+// ── 场景注册表（动森式独立场景切换，见 systems/sceneManager.js）──
+// 每场景：独立 glb 内容 + 机位表 + 落点表；门 = 传送点
+// （门 extras: door_target_scene / door_target_spawn）
+// spawns 的 pos 为 three 坐标 [x,y,z]，rotY 为落地朝向（弧度）
+export const SCENES = [
+    { id: 'outdoor', name: '室外', nameEn: 'Outdoor',
+      zones: CAMERA_ZONES, categories: CAMERA_ZONE_CATEGORIES,
+      spawns: { default: { pos: [-4, 0, 0], rotY: -0.4 } } },
+];
+
 // 渲染器参数
 export const TONE_MAPPING_EXPOSURE = 1.1;
 

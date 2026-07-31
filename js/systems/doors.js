@@ -87,6 +87,14 @@ export function getDoors() {
 }
 
 /**
+ * 清空已注册的门（场景切换卸载旧场景时调用）
+ */
+export function clearDoors() {
+    doors.length = 0;
+    hitDoor = null;
+}
+
+/**
  * 注册一个门板物体（GLB 加载后由 houseShell 调用）
  * @param {THREE.Object3D} obj - userData.interactable_type === 'door' 的物体
  */

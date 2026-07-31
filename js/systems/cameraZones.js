@@ -1,10 +1,11 @@
 /**
  * 相机区域系统：区域机位 + 限定范围轨道 + 角色弱跟随
  *
- * 设计（机位定义在 config.js 的 CAMERA_ZONES）：
+ * 设计（机位默认取 config.js 的 CAMERA_ZONES，场景切换时由
+ * sceneManager 通过 setZones 换绑为当前场景的机位表）：
  *   - zone 模式（默认）：相机停在区域机位，只允许在限定范围内
  *     旋转/缩放（禁平移），永远不会转出该区域或穿墙迷路。
- *     角色走进带 bounds 的区域时相机自动平滑切换；离开回到「全景」。
+ *     角色走进带 bounds 的区域时相机自动平滑切换；离开回到首个机位。
  *   - follow 模式（按 F 或点「跟随」按钮）：恢复经典的角色跟随，
  *     但带死区——角色离 target 超过 CAMERA_FOLLOW_DEADZONE 才开始跟，
  *     小范围活动时镜头不动。
@@ -24,8 +25,12 @@ let camera = null;
 let controls = null;
 let humanoid = null;
 
+// 机位数据源（setZones 换绑；默认 config 的全局表）
+let zones = CAMERA_ZONES;
+let categories = CAMERA_ZONE_CATEGORIES;
+
 let mode = 'zone';                    // 'zone' | 'follow'
-let currentZone = CAMERA_ZONES[0];
+let currentZone = null;
 let transition = null;                // { t, fromPos, toPos, fromTarget, toTarget }
 
 const _followTarget = new THREE.Vector3();
@@ -50,8 +55,6 @@ export function initCameraZones(cam, ctrl, renderer, humanoidGroup) {
     controls = ctrl;
     humanoid = humanoidGroup;
 
-    buildButtons();
-
     // 语言切换后重刷按钮文案
     window.addEventListener(LANG_CHANGE_EVENT, refreshButtons);
 
@@ -69,7 +72,23 @@ export function initCameraZones(cam, ctrl, renderer, humanoidGroup) {
         if (e.code === 'KeyP') printPose();
     });
 
-    goToZone(CAMERA_ZONES[0], true);
+    setZones(CAMERA_ZONES, CAMERA_ZONE_CATEGORIES);
+}
+
+/**
+ * 换绑机位表（场景切换时调用）：重建按钮、重置到首个机位、取消进行中的过渡
+ * @param {Array} newZones - 机位数组（结构同 config.CAMERA_ZONES 项）
+ * @param {Array} newCategories - 分组数组（结构同 config.CAMERA_ZONE_CATEGORIES 项）
+ */
+export function setZones(newZones, newCategories = []) {
+    zones = newZones;
+    categories = newCategories;
+    // 保留用户已有的折叠状态，新分组默认展开
+    collapsed = Object.fromEntries(categories.map(c => [c.id, collapsed[c.id] ?? false]));
+    transition = null;
+    controls.enabled = true;
+    goToZone(zones[0], true);
+    buildButtons();
 }
 
 /**
@@ -111,8 +130,8 @@ export function updateCameraZones(delta) {
         const z = zoneAt(humanoid.position.x, humanoid.position.z);
         if (z && z !== currentZone) {
             goToZone(z);
-        } else if (!z && currentZone.bounds) {
-            goToZone(CAMERA_ZONES[0]);   // 离开触发区 -> 回全景
+        } else if (!z && currentZone?.bounds) {
+            goToZone(zones[0]);   // 离开触发区 -> 回全景
         }
     }
 
@@ -127,7 +146,7 @@ function applyWallCollision(delta) {
     if (!controls.enabled) return;
     // 室外机位（全景/庭院/背面）target 常在屋内，做收缩会把相机拉进房子——跳过；
     // 室内机位和跟随模式才需要「相机出不了房间」
-    if (mode === 'zone' && currentZone.category === 'outside') return;
+    if (mode === 'zone' && currentZone?.category === 'outside') return;
 
     const target = controls.target;
     _colDir.subVectors(camera.position, target);
@@ -168,7 +187,7 @@ function resetRadius() {
 // ── 内部 ────────────────────────────────────────────────
 
 function zoneAt(x, z) {
-    return CAMERA_ZONES.find(zone =>
+    return zones.find(zone =>
         zone.bounds
         && zone.bounds.x[0] <= x && x <= zone.bounds.x[1]
         && zone.bounds.z[0] <= z && z <= zone.bounds.z[1]) ?? null;
@@ -231,10 +250,10 @@ function applyFollowConstraints() {
 
 function toggleFollow() {
     if (mode === 'follow') {
-        // 回区域模式：切到角色所在区域（无则全景）
+        // 回区域模式：切到角色所在区域（无则首个机位）
         transition = null;
         controls.enabled = true;
-        goToZone(zoneAt(humanoid.position.x, humanoid.position.z) ?? CAMERA_ZONES[0]);
+        goToZone(zoneAt(humanoid.position.x, humanoid.position.z) ?? zones[0]);
     } else {
         mode = 'follow';
         transition = null;
@@ -247,13 +266,14 @@ function toggleFollow() {
 
 // ── 机位按钮（按 category 分组，可折叠）────────────────────
 
-// 各分组折叠状态，默认全部展开
-const collapsed = Object.fromEntries(CAMERA_ZONE_CATEGORIES.map(c => [c.id, false]));
+// 各分组折叠状态，默认全部展开（setZones 时按新分组重建，保留已有状态）
+let collapsed = {};
 
 function buildButtons() {
     const bar = document.getElementById('camera-bar');
     if (!bar) return;
-    for (const cat of CAMERA_ZONE_CATEGORIES) {
+    bar.innerHTML = '';
+    for (const cat of categories) {
         const group = document.createElement('div');
         group.className = 'cam-group';
         group.dataset.category = cat.id;
@@ -269,7 +289,7 @@ function buildButtons() {
 
         const body = document.createElement('div');
         body.className = 'cam-group-body';
-        for (const zone of CAMERA_ZONES.filter(z => z.category === cat.id)) {
+        for (const zone of zones.filter(z => z.category === cat.id)) {
             const btn = document.createElement('button');
             btn.className = 'cam-zone-btn';
             btn.dataset.zone = zone.id;
@@ -293,10 +313,10 @@ function refreshButtons() {
     if (!bar) return;
     const en = currentLang() === 'en';
     // 当前机位所在分组强制展开，其余按用户折叠状态
-    const activeCat = mode === 'zone' ? currentZone.category : null;
+    const activeCat = mode === 'zone' ? currentZone?.category : null;
     for (const group of bar.querySelectorAll('.cam-group')) {
         const catId = group.dataset.category;
-        const cat = CAMERA_ZONE_CATEGORIES.find(c => c.id === catId);
+        const cat = categories.find(c => c.id === catId);
         const isCollapsed = collapsed[catId] && catId !== activeCat;
         group.querySelector('.cam-group-body').style.display = isCollapsed ? 'none' : '';
         const header = group.querySelector('.cam-group-header');
@@ -307,7 +327,7 @@ function refreshButtons() {
             btn.textContent = en ? 'Follow' : '跟随';
             btn.classList.toggle('active', mode === 'follow');
         } else {
-            const zone = CAMERA_ZONES.find(z => z.id === btn.dataset.zone);
+            const zone = zones.find(z => z.id === btn.dataset.zone);
             btn.textContent = en ? zone.nameEn : zone.name;
             btn.classList.toggle('active', mode === 'zone' && zone === currentZone);
         }

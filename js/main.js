@@ -9,6 +9,7 @@
  *   - 时间系统（systems/timeOfDay.js：6 时段平滑过渡）
  *   - 季节系统（systems/seasons.js：草地/树木/花果/雪盖/雪人）
  *   - 门交互（systems/doors.js：点击开/关门）
+ *   - 场景管理（systems/sceneManager.js：动森式独立场景切换，门=传送点）
  *   - UI（ui.js：时间/季节滑块、语言切换、指南针）
  */
 import * as THREE from 'three';
@@ -31,7 +32,7 @@ import {
 
 // ── 角色系统 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
-import { initWalker, updateWalker, debugWalkLoop } from './character/walker.js';
+import { initWalker, updateWalker, debugWalkLoop, teleport } from './character/walker.js';
 import { buildNavGrid, rebuildDynamicObstacles } from './character/pathfinding.js';
 
 // ── 外壳房子（岛屿 + GLB 模型）──
@@ -42,7 +43,14 @@ import { initSeasons, updateSeason } from './systems/seasons.js';
 import { initDoors, updateDoors, getDoors, pickDoorAt, setOnDoorToggle } from './systems/doors.js';
 import { createLighting } from './systems/lighting.js';
 import { createTimeOfDay } from './systems/timeOfDay.js';
-import { initCameraZones, updateCameraZones, getCameraZonesDebug, setCameraCollisionRoot } from './systems/cameraZones.js';
+import {
+    initCameraZones, updateCameraZones, getCameraZonesDebug,
+    setCameraCollisionRoot, setZones,
+} from './systems/cameraZones.js';
+import {
+    initSceneManager, registerSceneContainer, setInitialScene, switchTo,
+} from './systems/sceneManager.js';
+import { parseSurfaces } from './systems/surfaceParser.js';
 
 // ── UI ──
 import { initUI, updateCompass } from './ui.js';
@@ -105,6 +113,11 @@ const { group: houseShellGroup } = createHouseShell({
         refreshNavDoors();
         // 相机墙体碰撞（target→相机射线，撞墙收缩）
         setCameraCollisionRoot(houseShellGroup);
+        // 截图调试：?scene= 直开指定场景
+        if (pendingScene) {
+            switchTo(pendingScene);
+            pendingScene = null;
+        }
         // 截图调试：往返走
         if (pendingWalkLoop) {
             debugWalkLoop(...pendingWalkLoop);
@@ -134,6 +147,33 @@ initWalker(humanoid, camera, renderer, scene);
 
 // 相机区域系统（机位切换 + 跟随模式）
 initCameraZones(camera, controls, renderer, humanoid);
+
+// ============================================================
+//  场景管理器（动森式独立场景切换：室外常驻，室内按需加载缓存）
+// ============================================================
+initSceneManager({
+    scene,
+    hooks: {
+        // 室内场景按需加载（阶段 3 实现房间 glb 加载器）
+        loadScene: async (def) => {
+            console.warn(`[Main] 场景 ${def.id} 还没有加载器`);
+            return null;
+        },
+        // 场景激活：重建导航/机位/相机碰撞/描边，角色落到 spawn
+        onActivated: (def, group, spawnId) => {
+            buildNavGrid(parseSurfaces(group));
+            refreshNavDoors();
+            setZones(def.zones, def.categories);
+            setCameraCollisionRoot(group);
+            outline.selectedObjects = [group, humanoid];
+            if (def.id === 'outdoor') updateSeason(seasonValue);
+            const spawn = def.spawns?.[spawnId ?? 'default'] ?? def.spawns?.default;
+            if (spawn) teleport(spawn.pos[0], spawn.pos[1], spawn.pos[2], spawn.rotY ?? null);
+        },
+    },
+});
+registerSceneContainer('outdoor', houseShellGroup);
+setInitialScene('outdoor');
 
 // ============================================================
 //  灯光 + 时间系统
@@ -215,16 +255,18 @@ function animate() {
 animate();
 
 // 调试句柄（控制台/自动化测试用）：window.__app
-window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug() };
+window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo };
 
 // ============================================================
 //  截图调试模式（无头浏览器验收用，不影响正常交互）
 //  ?cam=zoneId  立即切到机位   ?az=°&pol=°&dist=m  强制轨道位姿
 //  ?time=0-5  时段            ?season=0-3  季节
+//  ?scene=xxx  直开场景（模型就绪后切换）
 //  ?lookat=x,y,z  强制轨道 target
 //  ?walkloop=x1,z1,x2,z2  角色两点往返走（模型就绪后启动）
 // ============================================================
 let pendingWalkLoop = null;   // onModelsReady 后启动
+let pendingScene = null;      // onModelsReady 后切换
 {
     const q = new URLSearchParams(location.search);
     if (q.has('time')) timeOfDay.update(parseFloat(q.get('time')));
@@ -235,6 +277,9 @@ let pendingWalkLoop = null;   // onModelsReady 后启动
     if (q.has('cam')) {
         const z = CAMERA_ZONES.find(z => z.id === q.get('cam'));
         if (z) getCameraZonesDebug().goToZone(z, true);
+    }
+    if (q.has('scene')) {
+        pendingScene = q.get('scene');
     }
     if (q.has('lookat')) {
         const [x, y, z] = q.get('lookat').split(',').map(Number);

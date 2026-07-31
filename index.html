@@ -225,6 +225,18 @@
         }
         .cam-group-header:hover { color: rgba(255,255,255,0.8); }
         .cam-group-body { display: flex; flex-direction: column; gap: 4px; padding-left: 8px; }
+
+        /* 场景切换淡入淡出遮罩（显示期间拦截全部指针输入） */
+        #fade-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 40;
+        }
+        #fade-overlay.on { opacity: 1; pointer-events: all; }
     </style>
 
     <!-- Three.js r170 CDN (ES Modules) -->
@@ -267,6 +279,8 @@
 </div>
 
 <div id="camera-bar"></div>
+
+<div id="fade-overlay"></div>
 
 <div id="compass">
     <div id="compass-indicator"></div>

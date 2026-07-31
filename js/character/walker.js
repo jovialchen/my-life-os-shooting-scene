@@ -159,6 +159,23 @@ export function initWalker(humanoid, camera, renderer, scene) {
 }
 
 /**
+ * 瞬移角色到指定位置（场景切换落点用）：清空路径与移动状态
+ * @param {number} x @param {number} y @param {number} z
+ * @param {number|null} rotY - 朝向（弧度），null 保持原朝向
+ */
+export function teleport(x, y, z, rotY = null) {
+    if (!humanoidGroup) return;
+    humanoidGroup.position.set(x, y, z);
+    if (rotY !== null) humanoidGroup.rotation.y = rotY;
+    state = 'idle';
+    targetPos = null;
+    waypoints = [];
+    stuckCounter = 0;
+    prevDistance = Infinity;
+    if (marker) marker.visible = false;
+}
+
+/**
  * 每帧更新（在 animate 中调用）
  * @param {number} delta - 帧间隔秒数
  */

@@ -58,5 +58,11 @@ export function createLighting(scene) {
         windowLight.intensity = sp;
     }
 
-    return { sun, ambient, fill, windowLight, setLevels };
+    /** 重摆窗光位姿（场景切换时按场景配置调用） */
+    function setWindowLightPose(position, target) {
+        windowLight.position.set(position.x, position.y, position.z);
+        windowLight.target.position.set(target.x, target.y, target.z);
+    }
+
+    return { sun, ambient, fill, windowLight, setLevels, setWindowLightPose };
 }
