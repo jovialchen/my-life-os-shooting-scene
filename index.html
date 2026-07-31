@@ -237,6 +237,27 @@
             z-index: 40;
         }
         #fade-overlay.on { opacity: 1; pointer-events: all; }
+
+        /* 传送门"按 E"提示气泡（doorPrompt.js 每帧定位到门板上方） */
+        #door-prompt {
+            position: absolute;
+            left: 0;
+            top: 0;
+            transform: translate(-50%, -100%);
+            background: rgba(20, 15, 25, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 14px;
+            padding: 6px 14px;
+            color: rgba(255,255,255,0.92);
+            font-size: 13px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 25;
+        }
+        #door-prompt.show { opacity: 1; }
     </style>
 
     <!-- Three.js r170 CDN (ES Modules) -->
@@ -281,6 +302,8 @@
 <div id="camera-bar"></div>
 
 <div id="fade-overlay"></div>
+
+<div id="door-prompt"></div>
 
 <div id="compass">
     <div id="compass-indicator"></div>

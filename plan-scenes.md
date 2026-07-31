@@ -64,13 +64,93 @@
 
 **注意：改动未 commit，换设备前记得先 `git add -A && git commit && git push`（或打 patch 带走）。**
 
-### ⏭ 下一阶段：阶段 2（室外外壳黑内胆 + 实色玻璃）
+### ✅ 阶段 2 已完成（室外外壳黑内胆 + 实色玻璃）
+
+**注意实现方式偏离原计划**：当前设备（Windows）没有 Blender
+（`tools/blender-5.1/` 是 Linux 便携版，未入库），改为**纯 Node 的 GLB
+后处理脚本** `tools/add_shell_core.mjs`（几何只是盒体，无需 Blender）。
+若以后在 Linux 设备重跑 Blender 管线重生了 house.glb，删掉
+`models/house.nocore.glb` 备份后跑 `node tools/add_shell_core.mjs` 即可。
+
+- **`tools/add_shell_core.mjs`（新增，管线第五步）**：读 `models/house.glb`
+  （首次先备份为 `models/house.nocore.glb`，之后一律从备份出发，幂等），
+  追加两个节点后重写 house.glb：
+  - `GLASS_windows`（12 面，材质 `MAT_window_glass` 淡蓝灰 #9FB4BE）：
+    从 WINDOW_01 格栅连通块自动聚类——先按薄轴质心检出 4 个外墙窗平面
+    （北墙 z=-5.006、两翼前立面 z=3.969、中庭凹槽里墙 z=0.972、山墙
+    z=4.956），面内 bbox 间隙 ≤0.35 连片。玻璃厚 0.07 嵌在格栅（0.11）
+    深度内避免 z-fight，面内四周外扩 0.08 埋进墙/窗框。
+    **坑1**：WINDOW_01 节点带 translation [0,5.8,0]，必须转世界坐标。
+  - `CORE_black`（3 盒体，材质 `MAT_core_black` #050505 doubleSided）：
+    两翼 x ±(3.75..9.30) z -4.72..3.68 + 中厅 x ±3.80 z -4.72..0.78，
+    顶 y=6.02。**坑2**：房子平面不是矩形——两翼前凸（立面 z≈3.95）、
+    中庭凹槽（里墙 z≈1.0，门廊 z 1..4 开敞）；单一通长盒体会穿出门廊
+    立面。阁楼不放内胆：翼屋顶是前后坡+山墙的复杂组合，棱柱会穿出
+    屋面（已踩坑），山墙尖窗全靠实色玻璃封死。
+  - 两节点均 `nav_ignore: true`（不进导航、不封门洞）。
+- **未删内饰**：旧室内导航/机位在阶段 3+ 退役前还要用，内饰被内胆挡住
+  不可见即可，删了反而破坏 test-nav-real。
+- **辅助脚本**：`tools/probe_glb_windows.mjs`（glb 节点/格栅连通块探查）、
+  `tools/e2e/shot-shell.mjs`（5 机位目检截图：正面/开门/凹槽/北面/山墙）。
+- `.gitignore` 加 `models/house.nocore.glb`。
+
+验证状态：`node tools/test-nav-real.mjs` 全绿（障碍数不变）；
+`check_island_glb.py` PASS；冒烟 SMOKE PASS；
+`temp/shell_{front,door,recess,north,gable}.png` 目检：开门见纯黑、
+窗玻璃实色淡蓝灰、屋顶/门廊无内胆凸出。
+
+**本机测试环境差异（Windows）**：Git Bash 缺 coreutils（无 ls/grep/cat/
+sleep），npm 要用 `node "C:/Program Files/nodejs/node_modules/npm/bin/
+npm-cli.js"` 调用；python 用 `/c/ProgramData/miniconda3/python.exe`；
+puppeteer+Chrome 已装在 `tools/e2e/`（node_modules 与 .cache 均已 gitignore）。
+
+### ✅ 阶段 3 已完成（样板间——客厅全流程打通）
+
+实现方式同阶段 2：无 Blender，房间 glb 用纯 Node 程序化生成。
+
+- **`tools/make_room_living.mjs`（新增，房间模板）**：直写 `models/room_living.glb`
+  （6×5×2.7m，16 节点 31KB）。确立房间规范：原点在门口地板中心；
+  FLOOR_visible + WALK_floor 逻辑面（抬高 0.015，surface_walkable）；
+  墙/天花板/家具平涂不标属性（自动障碍）；RUG/PLANT/LAMP/VIEW_window
+  标 nav_ignore；北墙两窗洞带窗框十字棂 + 窗外 MAT_window_view 窗景片；
+  DOOR_exit 独立 mesh、origin 在铰链，extras 含 door_target_scene=outdoor /
+  door_target_spawn=houseWest。家具：沙发/茶几/电视柜+电视/书柜。
+- **`tools/check_room_glb.py`**：节点 extras、WALK 面抬高、门 target extras、
+  平涂材质、MAT_window_view 存在性。PASS。
+- **`tools/test-nav-room.mjs`**：room glb 建网，spawn→四角寻路可达、
+  地毯可走/沙发电视柜不可走。全绿。
+- **`tools/add_shell_core.mjs`** 追加：DOOR_entrance（西大门）extras
+  door_target_scene=f1_living / door_target_spawn=default（东门留给厨房）。
+- **`js/config.js`**：SCENES 加 f1_living（glbs/2 机位+room 分组/spawn
+  default=[0,0.02,0.9]）；outdoor 加 spawn houseWest=[-6.5,0,5.6]。
+- **`js/main.js`**：loadScene 真加载器（GLTFLoader → applyToonShading →
+  隐藏 WALK_ → 返回 group）；onActivated 统一 clearDoors + 遍历重注册门
+  （状态经 userData._doorState 恢复）；挂 setOnDoorTrigger / initDoorPrompt。
+- **`js/systems/doors.js`**：registerDoor 记录 targetScene/targetSpawn；
+  新增 setOnDoorTrigger（开门瞬间触发，动画照播）；clearDoors 把开合状态
+  暂存 obj.userData._doorState，重注册恢复（室外常驻门状态不丢）。
+- **`js/systems/doorPrompt.js`（新增）**：距传送门 ≤1.2m 显示气泡
+  （DOM 投影到门板上方，按 E 进入 xx / 回到室外，跟随 currentLang），
+  keydown E 触发 switchTo。
+- **`index.html`**：#door-prompt 气泡样式。
+- **`js/systems/cameraZones.js`** 修 bug：refreshButtons 遍历旧 DOM 分组/
+  按钮时新 categories/zones 里没有 → cat/zone undefined 崩溃（setZones
+  里 goToZone 先于 buildButtons），两处加空值保护。
+- **`tools/e2e/shot-room.mjs`（新增 E2E）**：气泡提示 → E 进客厅（落点/
+  机位/门注册断言）→ E 回室外（houseWest 落点、18 机位恢复）→
+  pickDoorAt + 真实点击西门切场景。ROOM E2E PASS。
+
+验证：`test-nav-real` / `test-nav-room` / `check_island_glb` /
+`check_room_glb` 全绿；smoke-app PASS；截图 `temp/room_living.png` /
+`room_prompt.png` / `room_back_outdoor.png` 目检正常。
+
+### ⏭ 下一阶段：阶段 4（室内光照反映室外时间）
 
 ## 分阶段实施
 
 ### 阶段 1：场景管理骨架 ✅ 已完成（见上）
 
-### 阶段 2：室外房子外壳改造（Blender）
+### 阶段 2：室外房子外壳改造 ✅ 已完成（实现为 Node 后处理，见「当前进度」）
 
 在现有 house 四步管线（split_house → fill_gaps → add_walkable → add_door）后加一步 `tools/add_shell_core.py`：
 
@@ -80,7 +160,7 @@
 - 重新导出 `models/house.glb`，`python3 tools/check_island_glb.py` 回归 + 浏览器看开门/看窗效果
 - house 管线命令格式：`tools/blender.sh -b models_src/house-split.blend --python tools/xxx.py`
 
-### 阶段 3：样板间——客厅全流程打通
+### 阶段 3：样板间——客厅全流程打通 ✅ 已完成（实现为 Node 生成器，见「当前进度」）
 
 **3.1 `tools/make_room_living.py`（房间模板脚本）**
 
@@ -159,12 +239,22 @@
 ```bash
 # 导航回归
 node tools/test-nav-real.mjs
+node tools/test-nav-room.mjs
+# 房间 glb 生成 / 校验
+node tools/make_room_living.mjs
+python3 tools/check_room_glb.py
 # 浏览器冒烟（无头，含截图 temp/smoke_outdoor.png）
 python3 -m http.server 8130 --bind 127.0.0.1 &
 PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/smoke-app.mjs "http://127.0.0.1:8130/index.html?frames=600"
+# 场景切换 E2E（按 E 进出客厅全链路）
+PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-room.mjs "http://127.0.0.1:8130"
 # Blender 无头跑脚本
 tools/blender.sh -b --python tools/make_room_living.py
 tools/blender.sh -b models_src/house-split.blend --python tools/add_shell_core.py
+# house 外壳第五步（黑内胆+实色玻璃，Node 后处理，无需 Blender）
+node tools/add_shell_core.mjs
+# 外壳目检截图（先起本地服务器，见冒烟命令）
+PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-shell.mjs "http://127.0.0.1:8131"
 # glb 校验
 python3 tools/check_island_glb.py
 # 人工看效果

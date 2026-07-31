@@ -116,10 +116,37 @@ export const CAMERA_FOLLOW_DEADZONE = 2.5;   // 跟随死区：角色离 target 
 // 每场景：独立 glb 内容 + 机位表 + 落点表；门 = 传送点
 // （门 extras: door_target_scene / door_target_spawn）
 // spawns 的 pos 为 three 坐标 [x,y,z]，rotY 为落地朝向（弧度）
+// ── 客厅机位（f1_living：房间 6×5×2.7m，原点在门口地板中心）──
+// 斜 45° 俯看全屋，轨道距离/俯仰锁小范围，转不出房间
+const LIVING_ZONES = [
+    { id: 'living_main', name: '客厅', nameEn: 'Living', category: 'room',
+      pos: [-2.2, 2.2, 1.0], target: [0.8, 0.6, 3.4],
+      minDist: 1.2, maxDist: 5, maxPolar: Math.PI * 0.49,
+      bounds: null },
+    { id: 'living_window', name: '客厅·窗', nameEn: 'Living N', category: 'room',
+      pos: [2.3, 2.1, 4.4], target: [-1.4, 0.7, 1.0],
+      minDist: 1.2, maxDist: 6, maxPolar: Math.PI * 0.49,
+      bounds: null },
+];
+const LIVING_ZONE_CATEGORIES = [
+    { id: 'room', name: '房间', nameEn: 'Room' },
+];
+
 export const SCENES = [
     { id: 'outdoor', name: '室外', nameEn: 'Outdoor',
       zones: CAMERA_ZONES, categories: CAMERA_ZONE_CATEGORIES,
-      spawns: { default: { pos: [-4, 0, 0], rotY: -0.4 } } },
+      spawns: {
+          default: { pos: [-4, 0, 0], rotY: -0.4 },
+          // 西大门外（客厅出口门的落点）：背向房子面朝花园
+          houseWest: { pos: [-6.5, 0, 5.6], rotY: 0 },
+      } },
+    { id: 'f1_living', name: '客厅', nameEn: 'Living Room',
+      glbs: ['models/room_living.glb'],
+      zones: LIVING_ZONES, categories: LIVING_ZONE_CATEGORIES,
+      spawns: {
+          // 从室外大门进入：门内一步，面朝房间（+z）
+          default: { pos: [0, 0.02, 0.9], rotY: 0 },
+      } },
 ];
 
 // 渲染器参数

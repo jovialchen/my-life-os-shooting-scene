@@ -11,3 +11,6 @@ tools/preview/
 
 # Node 依赖（仅本地测试用）
 node_modules/
+
+# add_shell_core.mjs 的管线产物备份（重跑脚本自动重建）
+models/house.nocore.glb

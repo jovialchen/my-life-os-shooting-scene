@@ -320,14 +320,19 @@ function refreshButtons() {
         const isCollapsed = collapsed[catId] && catId !== activeCat;
         group.querySelector('.cam-group-body').style.display = isCollapsed ? 'none' : '';
         const header = group.querySelector('.cam-group-header');
-        header.textContent = `${isCollapsed ? '▸' : '▾'} ${en ? cat.nameEn : cat.name}`;
+        // cat 可能为 undefined：setZones 里 goToZone 先于 buildButtons，
+        // 此时 DOM 还是旧分组而新 categories 里没有它
+        header.textContent = `${isCollapsed ? '▸' : '▾'} ${cat ? (en ? cat.nameEn : cat.name) : catId}`;
     }
     for (const btn of bar.querySelectorAll('.cam-zone-btn')) {
         if (btn.classList.contains('cam-follow-btn')) {
             btn.textContent = en ? 'Follow' : '跟随';
             btn.classList.toggle('active', mode === 'follow');
         } else {
+            // zone 可能为 undefined：setZones 里 goToZone 先于 buildButtons，
+            // 此时 DOM 还是旧机位按钮而新 zones 里没有它
             const zone = zones.find(z => z.id === btn.dataset.zone);
+            if (!zone) continue;
             btn.textContent = en ? zone.nameEn : zone.name;
             btn.classList.toggle('active', mode === 'zone' && zone === currentZone);
         }

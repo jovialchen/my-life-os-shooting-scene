@@ -14,6 +14,7 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
@@ -27,7 +28,7 @@ import {
     BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,
     OUTLINE_STRENGTH, OUTLINE_THICKNESS, OUTLINE_COLOR,
     ORBIT_DAMPING, ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
-    CAMERA_ZONES,
+    CAMERA_ZONES, SCENES,
 } from './config.js';
 
 // ── 角色系统 ──
@@ -40,7 +41,10 @@ import { createHouseShell } from './elements/houseShell.js';
 
 // ── 各系统 ──
 import { initSeasons, updateSeason } from './systems/seasons.js';
-import { initDoors, updateDoors, getDoors, pickDoorAt, setOnDoorToggle } from './systems/doors.js';
+import {
+    initDoors, updateDoors, getDoors, pickDoorAt, setOnDoorToggle, setOnDoorTrigger,
+    registerDoor, clearDoors,
+} from './systems/doors.js';
 import { createLighting } from './systems/lighting.js';
 import { createTimeOfDay } from './systems/timeOfDay.js';
 import {
@@ -50,7 +54,9 @@ import {
 import {
     initSceneManager, registerSceneContainer, setInitialScene, switchTo,
 } from './systems/sceneManager.js';
+import { initDoorPrompt, updateDoorPrompt } from './systems/doorPrompt.js';
 import { parseSurfaces } from './systems/surfaceParser.js';
+import { applyToonShading } from './systems/toon.js';
 
 // ── UI ──
 import { initUI, updateCompass } from './ui.js';
@@ -154,14 +160,46 @@ initCameraZones(camera, controls, renderer, humanoid);
 initSceneManager({
     scene,
     hooks: {
-        // 室内场景按需加载（阶段 3 实现房间 glb 加载器）
-        loadScene: async (def) => {
-            console.warn(`[Main] 场景 ${def.id} 还没有加载器`);
-            return null;
-        },
-        // 场景激活：重建导航/机位/相机碰撞/描边，角色落到 spawn
+        // 室内场景按需加载：glb → 三渲二 → 隐藏 WALK_ → 返回容器
+        // （门不在此注册——onActivated 统一 clearDoors + 重注册，保证状态恢复）
+        loadScene: (def) => new Promise((resolve) => {
+            new GLTFLoader().load(
+                def.glbs[0],
+                (gltf) => {
+                    const group = new THREE.Group();
+                    group.name = `scene:${def.id}`;
+                    const model = gltf.scene;
+                    applyToonShading(model);   // 三渲二：Standard → MeshToonMaterial
+                    model.traverse((child) => {
+                        if (!child.isMesh) return;
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        // WALK_ 面是逻辑行走面，不渲染（寻路系统用）
+                        if (child.name.startsWith('WALK_')) {
+                            child.visible = false;
+                            child.castShadow = false;
+                            child.receiveShadow = false;
+                        }
+                    });
+                    group.add(model);
+                    console.log(`[Main] 场景 ${def.id} 加载完成`);
+                    resolve(group);
+                },
+                undefined,
+                (err) => {
+                    console.error(`[Main] 场景 ${def.id} 加载失败:`, err);
+                    resolve(null);
+                },
+            );
+        }),
+        // 场景激活：重建导航/门/机位/相机碰撞/描边，角色落到 spawn
         onActivated: (def, group, spawnId) => {
             buildNavGrid(parseSurfaces(group));
+            // 门换绑：清掉旧场景门（状态暂存 obj.userData），注册新场景门
+            clearDoors();
+            group.traverse((child) => {
+                if (child.userData?.interactable_type === 'door') registerDoor(child);
+            });
             refreshNavDoors();
             setZones(def.zones, def.categories);
             setCameraCollisionRoot(group);
@@ -174,6 +212,20 @@ initSceneManager({
 });
 registerSceneContainer('outdoor', houseShellGroup);
 setInitialScene('outdoor');
+
+// 门=传送点：点击带 door_target_scene 的门 → 切场景（开门动画照播）
+setOnDoorTrigger((door) => switchTo(door.targetScene, door.targetSpawn ?? undefined));
+
+// 走近传送门显示"按 E"气泡，按 E 切场景
+initDoorPrompt({
+    humanoid,
+    camera,
+    getLabel: (sceneId) => {
+        const s = SCENES.find(sc => sc.id === sceneId);
+        return s ? s.name : sceneId;
+    },
+    onTrigger: (door) => switchTo(door.targetScene, door.targetSpawn ?? undefined),
+});
 
 // ============================================================
 //  灯光 + 时间系统
@@ -249,6 +301,7 @@ function animate() {
     updateHumanoid(delta);
     updateWalker(delta);
     updateDoors(delta);
+    updateDoorPrompt();
 
     composer.render();
 }

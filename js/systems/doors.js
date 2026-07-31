@@ -24,10 +24,19 @@ const DOOR_SPEED = 1.5;    // 开/关进度速度（0→1 约 0.67s）
 const doors = [];          // 已注册的门
 let camera = null;
 let onDoorToggle = null;   // 门开合状态变化回调（导航网格重建用）
+let onDoorTrigger = null;  // 传送门触发回调（door_target_scene 存在时）
 
 /** 注册门开合回调（导航动态障碍重建） */
 export function setOnDoorToggle(fn) {
     onDoorToggle = fn;
+}
+
+/**
+ * 注册传送门触发回调（动森式场景切换）
+ * 点击带 door_target_scene 的门：开门动画照播，同时回调触发 switchTo
+ */
+export function setOnDoorTrigger(fn) {
+    onDoorTrigger = fn;
 }
 
 const raycaster = new THREE.Raycaster();
@@ -88,8 +97,16 @@ export function getDoors() {
 
 /**
  * 清空已注册的门（场景切换卸载旧场景时调用）
+ * 开合状态暂存到 obj.userData._doorState，重新注册时恢复
+ * （室外容器常驻，门开着切走再切回要保持原样）
  */
 export function clearDoors() {
+    for (const d of doors) {
+        d.obj.userData._doorState = {
+            openT: d.openT, targetT: d.targetT,
+            baseRotY: d.baseRotY, basePos: d.basePos,
+        };
+    }
     doors.length = 0;
     hitDoor = null;
 }
@@ -100,16 +117,19 @@ export function clearDoors() {
  */
 export function registerDoor(obj) {
     const ud = obj.userData;
+    const saved = ud._doorState ?? null;   // clearDoors 暂存的开合状态
     const door = {
         obj,
         slide: ud.door_slide === true,
         swing: THREE.MathUtils.degToRad(ud.door_swing_angle ?? 90),
         dir: ud.door_swing_dir === 'left' ? -1 : 1,
         locked: ud.door_locked === true,
-        openT: 0,            // 当前开度 0=关 1=开
-        targetT: 0,
-        baseRotY: obj.rotation.y,
-        basePos: obj.position.clone(),
+        targetScene: ud.door_target_scene ?? null,   // 传送目标场景（无则普通门）
+        targetSpawn: ud.door_target_spawn ?? null,   // 目标场景落点 id
+        openT: saved?.openT ?? 0,  // 当前开度 0=关 1=开
+        targetT: saved?.targetT ?? 0,
+        baseRotY: saved?.baseRotY ?? obj.rotation.y,
+        basePos: saved?.basePos ?? obj.position.clone(),
     };
     doors.push(door);
     console.log(`[Doors] 注册门 ${obj.name}: slide=${door.slide} swing=${ud.door_swing_angle} dir=${ud.door_swing_dir} locked=${door.locked}`);
@@ -120,8 +140,11 @@ function toggleDoor(door) {
         console.log(`[Doors] ${door.obj.name} 锁住了`);
         return;
     }
-    door.targetT = door.targetT > 0.5 ? 0 : 1;
+    const opening = door.targetT <= 0.5;
+    door.targetT = opening ? 1 : 0;
     onDoorToggle?.();
+    // 传送门：开门动画照播，同时触发场景切换（淡出遮罩盖住动画）
+    if (opening && door.targetScene) onDoorTrigger?.(door);
 }
 
 function easeInOut(t) {
