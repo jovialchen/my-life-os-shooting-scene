@@ -1,0 +1,37 @@
+== room_study.glb 节点 ==
+  FLOOR_visible      extras={}
+  WALK_floor         extras={'surface_walkable': True}
+  CEILING            extras={}
+  WALLS              extras={}
+  FRAMES             extras={}
+  VIEW_window_S      extras={'nav_ignore': True}
+  DOOR_stairs_down   extras={'interactable_type': 'door', 'door_swing_angle': 90, 'door_swing_dir': 'left', 'door_slide': False, 'door_locked': False, 'door_target_scene': 'f1_living', 'door_target_spawn': 'fromStudy'}
+  DOOR_bed2          extras={'interactable_type': 'door', 'door_swing_angle': 90, 'door_swing_dir': 'left', 'door_slide': False, 'door_locked': False, 'door_target_scene': 'f2_bed2', 'door_target_spawn': 'default'}
+  DOOR_bed1          extras={'interactable_type': 'door', 'door_swing_angle': 90, 'door_swing_dir': 'right', 'door_slide': False, 'door_locked': False, 'door_target_scene': 'f2_bed1', 'door_target_spawn': 'default'}
+  DOOR_bed3          extras={'interactable_type': 'door', 'door_swing_angle': 90, 'door_swing_dir': 'right', 'door_slide': False, 'door_locked': False, 'door_target_scene': 'f2_bed3', 'door_target_spawn': 'default'}
+  DOOR_stairs_up     extras={'interactable_type': 'door', 'door_swing_angle': 90, 'door_swing_dir': 'right', 'door_slide': False, 'door_locked': False, 'door_target_scene': 'attic_game_a', 'door_target_spawn': 'fromStudy'}
+  LAMP               extras={'nav_ignore': True}
+  FURN_desk          extras={}
+  FURN_chair         extras={}
+  FURN_shelf         extras={}
+  RUG                extras={'nav_ignore': True}
+  PLANT_pot          extras={'nav_ignore': True}
+  PLANT_leaves       extras={'nav_ignore': True}
+
+== WALK 面范围 ==
+  WALK_floor: min=[-2.95, 0.015, 0.05] max=[2.95, 0.015, 5.95]
+
+== 材质 ==
+  MAT_frame: rough=1 metal=0
+  MAT_door: rough=1 metal=0
+  MAT_window_view: rough=1 metal=0
+  MAT_lamp: rough=1 metal=0
+  MAT_wall: rough=1 metal=0
+  MAT_floor: rough=1 metal=0
+  MAT_furniture: rough=1 metal=0
+  MAT_desk: rough=1 metal=0
+  MAT_rug: rough=1 metal=0
+  MAT_pot: rough=1 metal=0
+  MAT_plant: rough=1 metal=0
+
+结果: PASS

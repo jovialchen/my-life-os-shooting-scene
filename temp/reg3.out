@@ -1,0 +1,104 @@
+== 节点 ==
+  island_ground          extras={}
+  WALK_island_top        extras={'surface_walkable': True, 'surface_placeable': True}
+  PATH_stones            extras={}
+  GRASS_tufts            extras={'nav_ignore': True}
+  FLOWERS_tulip          extras={'nav_ignore': True, 'flower_bloom_in': -0.2, 'flower_bloom_out': 0.95}
+  FLOWERS_hydrangea      extras={'nav_ignore': True, 'flower_bloom_in': 0.75, 'flower_bloom_out': 1.6}
+  FLOWERS_lavender       extras={'nav_ignore': True, 'flower_bloom_in': 0.9, 'flower_bloom_out': 1.8}
+  FLOWERS_sunflower      extras={'nav_ignore': True, 'flower_bloom_in': 1.1, 'flower_bloom_out': 1.9}
+  FLOWERS_cosmos         extras={'nav_ignore': True, 'flower_bloom_in': 1.3, 'flower_bloom_out': 2.4}
+  FLOWERS_mum            extras={'nav_ignore': True, 'flower_bloom_in': 1.9, 'flower_bloom_out': 2.8}
+  FLOWERS_wintersweet    extras={'nav_ignore': True, 'flower_bloom_in': 2.55, 'flower_bloom_out': 3.4}
+  TREE_01_trunk          extras={}
+  TREE_01_leaves         extras={'season_leaves': True, 'tree_type': 'deciduous', 'leaf_spring': '#f2a7c3', 'leaf_autumn': '#c9562e'}
+  TREE_01_fruits         extras={'season_fruits': True}
+  TREE_01_snow           extras={'season_snow': True}
+  TREE_02_trunk          extras={}
+  TREE_02_leaves         extras={'season_leaves': True, 'tree_type': 'deciduous', 'leaf_spring': '#e56b9f', 'leaf_autumn': '#d09a3a'}
+  TREE_02_fruits         extras={'season_fruits': True}
+  TREE_02_snow           extras={'season_snow': True}
+  TREE_03_trunk          extras={}
+  TREE_03_leaves         extras={'season_leaves': True, 'tree_type': 'deciduous', 'leaf_spring': '#f5f2ea', 'leaf_autumn': '#b84a3a'}
+  TREE_03_fruits         extras={'season_fruits': True}
+  TREE_03_snow           extras={'season_snow': True}
+  TREE_04_trunk          extras={}
+  TREE_04_leaves         extras={'season_leaves': True, 'tree_type': 'deciduous', 'leaf_spring': '#f2a7c3', 'leaf_autumn': '#d07a2a'}
+  TREE_04_fruits         extras={'season_fruits': True}
+  TREE_04_snow           extras={'season_snow': True}
+  TREE_05_trunk          extras={}
+  TREE_05_leaves         extras={'season_leaves': True, 'tree_type': 'deciduous', 'leaf_spring': '#e56b9f', 'leaf_autumn': '#c9562e'}
+  TREE_05_fruits         extras={'season_fruits': True}
+  TREE_05_snow           extras={'season_snow': True}
+  TREE_06_trunk          extras={}
+  TREE_06_leaves         extras={'season_leaves': True, 'tree_type': 'deciduous', 'leaf_spring': '#f5f2ea', 'leaf_autumn': '#d09a3a'}
+  TREE_06_fruits         extras={'season_fruits': True}
+  TREE_06_snow           extras={'season_snow': True}
+  TREE_07_trunk          extras={}
+  TREE_07_leaves         extras={'season_leaves': True, 'tree_type': 'deciduous', 'leaf_spring': '#f2a7c3', 'leaf_autumn': '#b84a3a'}
+  TREE_07_fruits         extras={'season_fruits': True}
+  TREE_07_snow           extras={'season_snow': True}
+  TREE_08_trunk          extras={}
+  TREE_08_leaves         extras={'season_leaves': True, 'tree_type': 'deciduous', 'leaf_spring': '#e56b9f', 'leaf_autumn': '#d07a2a'}
+  TREE_08_fruits         extras={'season_fruits': True}
+  TREE_08_snow           extras={'season_snow': True}
+  TREE_09_trunk          extras={}
+  TREE_09_leaves         extras={'season_leaves': True, 'tree_type': 'deciduous', 'leaf_spring': '#f5f2ea', 'leaf_autumn': '#c9562e'}
+  TREE_09_fruits         extras={'season_fruits': True}
+  TREE_09_snow           extras={'season_snow': True}
+  TREE_10_trunk          extras={}
+  TREE_10_leaves         extras={'season_leaves': True, 'tree_type': 'pine'}
+  TREE_10_snow           extras={'season_snow': True}
+  TREE_11_trunk          extras={}
+  TREE_11_leaves         extras={'season_leaves': True, 'tree_type': 'pine'}
+  TREE_11_snow           extras={'season_snow': True}
+  TREE_12_trunk          extras={}
+  TREE_12_leaves         extras={'season_leaves': True, 'tree_type': 'pine'}
+  TREE_12_snow           extras={'season_snow': True}
+  TREE_13_trunk          extras={}
+  TREE_13_leaves         extras={'season_leaves': True, 'tree_type': 'pine'}
+  TREE_13_snow           extras={'season_snow': True}
+  TREE_14_trunk          extras={}
+  TREE_14_leaves         extras={'season_leaves': True, 'tree_type': 'pine'}
+  TREE_14_snow           extras={'season_snow': True}
+  TREE_15_trunk          extras={}
+  TREE_15_leaves         extras={'season_leaves': True, 'tree_type': 'pine'}
+  TREE_15_snow           extras={'season_snow': True}
+  SNOWMAN                extras={'season_snowman': True, 'nav_ignore': True}
+
+WALK_ 节点: 1, 树叶: 15, 树干: 15
+
+== 材质 ==
+  MAT_grass: baseColor=[0.1946178376674652, 0.34191441535949707, 0.15292614698410034, 1] rough=None metal=0
+  MAT_dirt: baseColor=[0.2541520893573761, 0.1441284716129303, 0.07618538290262222, 1] rough=None metal=0
+  MAT_rock: baseColor=[0.1946178376674652, 0.16826939582824707, 0.1384316086769104, 1] rough=None metal=0
+  MAT_stone: baseColor=[0.26635560393333435, 0.26635560393333435, 0.2961382567882538, 1] rough=None metal=0
+  MAT_FLOWERS_tulip_0: baseColor=[0.7835378050804138, 0.2746773064136505, 0.43965718150138855, 1] rough=None metal=0
+  MAT_FLOWERS_tulip_1: baseColor=[0.6938717365264893, 0.11443537473678589, 0.11443537473678589, 1] rough=None metal=0
+  MAT_FLOWERS_tulip_2: baseColor=[0.8069522380828857, 0.5840784311294556, 0.07818742096424103, 1] rough=None metal=0
+  MAT_FLOWERS_hydrangea_0: baseColor=[0.1946178376674652, 0.34191441535949707, 0.7454041838645935, 1] rough=None metal=0
+  MAT_FLOWERS_hydrangea_1: baseColor=[0.7835378050804138, 0.38642942905426025, 0.577580451965332, 1] rough=None metal=0
+  MAT_FLOWERS_lavender_0: baseColor=[0.2541520893573761, 0.20863686501979828, 0.6307571530342102, 1] rough=None metal=0
+  MAT_FLOWERS_lavender_1: baseColor=[0.1441284716129303, 0.32314321398735046, 0.6307571530342102, 1] rough=None metal=0
+  MAT_FLOWERS_sunflower_0: baseColor=[0.8069522380828857, 0.4793201684951782, 0.0423114113509655, 1] rough=None metal=0
+  MAT_FLOWERS_cosmos_0: baseColor=[0.7835378050804138, 0.2746773064136505, 0.43965718150138855, 1] rough=None metal=0
+  MAT_FLOWERS_cosmos_1: baseColor=[0.8879231214523315, 0.8631572127342224, 0.7912979125976562, 1] rough=None metal=0
+  MAT_FLOWERS_cosmos_2: baseColor=[0.6938717365264893, 0.11443537473678589, 0.11443537473678589, 1] rough=None metal=0
+  MAT_FLOWERS_mum_0: baseColor=[0.8069522380828857, 0.4793201684951782, 0.0423114113509655, 1] rough=None metal=0
+  MAT_FLOWERS_mum_1: baseColor=[0.6938717365264893, 0.11443537473678589, 0.11443537473678589, 1] rough=None metal=0
+  MAT_FLOWERS_mum_2: baseColor=[0.7454041838645935, 0.2541520893573761, 0.02955683507025242, 1] rough=None metal=0
+  MAT_FLOWERS_wintersweet_0: baseColor=[0.8069522380828857, 0.5840784311294556, 0.07818742096424103, 1] rough=None metal=0
+  MAT_trunk: baseColor=[0.15592646598815918, 0.07036009430885315, 0.02955683507025242, 1] rough=None metal=0
+  MAT_leaves: baseColor=[0.07818742096424103, 0.21223075687885284, 0.04970656707882881, 1] rough=None metal=0
+  MAT_fruit_red: baseColor=[0.5840784311294556, 0.0423114113509655, 0.0423114113509655, 1] rough=None metal=0
+  MAT_snow: baseColor=[0.9046611785888672, 0.9215818643569946, 0.9386857151985168, 1] rough=None metal=0
+  MAT_fruit_purple: baseColor=[0.10224173218011856, 0.0423114113509655, 0.15592646598815918, 1] rough=None metal=0
+  MAT_fruit_orange: baseColor=[0.7454041838645935, 0.2541520893573761, 0.02955683507025242, 1] rough=None metal=0
+  MAT_carrot: baseColor=[0.7454041838645935, 0.18782077729701996, 0.02955683507025242, 1] rough=None metal=0
+  MAT_coal: baseColor=[0.023153366521000862, 0.023153366521000862, 0.023153366521000862, 1] rough=None metal=0
+
+== WALK 顶面范围（glTF Y-up: x, y=高度, z=-Blender.y）==
+  min=[-25, -0.37097710371017456, -20] max=[25, 0.3184630274772644, 30]
+  → three 中心=(0.0, 5.0) 半径≈25.00 高度 y∈[-0.371, 0.318]
+
+结果: PASS

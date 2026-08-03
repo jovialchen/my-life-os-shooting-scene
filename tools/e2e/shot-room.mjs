@@ -41,7 +41,7 @@ check('室外西门气泡提示', prompt1.show && prompt1.text.includes('客厅'
 
 // ── 2. 按 E → 进入客厅 ──
 await page.keyboard.press('KeyE');
-await page.waitForFunction(() => window.__app.getDoors().length === 1, { timeout: 10000 });
+await page.waitForFunction(() => window.__app.getDoors().length === 4, { timeout: 10000 });
 await new Promise((r) => setTimeout(r, 800));
 const roomState = await page.evaluate(() => ({
     doors: window.__app.getDoors().map((d) => d.obj.name),
@@ -114,7 +114,7 @@ await page.mouse.move(clickPt.x, clickPt.y);
 await page.mouse.down();
 await new Promise((r) => setTimeout(r, 60));
 await page.mouse.up();
-await page.waitForFunction(() => window.__app.getDoors().length === 1, { timeout: 10000 });
+await page.waitForFunction(() => window.__app.getDoors().length === 4, { timeout: 10000 });
 const clickState = await page.evaluate(() => window.__app.getDoors().map((d) => d.obj.name));
 check('点击传送门 → 切到客厅', clickState.includes('DOOR_exit'), clickState.join());
 

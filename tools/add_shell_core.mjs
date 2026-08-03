@@ -316,8 +316,7 @@ gltf.nodes.push(
 const scene = gltf.scenes[gltf.scene || 0];
 scene.nodes.push(nodeBase, nodeBase + 1);
 
-// ── 7. 门=传送点（阶段 3.3）：西大门 -> 客厅 ──
-// 东门（DOOR_entrance_east）留待阶段 5 接厨房。
+// ── 7. 门=传送点（阶段 3.3 / 5）：西大门 -> 客厅，东大门 -> 厨房 ──
 const westDoor = gltf.nodes.find((n) => n.name === 'DOOR_entrance');
 if (!westDoor) throw new Error('找不到 DOOR_entrance 节点');
 Object.assign(westDoor.extras ??= {}, {
@@ -325,6 +324,13 @@ Object.assign(westDoor.extras ??= {}, {
     door_target_spawn: 'default',
 });
 console.log('DOOR_entrance -> f1_living 传送已标记');
+const eastDoor = gltf.nodes.find((n) => n.name === 'DOOR_entrance_east');
+if (!eastDoor) throw new Error('找不到 DOOR_entrance_east 节点');
+Object.assign(eastDoor.extras ??= {}, {
+    door_target_scene: 'f1_kitchen',
+    door_target_spawn: 'fromOutdoor',
+});
+console.log('DOOR_entrance_east -> f1_kitchen 传送已标记');
 gltf.buffers[0].byteLength = blob.length;
 
 writeGlb(GLB, gltf, blob);

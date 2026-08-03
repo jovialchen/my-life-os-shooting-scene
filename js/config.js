@@ -132,6 +132,69 @@ const LIVING_ZONE_CATEGORIES = [
     { id: 'room', name: '房间', nameEn: 'Room' },
 ];
 
+// ── 房间场景模板（阶段 5：11 间房共用）──
+// 单主机位：斜 45° 俯看全屋；光照：无直射阳光、窗光主光源、夜间顶灯
+// winLight: 窗光位姿（窗外 2m 照向屋内），spawns 见各房间连接表
+function roomScene({ id, name, nameEn, glb, w, d, h, spawns, winLight }) {
+    return {
+        id, name, nameEn,
+        glbs: [glb],
+        zones: [{
+            id: `${id}_main`, name, nameEn, category: 'room',
+            pos: [-w * 0.35, h * 0.82, d * 0.16], target: [w * 0.18, 0.6, d * 0.66],
+            minDist: 1.0, maxDist: Math.max(w, d) * 1.1, maxPolar: Math.PI * 0.49,
+            bounds: null,
+        }],
+        categories: LIVING_ZONE_CATEGORIES,
+        spawns,
+        lighting: {
+            sun: 0,
+            ambient: 0.75,
+            spot: 1.3,
+            windowLight: winLight,
+            lamp: {
+                position: [0, h - 0.3, d / 2], color: 0xFFD9A0,
+                intensity: 1.6, distance: Math.max(w, d) * 1.4,
+            },
+        },
+    };
+}
+// 北窗房间的窗光（wxc = 窗洞中心 x）
+const winN = (wxc, d) => ({ position: [wxc, 2.0, d + 2.0], target: [wxc, 0.4, d * 0.45] });
+// spawn 简写：S 门到达（面朝 +z）/ N 门到达（面朝 -z）
+const spS = (x) => ({ pos: [x, 0.02, 0.9], rotY: 0 });
+const spN = (x, d) => ({ pos: [x, 0.02, d - 0.9], rotY: Math.PI });
+const ROOM_SCENES = [
+    roomScene({ id: 'f1_kitchen', name: '厨房', nameEn: 'Kitchen', glb: 'models/room_kitchen.glb',
+        w: 7, d: 5, h: 2.7, winLight: winN(-0.85, 5),
+        spawns: { default: spS(0), fromOutdoor: spN(2.2, 5) } }),
+    roomScene({ id: 'f1_bath', name: '客卫', nameEn: 'Bathroom', glb: 'models/room_bath_f1.glb',
+        w: 2.5, d: 2.5, h: 2.4, winLight: winN(0, 2.5),
+        spawns: { default: spS(0) } }),
+    roomScene({ id: 'f2_study', name: '学习室', nameEn: 'Study', glb: 'models/room_study.glb',
+        w: 6, d: 6, h: 2.7,
+        winLight: { position: [1.95, 2.0, -2.0], target: [1.95, 0.4, 3.0] },   // 南窗
+        spawns: {
+            default: spS(0),          // 客厅楼梯上来
+            fromBed2: spS(-2),
+            fromBed1: spN(-2, 6), fromBed3: spN(0, 6), fromAtticA: spN(2, 6),
+        } }),
+    ...[1, 2, 3].map((n) => roomScene({
+        id: `f2_bed${n}`, name: `卧室${n}`, nameEn: `Bedroom ${n}`, glb: `models/room_bed${n}.glb`,
+        w: 5, d: 4.5, h: 2.7, winLight: winN(1.3, 4.5),
+        spawns: { default: spS(0), fromBath: { pos: [-1.5, 0.02, 3.8], rotY: Math.PI } } })),
+    ...[1, 2, 3].map((n) => roomScene({
+        id: `f2_bath${n}`, name: `卫生间${n}`, nameEn: `Bathroom ${n}`, glb: `models/room_bath${n}.glb`,
+        w: 2.5, d: 2.5, h: 2.4, winLight: winN(0, 2.5),
+        spawns: { default: spS(0) } })),
+    roomScene({ id: 'attic_game_a', name: '游戏室A', nameEn: 'Game Room A', glb: 'models/room_game_a.glb',
+        w: 6, d: 5, h: 2.4, winLight: winN(-1.55, 5),
+        spawns: { default: spS(0), fromStudy: spS(0), fromGameB: spN(1.8, 5) } }),
+    roomScene({ id: 'attic_game_b', name: '游戏室B', nameEn: 'Game Room B', glb: 'models/room_game_b.glb',
+        w: 5, d: 4.5, h: 2.4, winLight: winN(0, 4.5),
+        spawns: { default: spS(0) } }),
+];
+
 export const SCENES = [
     { id: 'outdoor', name: '室外', nameEn: 'Outdoor',
       zones: CAMERA_ZONES, categories: CAMERA_ZONE_CATEGORIES,
@@ -139,6 +202,8 @@ export const SCENES = [
           default: { pos: [-4, 0, 0], rotY: -0.4 },
           // 西大门外（客厅出口门的落点）：背向房子面朝花园
           houseWest: { pos: [-6.5, 0, 5.6], rotY: 0 },
+          // 东大门外（厨房出口门的落点）
+          houseEast: { pos: [6.5, 0, 5.6], rotY: 0 },
       },
       // 室外无窗光/室内灯（旧内饰窗光已被黑内胆挡住，spot 归零）
       lighting: { spot: 0 } },
@@ -148,6 +213,10 @@ export const SCENES = [
       spawns: {
           // 从室外大门进入：门内一步，面朝房间（+z）
           default: { pos: [0, 0.02, 0.9], rotY: 0 },
+          // 阶段 5：各房间回程落点（南墙客卫/厨房门、北墙楼梯门）
+          fromBath: { pos: [-1.8, 0.02, 0.9], rotY: 0 },
+          fromKitchen: { pos: [1.8, 0.02, 0.9], rotY: 0 },
+          fromStudy: { pos: [1.3, 0.02, 4.1], rotY: Math.PI },
       },
       // 室内光照（timeOfDay.setSceneProfile）：无直射阳光，窗光为主光源，
       // 夜晚开顶灯；窗在北墙（z=5），灯在天花板 LAMP 吊灯下方
@@ -158,6 +227,7 @@ export const SCENES = [
           windowLight: { position: [0, 2.2, 7.5], target: [0, 0.4, 2.0] },
           lamp: { position: [0, 2.4, 2.5], color: 0xFFD9A0, intensity: 1.6, distance: 7 },
       } },
+    ...ROOM_SCENES,
 ];
 
 // 渲染器参数

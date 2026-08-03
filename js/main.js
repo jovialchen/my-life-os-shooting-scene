@@ -316,7 +316,7 @@ function animate() {
 animate();
 
 // 调试句柄（控制台/自动化测试用）：window.__app
-window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo };
+window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo, config: { SCENES } };
 
 // ============================================================
 //  截图调试模式（无头浏览器验收用，不影响正常交互）

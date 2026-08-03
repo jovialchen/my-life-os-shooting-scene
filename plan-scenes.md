@@ -178,7 +178,40 @@ puppeteer+Chrome 已装在 `tools/e2e/`（node_modules 与 .cache 均已 gitigno
 验证：test-nav-real / test-nav-room / check_room_glb / check_island_glb
 全绿；smoke-app PASS；shot-room PASS（修复后复跑）；shot-lighting PASS。
 
-### ⏭ 下一阶段：阶段 5（批量建模剩余 11 间）
+### ✅ 阶段 5 已完成（批量建模剩余 11 间）
+
+- **`tools/make_rooms.mjs`（新增，通用房间生成器）**：规格表驱动，一次产出
+  11 间 glb（models/room_{kitchen,bath_f1,study,bed1-3,bath1-3,game_a,game_b}.glb）。
+  规范与客厅一致，**所有门/窗只开在南/北墙**（门 rotY=0：南门 dir=left、
+  北门 dir=right，都开向屋内）——东西墙实心，省去侧墙门旋转的复杂度。
+  墙体按洞口表自动分段（带重叠检查）；窗框十字棂、窗台板、窗景片
+  MAT_window_view、吊灯 LAMP（nav_ignore）每房标配；家具盒体不标属性
+  （自动障碍）。卧室×3/卫生间×3 用同模板换配色。
+- **客厅加门**：`make_room_living.mjs` 南墙加客卫门(x-1.8)/厨房门(x1.8)，
+  北墙加楼梯门(x1.3)；北墙窗改为 [-1.9,-0.6]/[1.95,2.95]（楼梯门落点
+  避开电视柜——**坑**：最初门放 x2.45，spawn 落在电视柜 bbox 里，
+  test-nav-rooms 的 isWalkableWorld 抓出来了）。
+- **室外东门接厨房**：`add_shell_core.mjs` 加 DOOR_entrance_east extras
+  （→f1_kitchen/fromOutdoor）；config outdoor 加 spawn houseEast=[6.5,0,5.6]。
+- **`js/config.js`**：`roomScene()` 模板（单主机位 45° 俯看 + 统一室内光照：
+  sun 0 / ambient 0.75 / spot 1.3 / 窗光位姿按窗墙 / 顶灯居中）+ 11 场景
+  注册；spawns 全连接表（fromXxx 命名，南门到达 rotY 0、北门 rotY π）；
+  `__app.config.SCENES` 暴露给 E2E。
+- **`tools/test-nav-rooms.mjs`（新增）**：遍历 SCENES 所有房间——每个
+  spawn 落点 isWalkableWorld + default↔各 spawn 双向寻路（卧室 fromBath
+  落点最初卡在床头板 0.18m 处被抓出，移到 z3.8）。
+- **`tools/e2e/shot-all-rooms.mjs`（新增）**：全动线 25 次切换（室外→客厅
+  →厨房→东门→客厅→客卫→学习室→卧室1-3+各自卫生间→阁楼A→B→原路退回
+  室外），每站断言门图（door_target_scene/spawn 与 GRAPH 表一致）+ 落点
+  与 config 一致；每房截图 temp/rooms_<scene>.png。
+- **既有测试修正**：shot-room / shot-lighting 客厅门数 1→4。
+
+验证：check_room_glb ×12 PASS；test-nav-real / test-nav-room /
+test-nav-rooms 全绿；check_island_glb PASS；smoke-app / shot-room /
+shot-lighting / shot-all-rooms 全 PASS；截图目检正常
+（卧室机位构图偏角、床在画面外——留阶段 6 机位微调统一处理）。
+
+### ⏭ 下一阶段：阶段 6（收尾）
 
 ## 分阶段实施
 
@@ -233,7 +266,7 @@ puppeteer+Chrome 已装在 `tools/e2e/`（node_modules 与 .cache 均已 gitigno
 - **窗景片联动**：`MAT_window_view` 材质注册进 timeOfDay，时段变色（白天亮蓝/黄昏橙/夜晚深蓝）；`MAT_window_glass` 同理
 - 夜晚室内灯：每房 1 盏 PointLight，夜间段自动开（场景配置 `lampLight`）
 
-### 阶段 5：批量建模剩余 11 间
+### 阶段 5：批量建模剩余 11 间 ✅ 已完成（实现为规格表驱动的 make_rooms.mjs，见「当前进度」）
 
 | 场景 id | 房间 | 连接 |
 |---|---|---|
@@ -274,9 +307,11 @@ puppeteer+Chrome 已装在 `tools/e2e/`（node_modules 与 .cache 均已 gitigno
 # 导航回归
 node tools/test-nav-real.mjs
 node tools/test-nav-room.mjs
+node tools/test-nav-rooms.mjs        # 全房间 spawn 连通（阶段 5）
 # 房间 glb 生成 / 校验
-node tools/make_room_living.mjs
-python3 tools/check_room_glb.py
+node tools/make_room_living.mjs      # 客厅（4 门）
+node tools/make_rooms.mjs            # 其余 11 间（阶段 5）
+python3 tools/check_room_glb.py [glb路径]   # 缺省 room_living，可逐房间传参
 # 浏览器冒烟（无头，含截图 temp/smoke_outdoor.png）
 python3 -m http.server 8130 --bind 127.0.0.1 &
 PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/smoke-app.mjs "http://127.0.0.1:8130/index.html?frames=600"
@@ -284,6 +319,8 @@ PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/smoke-app.mjs "http://1
 PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-room.mjs "http://127.0.0.1:8130"
 # 室内光照 E2E（三时段窗景变色/顶灯/光照换绑）
 PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-lighting.mjs "http://127.0.0.1:8130"
+# 全动线 E2E（13 场景 25 次切换，阶段 5 验收）
+PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-all-rooms.mjs "http://127.0.0.1:8130"
 # Blender 无头跑脚本
 tools/blender.sh -b --python tools/make_room_living.py
 tools/blender.sh -b models_src/house-split.blend --python tools/add_shell_core.py

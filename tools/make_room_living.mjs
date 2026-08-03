@@ -24,7 +24,10 @@ const OUT = 'models/room_living.glb';
 const W = 6, D = 5, H = 2.7, WT = 0.1;          // 内空 x±3, z 0..5, 墙高 2.7, 墙厚 0.1
 const DOOR_W = 1.0, DOOR_H = 2.1;               // 门洞（南墙 z=0，居中于原点）
 const WIN_Y0 = 0.9, WIN_Y1 = 2.1;               // 窗洞高
-const WIN_X = [[-2.2, -0.9], [0.9, 2.2]];       // 北墙两个窗洞 x 区间
+const WIN_X = [[-1.9, -0.6], [1.95, 2.95]];    // 北墙两个窗洞 x 区间
+// 阶段 5：南墙加厨房/客卫门，北墙加楼梯门（→学习室）
+const S_DOORS = [-1.8, 0, 1.8];                 // 南墙三个门洞中心（客卫/出口/厨房）
+const STAIRS_DOOR_X = 1.3;                      // 北墙楼梯门洞中心（落点避开电视柜/沙发/茶几）
 
 // ── 材质（平涂：rough=1 metal=0）──
 const MATS = {
@@ -101,17 +104,25 @@ add('FLOOR_visible', 'MAT_floor', (p) => pushBox(p, [-W / 2, -0.06, 0], [W / 2, 
 add('WALK_floor', 'MAT_floor', (p) => pushQuadXZ(p, -W / 2 + 0.05, 0.05, W / 2 - 0.05, D - 0.05, 0.015),
     { surface_walkable: true });
 
-// 墙体（南墙带门洞、北墙带两窗洞）
+// 墙体（南墙三门洞、北墙两窗洞+楼梯门洞）
 add('WALLS', 'MAT_wall', (p) => {
     const xw = W / 2;
-    // 南墙（z=0，门洞 x±0.5 高 2.1）
-    pushBox(p, [-xw, 0, -WT], [-DOOR_W / 2, H, 0]);
-    pushBox(p, [DOOR_W / 2, 0, -WT], [xw, H, 0]);
-    pushBox(p, [-DOOR_W / 2, DOOR_H, -WT], [DOOR_W / 2, H, 0]);
-    // 北墙（z=D，两窗洞）
+    // 南墙（z=0，门洞在 S_DOORS 各处 x±0.5 高 2.1）
+    const sHoles = S_DOORS.map((c) => [c - DOOR_W / 2, c + DOOR_W / 2]);
+    let cur = -xw;
+    for (const [x0, x1] of sHoles) {
+        pushBox(p, [cur, 0, -WT], [x0, H, 0]);
+        pushBox(p, [x0, DOOR_H, -WT], [x1, H, 0]);       // 门上过梁
+        cur = x1;
+    }
+    pushBox(p, [cur, 0, -WT], [xw, H, 0]);
+    // 北墙（z=D，两窗洞 + 楼梯门洞）
+    const sd0 = STAIRS_DOOR_X - DOOR_W / 2, sd1 = STAIRS_DOOR_X + DOOR_W / 2;
     pushBox(p, [-xw, 0, D], [WIN_X[0][0], H, D + WT]);
     pushBox(p, [WIN_X[0][1], 0, D], [WIN_X[1][0], H, D + WT]);
-    pushBox(p, [WIN_X[1][1], 0, D], [xw, H, D + WT]);
+    pushBox(p, [WIN_X[1][1], 0, D], [sd0, H, D + WT]);
+    pushBox(p, [sd0, DOOR_H, D], [sd1, H, D + WT]);      // 楼梯门过梁
+    pushBox(p, [sd1, 0, D], [xw, H, D + WT]);
     for (const [x0, x1] of WIN_X) {
         pushBox(p, [x0, 0, D], [x1, WIN_Y0, D + WT]);          // 窗台
         pushBox(p, [x0, WIN_Y1, D], [x1, H, D + WT]);          // 窗上过梁
@@ -127,10 +138,20 @@ add('CEILING', 'MAT_wall', (p) => pushBox(p, [-W / 2 - WT, H, -WT], [W / 2 + WT,
 // 门框 + 窗框（含十字窗棂、窗台板）
 add('FRAMES', 'MAT_frame', (p) => {
     const j = 0.06;   // 框条宽
-    // 门框（凸出墙面两侧各 0.02）
-    pushBox(p, [-DOOR_W / 2 - j, 0, -WT - 0.02], [-DOOR_W / 2, DOOR_H + j, 0.02]);
-    pushBox(p, [DOOR_W / 2, 0, -WT - 0.02], [DOOR_W / 2 + j, DOOR_H + j, 0.02]);
-    pushBox(p, [-DOOR_W / 2 - j, DOOR_H, -WT - 0.02], [DOOR_W / 2 + j, DOOR_H + j, 0.02]);
+    // 南墙门框（凸出墙面两侧各 0.02）
+    for (const c of S_DOORS) {
+        const x0 = c - DOOR_W / 2, x1 = c + DOOR_W / 2;
+        pushBox(p, [x0 - j, 0, -WT - 0.02], [x0, DOOR_H + j, 0.02]);
+        pushBox(p, [x1, 0, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
+        pushBox(p, [x0 - j, DOOR_H, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
+    }
+    // 北墙楼梯门框
+    {
+        const x0 = STAIRS_DOOR_X - DOOR_W / 2, x1 = STAIRS_DOOR_X + DOOR_W / 2;
+        pushBox(p, [x0 - j, 0, D - 0.02], [x0, DOOR_H + j, D + WT + 0.02]);
+        pushBox(p, [x1, 0, D - 0.02], [x1 + j, DOOR_H + j, D + WT + 0.02]);
+        pushBox(p, [x0 - j, DOOR_H, D - 0.02], [x1 + j, DOOR_H + j, D + WT + 0.02]);
+    }
     // 窗框
     for (const [x0, x1] of WIN_X) {
         const z0 = D - 0.03, z1 = D + WT + 0.03;
@@ -193,6 +214,41 @@ add('DOOR_exit', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]
         door_target_spawn: 'houseWest',
     },
     [-DOOR_W / 2 + 0.02, 0.02, 0]);
+
+// 阶段 5 新增三扇传送门（南门 dir=left 开向屋内，北门 dir=right）
+add('DOOR_bath', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]),
+    {
+        interactable_type: 'door',
+        door_swing_angle: 90.0,
+        door_swing_dir: 'left',
+        door_slide: false,
+        door_locked: false,
+        door_target_scene: 'f1_bath',
+        door_target_spawn: 'default',
+    },
+    [S_DOORS[0] - 0.48, 0.02, 0]);
+add('DOOR_kitchen', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]),
+    {
+        interactable_type: 'door',
+        door_swing_angle: 90.0,
+        door_swing_dir: 'left',
+        door_slide: false,
+        door_locked: false,
+        door_target_scene: 'f1_kitchen',
+        door_target_spawn: 'default',
+    },
+    [S_DOORS[2] - 0.48, 0.02, 0]);
+add('DOOR_stairs', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]),
+    {
+        interactable_type: 'door',
+        door_swing_angle: 90.0,
+        door_swing_dir: 'right',
+        door_slide: false,
+        door_locked: false,
+        door_target_scene: 'f2_study',
+        door_target_spawn: 'default',
+    },
+    [STAIRS_DOOR_X - 0.48, 0.02, D]);
 
 // ── 写 GLB ──
 const matNames = Object.keys(MATS);

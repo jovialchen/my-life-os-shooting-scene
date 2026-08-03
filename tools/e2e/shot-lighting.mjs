@@ -66,7 +66,7 @@ check('室外玻璃中午亮蓝', outdoorNoon.glass === 'bfe3ff', String(outdoor
 
 // ── 2. 切到客厅：无直射阳光、窗光重摆、ambient 偏暗 ──
 await page.evaluate(() => window.__app.switchTo('f1_living'));
-await page.waitForFunction(() => window.__app.getDoors().length === 1, { timeout: 10000 });
+await page.waitForFunction(() => window.__app.getDoors().length === 4, { timeout: 10000 });
 await new Promise((r) => setTimeout(r, 800));
 const roomNoon = await page.evaluate(() => {
     const app = window.__app;
