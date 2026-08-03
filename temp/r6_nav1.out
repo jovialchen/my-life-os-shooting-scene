@@ -1,0 +1,21 @@
+walkable: WALK_island_top, WALK_floors, WALK_threshold_1, WALK_threshold_-1, WALK_stairs_1f2f, WALK_stairs_2fout, WALK_stairs_2f_attic, WALK_stairs_atticout
+[Nav] 网格 510x510，8 个可行走面，65 个障碍，耗时 845ms
+建网耗时 847ms
+PASS  庭院 -> 翼门  (61 点, 终点 y=0.14)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  翼门 -> 翼1F  (35 点, 终点 y=0.14)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  翼1F -> 后厅  (81 点, 终点 y=0.14)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  后厅 -> 白楼梯下口  (35 点, 终点 y=0.14)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  白楼梯爬梯 -> 2F  (63 点, 终点 y=3.18)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  2F -> 中厅楼板A  (41 点, 终点 y=3.18)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  中厅2F -> 东翼房间  (69 点, 终点 y=3.18)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  岛面可行走
+PASS  树干不可走
+
+全部通过

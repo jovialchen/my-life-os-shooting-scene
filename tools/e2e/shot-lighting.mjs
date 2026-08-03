@@ -46,6 +46,16 @@ await page.evaluate(() => {
         });
         return hex;
     };
+    window.__matGlow = (name) => {
+        let r = null;
+        window.__app.scene.traverse((o) => {
+            if (r || !o.isMesh || !o.material) return;
+            const mats = Array.isArray(o.material) ? o.material : [o.material];
+            const m = mats.find((mm) => mm.name === name);
+            if (m) r = [m.emissive.getHexString(), +m.emissiveIntensity.toFixed(2)];
+        });
+        return r;
+    };
 });
 
 // ── 1. 室外中午：默认光照（spot 归零、顶灯关、玻璃亮蓝）──
@@ -135,11 +145,15 @@ const outdoorNight = await page.evaluate(() => {
         lamp: app.lighting.lamp.intensity,
         spot: app.lighting.windowLight.intensity,
         glass: window.__matColor('MAT_window_glass'),
+        glassGlow: window.__matGlow('MAT_window_glass'),
     };
 });
 check('室外夜晚顶灯归零', outdoorNight.lamp === 0, String(outdoorNight.lamp));
 check('室外夜晚无窗光', outdoorNight.spot === 0, String(outdoorNight.spot));
 check('室外玻璃夜晚深蓝', outdoorNight.glass === '10204a', String(outdoorNight.glass));
+check('室外玻璃夜晚暖黄发光(阶段6)',
+    outdoorNight.glassGlow && outdoorNight.glassGlow[0] === 'ffc46a' && outdoorNight.glassGlow[1] === 0.6,
+    String(outdoorNight.glassGlow));
 await page.screenshot({ path: 'temp/light_outdoor_night.png' });
 
 // ── 6. 室外回中午：sun 恢复 ──

@@ -211,7 +211,30 @@ test-nav-rooms 全绿；check_island_glb PASS；smoke-app / shot-room /
 shot-lighting / shot-all-rooms 全 PASS；截图目检正常
 （卧室机位构图偏角、床在画面外——留阶段 6 机位微调统一处理）。
 
-### ⏭ 下一阶段：阶段 6（收尾）
+### ✅ 阶段 6 已完成（收尾）
+
+- **室外玻璃夜间暖黄发光**：TIME_PRESETS 加 `glow`/`glowI`（清晨/傍晚
+  暖黄 0.4~0.45、夜晚 0.6、白天淡蓝 0.12 微反光）；timeOfDay 的变色
+  注册表分材质类型——MAT_window_view 自发光跟 view 色（0.55 透亮）、
+  MAT_window_glass 自发光跟 glow 色。shot-lighting 加夜晚玻璃暖光断言；
+  temp/light_outdoor_night.png 目检：全屋窗格暖黄透光，效果很好。
+- **卧室机位微调**：roomScene 加 `mirrorZone`（家具偏西墙的房间从东南角
+  拍西北），卧室×3 启用，床/衣柜/窗全部入画。
+- **内存检查**：`tools/e2e/mem-switch.mjs`（新增）——6 场景预热后
+  再切 24 次（4 轮），堆 145.8→123.7 MB 不增反降（GC 正常回收），
+  "常驻+缓存"方案无泄漏。MEM PASS。
+- **旧室内机位删除**：config.js 的 attic/f1/f2 共 14 个机位 + 3 个分组
+  已删（指向被黑内胆封死的旧内饰），室外机位剩 3 个；shot-room 断言
+  18→4。smoke-app 不报硬断言无需改。
+- **文档**：`doc/blender-workflow-instructions.md` 新增「七、独立房间
+  场景建模规范」——坐标约定、节点/属性表、门传送 extras、SCENES 注册、
+  验收命令。
+
+验证：test-nav-real / test-nav-room / test-nav-rooms 全绿；
+smoke-app / shot-room / shot-lighting / shot-all-rooms / mem-switch
+全 PASS。
+
+### ⏭ 全部 6 个阶段已完成 🎉
 
 ## 分阶段实施
 
@@ -282,7 +305,7 @@ shot-lighting / shot-all-rooms 全 PASS；截图目检正常
 - 每间：建模 → 导出 → check_room_glb → test-nav 连通 → 接入 SCENES + 门 extras
 - 每批 2~3 间后浏览器走一遍动线，不攒到最后
 
-### 阶段 6：收尾
+### 阶段 6：收尾 ✅ 已完成（见「当前进度」）
 
 - 室外玻璃夜间暖黄发光（可选加分项）
 - 室内机位微调；内存检查（反复切换 20 次）；旧室内机位（config.js 的 attic/f1/f2 共 13 个）确认新方案后删除
@@ -321,6 +344,8 @@ PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-room.mjs "http://1
 PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-lighting.mjs "http://127.0.0.1:8130"
 # 全动线 E2E（13 场景 25 次切换，阶段 5 验收）
 PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-all-rooms.mjs "http://127.0.0.1:8130"
+# 内存检查（24 次反复切换看堆增长，阶段 6）
+PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/mem-switch.mjs "http://127.0.0.1:8130"
 # Blender 无头跑脚本
 tools/blender.sh -b --python tools/make_room_living.py
 tools/blender.sh -b models_src/house-split.blend --python tools/add_shell_core.py

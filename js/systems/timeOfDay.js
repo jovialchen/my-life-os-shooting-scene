@@ -19,8 +19,10 @@ function lerpHSL(h1, s1, l1, h2, s2, l2, t) {
     return { h: (h1 + dh * t + 1) % 1, s: lerp(s1, s2, t), l: lerp(l1, l2, t) };
 }
 
-// 时段变色材质的自发光强度（窗景片要"透亮"，玻璃只要微反光）
-const TINT_EMISSIVE = { MAT_window_view: 0.55, MAT_window_glass: 0.15 };
+// 时段变色材质类型：窗景片要"透亮"（自发光跟 view 色）；
+// 窗玻璃白天微反光、晨昏/夜晚暖黄"屋里亮灯"（自发光跟 glow 色）
+const TINT_KIND = { MAT_window_view: 'view', MAT_window_glass: 'glass' };
+const VIEW_EMISSIVE = 0.55;
 
 /**
  * 创建时间系统
@@ -31,15 +33,20 @@ const TINT_EMISSIVE = { MAT_window_view: 0.55, MAT_window_glass: 0.15 };
 export function createTimeOfDay(scene, lighting) {
     let currentValue = 2;               // 当前时段（切场景后重套用）
     let profile = { sun: 1, ambient: 1, spot: 1, lamp: 0 };   // 场景光照倍率
-    const tintMats = [];                // { mat, emissiveBoost }
+    const tintMats = [];                // { mat, kind }
     const lastTint = new THREE.Color(TIME_PRESETS[2].view);
+    const lastGlow = { color: new THREE.Color(TIME_PRESETS[2].glow), intensity: TIME_PRESETS[2].glowI };
 
     function applyTint() {
-        for (const { mat, emissiveBoost } of tintMats) {
+        for (const { mat, kind } of tintMats) {
             mat.color.copy(lastTint);
-            if (mat.emissive) {
+            if (!mat.emissive) continue;
+            if (kind === 'glass') {
+                mat.emissive.copy(lastGlow.color);
+                mat.emissiveIntensity = lastGlow.intensity;
+            } else {
                 mat.emissive.copy(lastTint);
-                mat.emissiveIntensity = emissiveBoost;
+                mat.emissiveIntensity = VIEW_EMISSIVE;
             }
         }
     }
@@ -76,6 +83,8 @@ export function createTimeOfDay(scene, lighting) {
 
         // 窗景片/窗玻璃时段变色
         lastTint.set(a.view).lerp(new THREE.Color(b.view), t);
+        lastGlow.color.set(a.glow).lerp(new THREE.Color(b.glow), t);
+        lastGlow.intensity = lerp(a.glowI, b.glowI, t);
         applyTint();
     }
 
@@ -109,10 +118,10 @@ export function createTimeOfDay(scene, lighting) {
             if (!child.isMesh || !child.material) return;
             const mats = Array.isArray(child.material) ? child.material : [child.material];
             for (const mat of mats) {
-                const boost = TINT_EMISSIVE[mat.name];
-                if (boost === undefined) continue;
+                const kind = TINT_KIND[mat.name];
+                if (kind === undefined) continue;
                 if (tintMats.some((e) => e.mat === mat)) continue;
-                tintMats.push({ mat, emissiveBoost: boost });
+                tintMats.push({ mat, kind });
             }
         });
         applyTint();   // 新注册材质立即上当前时段的颜色

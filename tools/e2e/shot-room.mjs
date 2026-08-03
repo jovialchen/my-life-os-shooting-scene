@@ -74,7 +74,7 @@ const outState = await page.evaluate(() => ({
 check('回到室外（2 门重注册）', outState.doors.includes('DOOR_entrance'), outState.doors.join());
 check('落点 houseWest', Math.abs(outState.pos[0] + 6.5) < 0.3 && Math.abs(outState.pos[2] - 5.6) < 0.3,
     outState.pos.join(','));
-check('室外机位恢复 18 个', outState.camButtons === 18, String(outState.camButtons));
+check('室外机位恢复 4 个（3 机位 + 跟随，旧室内机位已删）', outState.camButtons === 4, String(outState.camButtons));
 await page.screenshot({ path: 'temp/room_back_outdoor.png' });
 
 // ── 5. 点击西门（真实点击路径：pickDoorAt → toggleDoor → onDoorTrigger）──

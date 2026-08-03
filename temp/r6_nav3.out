@@ -1,0 +1,87 @@
+[Nav] 网格 70x59，1 个可行走面，9 个障碍，耗时 27ms
+
+== f1_living（1 可行走面, 9 障碍, 4 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+PASS  落点 fromBath 可行走  (-1.8,0.02,0.9)
+PASS  落点 fromKitchen 可行走  (1.8,0.02,0.9)
+PASS  落点 fromStudy 可行走  (1.3,0.02,4.1)
+PASS  default -> fromBath  (19 点)
+PASS  fromBath -> default  (19 点)
+PASS  default -> fromKitchen  (19 点)
+PASS  fromKitchen -> default  (19 点)
+PASS  default -> fromStudy  (33 点)
+PASS  fromStudy -> default  (33 点)
+[Nav] 网格 80x59，1 个可行走面，9 个障碍，耗时 7ms
+
+== f1_kitchen（1 可行走面, 9 障碍, 2 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+PASS  落点 fromOutdoor 可行走  (2.2,0.02,4.1)
+PASS  default -> fromOutdoor  (41 点)
+PASS  fromOutdoor -> default  (41 点)
+[Nav] 网格 35x35，1 个可行走面，6 个障碍，耗时 2ms
+
+== f1_bath（1 可行走面, 6 障碍, 1 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+[Nav] 网格 70x69，1 个可行走面，7 个障碍，耗时 9ms
+
+== f2_study（1 可行走面, 7 障碍, 5 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+PASS  落点 fromBed2 可行走  (-2,0.02,0.9)
+PASS  落点 fromBed1 可行走  (-2,0.02,5.1)
+PASS  落点 fromBed3 可行走  (0,0.02,5.1)
+PASS  落点 fromAtticA 可行走  (2,0.02,5.1)
+PASS  default -> fromBed2  (21 点)
+PASS  fromBed2 -> default  (21 点)
+PASS  default -> fromBed1  (43 点)
+PASS  fromBed1 -> default  (43 点)
+PASS  default -> fromBed3  (43 点)
+PASS  fromBed3 -> default  (43 点)
+PASS  default -> fromAtticA  (43 点)
+PASS  fromAtticA -> default  (43 点)
+[Nav] 网格 60x54，1 个可行走面，8 个障碍，耗时 5ms
+
+== f2_bed1（1 可行走面, 8 障碍, 2 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+PASS  落点 fromBath 可行走  (-1.5,0.02,3.8)
+PASS  default -> fromBath  (35 点)
+PASS  fromBath -> default  (35 点)
+[Nav] 网格 60x54，1 个可行走面，8 个障碍，耗时 5ms
+
+== f2_bed2（1 可行走面, 8 障碍, 2 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+PASS  落点 fromBath 可行走  (-1.5,0.02,3.8)
+PASS  default -> fromBath  (35 点)
+PASS  fromBath -> default  (35 点)
+[Nav] 网格 60x54，1 个可行走面，8 个障碍，耗时 4ms
+
+== f2_bed3（1 可行走面, 8 障碍, 2 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+PASS  落点 fromBath 可行走  (-1.5,0.02,3.8)
+PASS  default -> fromBath  (35 点)
+PASS  fromBath -> default  (35 点)
+[Nav] 网格 35x35，1 个可行走面，7 个障碍，耗时 2ms
+
+== f2_bath1（1 可行走面, 7 障碍, 1 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+[Nav] 网格 35x35，1 个可行走面，7 个障碍，耗时 2ms
+
+== f2_bath2（1 可行走面, 7 障碍, 1 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+[Nav] 网格 35x35，1 个可行走面，7 个障碍，耗时 2ms
+
+== f2_bath3（1 可行走面, 7 障碍, 1 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+[Nav] 网格 70x59，1 个可行走面，8 个障碍，耗时 5ms
+
+== attic_game_a（1 可行走面, 8 障碍, 3 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+PASS  落点 fromStudy 可行走  (0,0.02,0.9)
+PASS  落点 fromGameB 可行走  (1.8,0.02,4.1)
+PASS  default -> fromGameB  (33 点)
+PASS  fromGameB -> default  (33 点)
+[Nav] 网格 60x54，1 个可行走面，7 个障碍，耗时 4ms
+
+== attic_game_b（1 可行走面, 7 障碍, 1 落点）==
+PASS  落点 default 可行走  (0,0.02,0.9)
+
+全部通过

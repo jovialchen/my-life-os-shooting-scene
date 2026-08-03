@@ -26,11 +26,10 @@ export const MAX_PIXEL_RATIO     = 2;
 // bounds 为角色自动切换的触发范围（three 坐标），null = 仅手动切换
 // 室内机位用 minPolar/maxPolar/maxDist 把轨道限制在房间内，转不出去
 // 机位分组（UI 按组折叠展示，见 systems/cameraZones.js）
+// 阶段 6：旧室内机位（attic/f1/f2 共 14 个，指向已被黑内胆封死的旧内饰）已删除，
+// 室内一律走独立房间场景（SCENES 注册表）
 export const CAMERA_ZONE_CATEGORIES = [
     { id: 'outside', name: '室外', nameEn: 'Outdoor' },
-    { id: 'attic',   name: '阁楼', nameEn: 'Attic'   },
-    { id: 'f1',      name: '一楼', nameEn: '1st Floor' },
-    { id: 'f2',      name: '二楼', nameEn: '2nd Floor' },
 ];
 
 export const CAMERA_ZONES = [
@@ -46,68 +45,6 @@ export const CAMERA_ZONES = [
       pos: [0, 5.5, -15], target: [0, 3, -4],
       minDist: 3, maxDist: 22, maxPolar: Math.PI * 0.49,
       bounds: { x: [-11, 11], z: [-20, -5.5] } },
-
-    // ── 阁楼（z 6.2~11.4，坡顶）──
-    { id: 'attic1', name: '阁楼1', nameEn: 'Attic 1', category: 'attic',
-      pos: [4, 8.6, -1], target: [-5, 7.2, 2.5],
-      minDist: 0.8, maxDist: 11, minPolar: Math.PI * 0.25, maxPolar: Math.PI * 0.7,
-      bounds: null },
-    { id: 'attic2', name: '阁楼2', nameEn: 'Attic 2', category: 'attic',
-      pos: [-4, 8.6, -1], target: [5, 7.2, 2.5],
-      minDist: 0.8, maxDist: 11, minPolar: Math.PI * 0.25, maxPolar: Math.PI * 0.7,
-      bounds: null },
-    { id: 'attic3', name: '阁楼3', nameEn: 'Attic 3', category: 'attic',
-      pos: [0, 8.2, -3.5], target: [0, 7.2, 4.5],
-      minDist: 0.8, maxDist: 9, minPolar: Math.PI * 0.25, maxPolar: Math.PI * 0.7,
-      bounds: null },
-    { id: 'attic4', name: '阁楼4', nameEn: 'Attic 4', category: 'attic',
-      pos: [-6.5, 7.5, 3.5], target: [6.5, 8.5, -3],
-      minDist: 0.8, maxDist: 15, minPolar: Math.PI * 0.25, maxPolar: Math.PI * 0.7,
-      bounds: null },
-
-    // ── 一楼（z 0~3，翼间 x±(3.6~9.4)， z -4.9~3.9）──
-    { id: 'f1w1', name: '一楼西1', nameEn: '1F W1', category: 'f1',
-      pos: [-4.3, 1.7, 3.0], target: [-7.8, 1.1, -2.5],
-      minDist: 0.5, maxDist: 7, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
-    { id: 'f1w2', name: '一楼西2', nameEn: '1F W2', category: 'f1',
-      pos: [-8.6, 1.7, -3.5], target: [-5.0, 1.2, 2.5],
-      minDist: 0.5, maxDist: 8, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
-    { id: 'f1e1', name: '一楼东1', nameEn: '1F E1', category: 'f1',
-      pos: [4.3, 1.7, 3.0], target: [7.8, 1.1, -2.5],
-      minDist: 0.5, maxDist: 7, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
-    { id: 'f1e2', name: '一楼东2', nameEn: '1F E2', category: 'f1',
-      pos: [8.6, 1.7, -3.5], target: [5.0, 1.2, 2.5],
-      minDist: 0.5, maxDist: 8, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
-    { id: 'f1c', name: '一楼中', nameEn: '1F C', category: 'f1',
-      pos: [0, 1.7, 0.5], target: [0, 1.2, -4],
-      minDist: 0.5, maxDist: 8.5, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
-
-    // ── 二楼（z 3.1~6.1）──
-    { id: 'f2w1', name: '二楼西1', nameEn: '2F W1', category: 'f2',
-      pos: [-4.3, 4.8, 3.0], target: [-7.8, 4.2, -2.5],
-      minDist: 0.5, maxDist: 7, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
-    { id: 'f2w2', name: '二楼西2', nameEn: '2F W2', category: 'f2',
-      pos: [-8.6, 4.8, -3.5], target: [-5.0, 4.3, 2.5],
-      minDist: 0.5, maxDist: 8, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
-    { id: 'f2e1', name: '二楼东1', nameEn: '2F E1', category: 'f2',
-      pos: [4.3, 4.8, 3.0], target: [7.8, 4.2, -2.5],
-      minDist: 0.5, maxDist: 7, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
-    { id: 'f2e2', name: '二楼东2', nameEn: '2F E2', category: 'f2',
-      pos: [8.6, 4.8, -3.5], target: [5.0, 4.3, 2.5],
-      minDist: 0.5, maxDist: 8, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
-    { id: 'f2c', name: '二楼中', nameEn: '2F C', category: 'f2',
-      pos: [0, 4.8, 0.5], target: [0, 4.3, -4],
-      minDist: 0.5, maxDist: 8.5, minPolar: Math.PI * 0.35, maxPolar: Math.PI * 0.65,
-      bounds: null },
 ];
 export const CAMERA_ZONE_TRANSITION = 0.9;   // 机位切换过渡时长（秒）
 export const CAMERA_FOLLOW_DEADZONE = 2.5;   // 跟随死区：角色离 target 超过此距离才跟随
@@ -135,13 +72,14 @@ const LIVING_ZONE_CATEGORIES = [
 // ── 房间场景模板（阶段 5：11 间房共用）──
 // 单主机位：斜 45° 俯看全屋；光照：无直射阳光、窗光主光源、夜间顶灯
 // winLight: 窗光位姿（窗外 2m 照向屋内），spawns 见各房间连接表
-function roomScene({ id, name, nameEn, glb, w, d, h, spawns, winLight }) {
+function roomScene({ id, name, nameEn, glb, w, d, h, spawns, winLight, mirrorZone = false }) {
+    const sx = mirrorZone ? 1 : -1;   // 家具偏西墙的房间（卧室）从东南角拍西北
     return {
         id, name, nameEn,
         glbs: [glb],
         zones: [{
             id: `${id}_main`, name, nameEn, category: 'room',
-            pos: [-w * 0.35, h * 0.82, d * 0.16], target: [w * 0.18, 0.6, d * 0.66],
+            pos: [sx * w * 0.35, h * 0.82, d * 0.16], target: [-sx * w * 0.18, 0.6, d * 0.66],
             minDist: 1.0, maxDist: Math.max(w, d) * 1.1, maxPolar: Math.PI * 0.49,
             bounds: null,
         }],
@@ -181,7 +119,7 @@ const ROOM_SCENES = [
         } }),
     ...[1, 2, 3].map((n) => roomScene({
         id: `f2_bed${n}`, name: `卧室${n}`, nameEn: `Bedroom ${n}`, glb: `models/room_bed${n}.glb`,
-        w: 5, d: 4.5, h: 2.7, winLight: winN(1.3, 4.5),
+        w: 5, d: 4.5, h: 2.7, winLight: winN(1.3, 4.5), mirrorZone: true,   // 床在西北角，从东南拍
         spawns: { default: spS(0), fromBath: { pos: [-1.5, 0.02, 3.8], rotY: Math.PI } } })),
     ...[1, 2, 3].map((n) => roomScene({
         id: `f2_bath${n}`, name: `卫生间${n}`, nameEn: `Bathroom ${n}`, glb: `models/room_bath${n}.glb`,
@@ -284,13 +222,14 @@ export const SUN_ORBIT_RADIUS = 8;
 
 // view = 窗景片/窗玻璃时段变色（MAT_window_view / MAT_window_glass，见 timeOfDay.js）
 // lamp = 室内灯强度（场景配置 lamp 时生效，见 SCENES[*].lighting.lamp）
+// glow/glowI = 室外窗玻璃自发光（阶段 6：清晨/傍晚/夜晚暖黄"屋里亮灯"，白天淡蓝微反光）
 export const TIME_PRESETS = [
-    { name: '清晨', nameEn: 'Dawn',   az: 100, el: 3,   h: 0.07, s: 0.9,  l: 0.55, sun: 0.6,  ambient: 0.15, fill: 0.1,  spot: 0.4,  bg: 0x3d2b4a, view: 0xE8A06A, lamp: 0.5 },
-    { name: '早上', nameEn: 'Morning', az: 150, el: 20,  h: 0.11, s: 0.8,  l: 0.7,  sun: 1.2,  ambient: 0.25, fill: 0.2,  spot: 1.0,  bg: 0x7a8caa, view: 0x9FC8E8, lamp: 0 },
-    { name: '中午', nameEn: 'Noon',    az: 180, el: 75,  h: 0.14, s: 0.3,  l: 0.95, sun: 2.0,  ambient: 0.4,  fill: 0.35, spot: 1.5,  bg: 0x87a5c0, view: 0xBFE3FF, lamp: 0 },
-    { name: '下午', nameEn: 'Afternoon', az: 210, el: 30,  h: 0.10, s: 0.7,  l: 0.75, sun: 1.5,  ambient: 0.3,  fill: 0.25, spot: 1.2,  bg: 0x8a7060, view: 0xF0C88A, lamp: 0 },
-    { name: '傍晚', nameEn: 'Dusk',    az: 225, el: 5,   h: 0.04, s: 1.0,  l: 0.5,  sun: 0.8,  ambient: 0.15, fill: 0.1,  spot: 0.6,  bg: 0x6b4455, view: 0xFF8A50, lamp: 1.0 },
-    { name: '夜晚', nameEn: 'Night',   az: 180, el: -10, h: 0.6,  s: 0.3,  l: 0.1,  sun: 0,    ambient: 0.03, fill: 0.02, spot: 0,    bg: 0x0a0a1a, view: 0x10204A, lamp: 1.5 },
+    { name: '清晨', nameEn: 'Dawn',   az: 100, el: 3,   h: 0.07, s: 0.9,  l: 0.55, sun: 0.6,  ambient: 0.15, fill: 0.1,  spot: 0.4,  bg: 0x3d2b4a, view: 0xE8A06A, lamp: 0.5, glow: 0xFFD9A0, glowI: 0.4 },
+    { name: '早上', nameEn: 'Morning', az: 150, el: 20,  h: 0.11, s: 0.8,  l: 0.7,  sun: 1.2,  ambient: 0.25, fill: 0.2,  spot: 1.0,  bg: 0x7a8caa, view: 0x9FC8E8, lamp: 0, glow: 0x9FC8E8, glowI: 0.12 },
+    { name: '中午', nameEn: 'Noon',    az: 180, el: 75,  h: 0.14, s: 0.3,  l: 0.95, sun: 2.0,  ambient: 0.4,  fill: 0.35, spot: 1.5,  bg: 0x87a5c0, view: 0xBFE3FF, lamp: 0, glow: 0xBFE3FF, glowI: 0.12 },
+    { name: '下午', nameEn: 'Afternoon', az: 210, el: 30,  h: 0.10, s: 0.7,  l: 0.75, sun: 1.5,  ambient: 0.3,  fill: 0.25, spot: 1.2,  bg: 0x8a7060, view: 0xF0C88A, lamp: 0, glow: 0xF0C88A, glowI: 0.12 },
+    { name: '傍晚', nameEn: 'Dusk',    az: 225, el: 5,   h: 0.04, s: 1.0,  l: 0.5,  sun: 0.8,  ambient: 0.15, fill: 0.1,  spot: 0.6,  bg: 0x6b4455, view: 0xFF8A50, lamp: 1.0, glow: 0xFFB85C, glowI: 0.45 },
+    { name: '夜晚', nameEn: 'Night',   az: 180, el: -10, h: 0.6,  s: 0.3,  l: 0.1,  sun: 0,    ambient: 0.03, fill: 0.02, spot: 0,    bg: 0x0a0a1a, view: 0x10204A, lamp: 1.5, glow: 0xFFC46A, glowI: 0.6 },
 ];
 
 // ── 四季预设（草地 + 树叶颜色；秋→冬树叶缩放落叶，见 systems/seasons.js）──

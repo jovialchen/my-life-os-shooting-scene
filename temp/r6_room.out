@@ -1,0 +1,12 @@
+PASS  室外西门气泡提示  (按 E 进入客厅)
+PASS  进入客厅（DOOR_exit 注册）  (DOOR_exit,DOOR_bath,DOOR_kitchen,DOOR_stairs)
+PASS  落点在门内  (0,0.02,0.9)
+PASS  客厅机位按钮（2 机位 + 跟随）  (3)
+PASS  房内出口门气泡提示  (按 E 回到室外)
+PASS  回到室外（2 门重注册）  (DOOR_entrance,DOOR_entrance_east)
+PASS  落点 houseWest  (-6.5,0,5.6)
+PASS  室外机位恢复 4 个（3 机位 + 跟随，旧室内机位已删）  (4)
+PASS  pickDoorAt 命中西门  (DOOR_entrance)
+PASS  点击传送门 → 切到客厅  (DOOR_exit,DOOR_bath,DOOR_kitchen,DOOR_stairs)
+
+ROOM E2E PASS

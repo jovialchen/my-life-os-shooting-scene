@@ -1,0 +1,25 @@
+--- 页面状态 ---
+{
+  "doors": 2,
+  "hasVrm": true,
+  "camMode": "zone",
+  "currentZone": "overview",
+  "camButtons": 4,
+  "camGroups": 1,
+  "fadeOverlay": true,
+  "switchToType": "function",
+  "switchResult": {
+    "nonexistent": false,
+    "sameScene": false
+  }
+}
+--- 关键日志 ---
+[log] [HouseShell] island.glb loaded (15 棵树, 7 组花卉)
+[log] [HouseShell] loading... 40%
+[log] [HouseShell] loading... 100%
+[log] [Doors] 注册门 DOOR_entrance: slide=false swing=90 dir=left locked=false
+[log] [Doors] 注册门 DOOR_entrance_east: slide=false swing=90 dir=right locked=false
+[log] [HouseShell] house.glb loaded
+[log] [CameraZones] 碰撞 mesh 数: 63
+[warn] [SceneManager] 未知场景 nonexistent
+SMOKE PASS

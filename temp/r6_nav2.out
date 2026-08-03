@@ -1,0 +1,16 @@
+walkable: WALK_floor
+obstacles: FLOOR_visible, WALLS, CEILING, FRAMES, FURN_sofa, FURN_table, FURN_tvstand, FURN_tv, FURN_shelf
+[Nav] 网格 70x59，1 个可行走面，9 个障碍，耗时 24ms
+PASS  spawn -> 西南角  (24 点, 终点 y=0.01)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  spawn -> 东南角  (24 点, 终点 y=0.01)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  spawn -> 北窗前  (37 点, 终点 y=0.01)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  spawn -> 沙发前  (22 点, 终点 y=0.01)
+PASS    相邻点高差 ≤ MAX_STEP
+PASS  地毯上可行走（nav_ignore）
+PASS  沙发座面处不可走（障碍）
+PASS  电视柜处不可走（障碍）
+
+全部通过

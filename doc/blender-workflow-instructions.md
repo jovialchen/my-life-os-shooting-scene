@@ -255,3 +255,59 @@ File → Export → glTF 2.0：
 **Q: 功能面和视觉面重叠了，会闪烁吗？**
 
 如果功能面 Z 比视觉面高 0.01~0.02，基本不会；而且如果代码选择不渲染功能面（方式 A），那根本不会闪烁。
+
+---
+
+## 七、独立房间场景建模规范（动森式场景切换）
+
+> 阶段 3/5 起，室内改为"每间房一个独立 glb、独立导航、独立机位"的场景切换方案。
+> 当前房间全部由纯 Node 脚本程序化生成（设备无 Blender）：
+> `tools/make_room_living.mjs`（客厅）与 `tools/make_rooms.mjs`（其余 11 间，
+> 规格表驱动）。若以后改用 Blender 建房间，遵守同一套规范即可。
+
+### 7.1 坐标与单位
+
+- 房间独立坐标系，**原点在主门（南墙 z=0 居中那扇）门口地板中心**；three 坐标：y 向上，+z 进房间
+- 房间内容范围：x ∈ [-w/2, w/2]，z ∈ [0, d]，墙高 h，墙厚 0.1
+
+### 7.2 节点与属性约定
+
+| 节点 | 属性 | 说明 |
+|------|------|------|
+| `FLOOR_visible` | 无 | 可见地板 |
+| `WALK_floor` | `surface_walkable=True` | 逻辑行走面，抬高 0.015（JS 端隐藏，只作导航数据） |
+| `WALLS` / `CEILING` / 家具 | 无（不标属性 = 自动障碍） | 平涂材质 rough=1 metal=0 |
+| 地毯/盆栽/吊灯/窗景片 | `nav_ignore=True` | 纯装饰，不进导航不挡路 |
+| `VIEW_window_*` | `nav_ignore=True`，材质名必须叫 `MAT_window_view` | 窗外侧 0.4m 大面片；时间系统按材质名联动变色（白天亮蓝/黄昏橙/夜晚深蓝） |
+| `DOOR_*` | 见 7.3 | 门板 |
+
+### 7.3 门 = 传送点
+
+在「二、门的制作」基础上加两个 Custom Properties：
+
+| 属性 | 值 | 说明 |
+|------|-----|------|
+| `door_target_scene` | 如 `f1_living` | config.js SCENES 里的场景 id |
+| `door_target_spawn` | 如 `fromKitchen` | 目标场景 spawns 表里的落点 id |
+
+- 门 origin 在铰链底边；**所有门只开在南/北墙**，门节点 rotY=0：南门 `door_swing_dir=left`（开向屋内 +z），北门 `right`（开向屋内 -z），省去侧墙门的旋转
+- 双向传送：A 房间门指向 B 的 spawn，B 房间对应门也要指回 A 的对应 spawn（改连接图时两边同步）
+- 室外房子大门的 extras 在 `tools/add_shell_core.mjs` 末尾标记（西门→客厅、东门→厨房）
+
+### 7.4 场景注册（config.js SCENES）
+
+每间房一项：glb 路径、机位（`roomScene()` 模板：45° 俯看，轨道锁房间内）、
+spawns 落点表（`fromXxx` 命名；南门到达 `rotY=0` 面朝 +z，北门到达 `rotY=π`）、
+光照（室内 sun=0 无直射、ambient 偏暗、窗光位姿按窗所在墙、夜间顶灯位置）。
+
+**落点必须避开家具 bbox**（含门摆动弧）——`tools/test-nav-rooms.mjs` 会对每个
+spawn 做 `isWalkableWorld` 检查并测 default↔各 spawn 双向寻路。
+
+### 7.5 验收流程（每个新房间/改连接后必跑）
+
+```bash
+node tools/make_rooms.mjs                      # 重新生成 glb
+python3 tools/check_room_glb.py models/room_xxx.glb   # 规范校验
+node tools/test-nav-rooms.mjs                  # 全房间导航连通
+node tools/e2e/shot-all-rooms.mjs <baseUrl>    # 全动线 E2E（门图+落点）
+```

@@ -1,0 +1,78 @@
+PASS  室外门图  ({"DOOR_entrance":["f1_living","default"],"DOOR_entrance_east":["f1_kitchen","fromOutdoor"]})
+PASS  切换 f1_living
+PASS  f1_living 门图(4门)  ({"DOOR_exit":["outdoor","houseWest"],"DOOR_bath":["f1_bath","default"],"DOOR_kitchen":["f1_kitchen","default"],"DOOR_stairs":["f2_study","default"]})
+PASS  f1_living 落点  (0,0.02,0.9)
+PASS  切换 f1_kitchen
+PASS  f1_kitchen 门图(2门)  ({"DOOR_living":["f1_living","fromKitchen"],"DOOR_outdoor":["outdoor","houseEast"]})
+PASS  f1_kitchen 落点  (0,0.02,0.9)
+PASS  切换 outdoor/houseEast
+PASS  outdoor/houseEast 门图(2门)  ({"DOOR_entrance":["f1_living","default"],"DOOR_entrance_east":["f1_kitchen","fromOutdoor"]})
+PASS  outdoor/houseEast 落点  (6.5,0,5.6)
+PASS  切换 f1_living
+PASS  f1_living 门图(4门)  ({"DOOR_exit":["outdoor","houseWest"],"DOOR_bath":["f1_bath","default"],"DOOR_kitchen":["f1_kitchen","default"],"DOOR_stairs":["f2_study","default"]})
+PASS  f1_living 落点  (0,0.02,0.9)
+PASS  切换 f1_bath
+PASS  f1_bath 门图(1门)  ({"DOOR_living":["f1_living","fromBath"]})
+PASS  f1_bath 落点  (0,0.02,0.9)
+PASS  切换 f1_living/fromBath
+PASS  f1_living/fromBath 门图(4门)  ({"DOOR_exit":["outdoor","houseWest"],"DOOR_bath":["f1_bath","default"],"DOOR_kitchen":["f1_kitchen","default"],"DOOR_stairs":["f2_study","default"]})
+PASS  f1_living/fromBath 落点  (-1.8,0.02,0.9)
+PASS  切换 f2_study
+PASS  f2_study 门图(5门)  ({"DOOR_stairs_down":["f1_living","fromStudy"],"DOOR_bed2":["f2_bed2","default"],"DOOR_bed1":["f2_bed1","default"],"DOOR_bed3":["f2_bed3","default"],"DOOR_stairs_up":["attic_game_a","fromStudy"]})
+PASS  f2_study 落点  (0,0.02,0.9)
+PASS  切换 f2_bed1
+PASS  f2_bed1 门图(2门)  ({"DOOR_study":["f2_study","fromBed1"],"DOOR_bath":["f2_bath1","default"]})
+PASS  f2_bed1 落点  (0,0.02,0.9)
+PASS  切换 f2_bath1
+PASS  f2_bath1 门图(1门)  ({"DOOR_bed":["f2_bed1","fromBath"]})
+PASS  f2_bath1 落点  (0,0.02,0.9)
+PASS  切换 f2_bed1/fromBath
+PASS  f2_bed1/fromBath 门图(2门)  ({"DOOR_study":["f2_study","fromBed1"],"DOOR_bath":["f2_bath1","default"]})
+PASS  f2_bed1/fromBath 落点  (-1.5,0.02,3.8)
+PASS  切换 f2_study/fromBed1
+PASS  f2_study/fromBed1 门图(5门)  ({"DOOR_stairs_down":["f1_living","fromStudy"],"DOOR_bed2":["f2_bed2","default"],"DOOR_bed1":["f2_bed1","default"],"DOOR_bed3":["f2_bed3","default"],"DOOR_stairs_up":["attic_game_a","fromStudy"]})
+PASS  f2_study/fromBed1 落点  (-2,0.02,5.1)
+PASS  切换 f2_bed2
+PASS  f2_bed2 门图(2门)  ({"DOOR_study":["f2_study","fromBed2"],"DOOR_bath":["f2_bath2","default"]})
+PASS  f2_bed2 落点  (0,0.02,0.9)
+PASS  切换 f2_bath2
+PASS  f2_bath2 门图(1门)  ({"DOOR_bed":["f2_bed2","fromBath"]})
+PASS  f2_bath2 落点  (0,0.02,0.9)
+PASS  切换 f2_bed2/fromBath
+PASS  f2_bed2/fromBath 门图(2门)  ({"DOOR_study":["f2_study","fromBed2"],"DOOR_bath":["f2_bath2","default"]})
+PASS  f2_bed2/fromBath 落点  (-1.5,0.02,3.8)
+PASS  切换 f2_study/fromBed2
+PASS  f2_study/fromBed2 门图(5门)  ({"DOOR_stairs_down":["f1_living","fromStudy"],"DOOR_bed2":["f2_bed2","default"],"DOOR_bed1":["f2_bed1","default"],"DOOR_bed3":["f2_bed3","default"],"DOOR_stairs_up":["attic_game_a","fromStudy"]})
+PASS  f2_study/fromBed2 落点  (-2,0.02,0.9)
+PASS  切换 f2_bed3
+PASS  f2_bed3 门图(2门)  ({"DOOR_study":["f2_study","fromBed3"],"DOOR_bath":["f2_bath3","default"]})
+PASS  f2_bed3 落点  (0,0.02,0.9)
+PASS  切换 f2_bath3
+PASS  f2_bath3 门图(1门)  ({"DOOR_bed":["f2_bed3","fromBath"]})
+PASS  f2_bath3 落点  (0,0.02,0.9)
+PASS  切换 f2_bed3/fromBath
+PASS  f2_bed3/fromBath 门图(2门)  ({"DOOR_study":["f2_study","fromBed3"],"DOOR_bath":["f2_bath3","default"]})
+PASS  f2_bed3/fromBath 落点  (-1.5,0.02,3.8)
+PASS  切换 f2_study/fromBed3
+PASS  f2_study/fromBed3 门图(5门)  ({"DOOR_stairs_down":["f1_living","fromStudy"],"DOOR_bed2":["f2_bed2","default"],"DOOR_bed1":["f2_bed1","default"],"DOOR_bed3":["f2_bed3","default"],"DOOR_stairs_up":["attic_game_a","fromStudy"]})
+PASS  f2_study/fromBed3 落点  (0,0.02,5.1)
+PASS  切换 attic_game_a/fromStudy
+PASS  attic_game_a/fromStudy 门图(2门)  ({"DOOR_stairs":["f2_study","fromAtticA"],"DOOR_game_b":["attic_game_b","default"]})
+PASS  attic_game_a/fromStudy 落点  (0,0.02,0.9)
+PASS  切换 attic_game_b
+PASS  attic_game_b 门图(1门)  ({"DOOR_game_a":["attic_game_a","fromGameB"]})
+PASS  attic_game_b 落点  (0,0.02,0.9)
+PASS  切换 attic_game_a/fromGameB
+PASS  attic_game_a/fromGameB 门图(2门)  ({"DOOR_stairs":["f2_study","fromAtticA"],"DOOR_game_b":["attic_game_b","default"]})
+PASS  attic_game_a/fromGameB 落点  (1.8,0.02,4.1)
+PASS  切换 f2_study/fromAtticA
+PASS  f2_study/fromAtticA 门图(5门)  ({"DOOR_stairs_down":["f1_living","fromStudy"],"DOOR_bed2":["f2_bed2","default"],"DOOR_bed1":["f2_bed1","default"],"DOOR_bed3":["f2_bed3","default"],"DOOR_stairs_up":["attic_game_a","fromStudy"]})
+PASS  f2_study/fromAtticA 落点  (2,0.02,5.1)
+PASS  切换 f1_living/fromStudy
+PASS  f1_living/fromStudy 门图(4门)  ({"DOOR_exit":["outdoor","houseWest"],"DOOR_bath":["f1_bath","default"],"DOOR_kitchen":["f1_kitchen","default"],"DOOR_stairs":["f2_study","default"]})
+PASS  f1_living/fromStudy 落点  (1.3,0.02,4.1)
+PASS  切换 outdoor/houseWest
+PASS  outdoor/houseWest 门图(2门)  ({"DOOR_entrance":["f1_living","default"],"DOOR_entrance_east":["f1_kitchen","fromOutdoor"]})
+PASS  outdoor/houseWest 落点  (-6.5,0,5.6)
+
+ALL ROOMS E2E PASS
