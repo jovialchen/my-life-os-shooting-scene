@@ -144,7 +144,41 @@ puppeteer+Chrome 已装在 `tools/e2e/`（node_modules 与 .cache 均已 gitigno
 `check_room_glb` 全绿；smoke-app PASS；截图 `temp/room_living.png` /
 `room_prompt.png` / `room_back_outdoor.png` 目检正常。
 
-### ⏭ 下一阶段：阶段 4（室内光照反映室外时间）
+### ✅ 阶段 4 已完成（室内光照反映室外时间）
+
+- **`js/config.js`**：TIME_PRESETS 每时段加 `view`（窗景变色：清晨橙
+  →中午亮蓝→傍晚橙→夜晚深蓝）和 `lamp`（室内灯时段系数：白天 0、
+  傍晚 1.0、夜晚 1.5）；SCENES 加 `lighting` 字段——f1_living：
+  `sun:0`（室内无直射）、`ambient:0.75`、`spot:1.3`、
+  `windowLight.position/target`（北窗外照向屋内）、
+  `lamp{position,color,intensity,distance}`（吊灯下方）；
+  outdoor：`spot:0`（旧内饰窗光已被黑内胆挡住，归零）。
+- **`js/systems/lighting.js`**：新增常驻 `lamp` PointLight（初始强度 0）+
+  `setLampPose(position,color,distance)`；setLevels 加 lamp 档；
+  `setWindowLightPose`/`setLampPose` 位姿参数兼容数组 `[x,y,z]` 与
+  `{x,y,z}`（**坑**：场景配置用数组，原实现只认对象 → Vector3.set 把
+  x/y 赋成 undefined → NaN；z 因 three 的"undefined 保持原值"语义不
+  变，bug 很隐蔽）。
+- **`js/systems/timeOfDay.js`**：记录当前时段值；
+  `setSceneProfile(def.lighting ?? null)`——换绑 sun/ambient/spot 倍率
+  与窗光/顶灯位姿，lamp 强度 = 时段 lamp 系数 × 场景 lamp.intensity
+  （无 lamp 配置 = 0），并立即按当前时段重算；窗光色温跟随太阳 HSL；
+  `registerTintMaterials(root)` 按材质名收集 MAT_window_view /
+  MAT_window_glass（自动去重，注册即上色），update 时 color+emissive
+  联动变色（自发光强度：窗景片 0.55 透亮、玻璃 0.15 微反光）。
+- **`js/main.js`**：onActivated 钩子调 `setSceneProfile`；loadScene 与
+  室外 onModelsReady 各调 `registerTintMaterials`；启动时对初始场景
+  套一次 profile。
+- **`tools/e2e/shot-lighting.mjs`（新增 E2E）**：22 项断言——客厅
+  sun 归零/窗光位姿/ambient 偏暗、三时段窗景片变色、傍晚顶灯渐开
+  夜晚全开、切回室外光照还原；截图 temp/light_living_{noon,dusk,night}
+  .png + light_outdoor_night.png 目检通过（白天亮蓝窗、傍晚橙窗、
+  夜晚暖灯+深蓝窗、室外夜景玻璃深蓝）。
+
+验证：test-nav-real / test-nav-room / check_room_glb / check_island_glb
+全绿；smoke-app PASS；shot-room PASS（修复后复跑）；shot-lighting PASS。
+
+### ⏭ 下一阶段：阶段 5（批量建模剩余 11 间）
 
 ## 分阶段实施
 
@@ -192,7 +226,7 @@ puppeteer+Chrome 已装在 `tools/e2e/`（node_modules 与 .cache 均已 gitigno
 - `check_room_glb.py` + `test-nav-room.mjs` 绿；`?scene=f1_living&frames=600` 截图可用
 - 冒烟：`PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/smoke-app.mjs "http://127.0.0.1:PORT/index.html?frames=600"`（先起 `python3 -m http.server PORT`）
 
-### 阶段 4：室内光照（反映室外时间）
+### 阶段 4：室内光照（反映室外时间）✅ 已完成（见「当前进度」）
 
 - `timeOfDay.js`：保持全局 sun/ambient 驱动；室内场景激活时按场景配置覆盖 ambient 强度（室内偏暗）、禁用直射 sun 或仅留窗口光斑
 - 每室内场景的 `windowLight` 位置/角度写进场景配置，切换时用 `lighting.setWindowLightPose` 重摆；强度/色温继续被 TIME_PRESETS 插值驱动
@@ -248,6 +282,8 @@ python3 -m http.server 8130 --bind 127.0.0.1 &
 PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/smoke-app.mjs "http://127.0.0.1:8130/index.html?frames=600"
 # 场景切换 E2E（按 E 进出客厅全链路）
 PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-room.mjs "http://127.0.0.1:8130"
+# 室内光照 E2E（三时段窗景变色/顶灯/光照换绑）
+PUPPETEER_CACHE_DIR=$PWD/tools/e2e/.cache node tools/e2e/shot-lighting.mjs "http://127.0.0.1:8130"
 # Blender 无头跑脚本
 tools/blender.sh -b --python tools/make_room_living.py
 tools/blender.sh -b models_src/house-split.blend --python tools/add_shell_core.py

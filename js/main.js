@@ -119,6 +119,8 @@ const { group: houseShellGroup } = createHouseShell({
         refreshNavDoors();
         // 相机墙体碰撞（target→相机射线，撞墙收缩）
         setCameraCollisionRoot(houseShellGroup);
+        // 时段变色材质（室外窗玻璃 MAT_window_glass）
+        timeOfDay.registerTintMaterials(houseShellGroup);
         // 截图调试：?scene= 直开指定场景
         if (pendingScene) {
             switchTo(pendingScene);
@@ -182,6 +184,8 @@ initSceneManager({
                         }
                     });
                     group.add(model);
+                    // 时段变色材质（室内窗景片 MAT_window_view）
+                    timeOfDay.registerTintMaterials(group);
                     console.log(`[Main] 场景 ${def.id} 加载完成`);
                     resolve(group);
                 },
@@ -205,6 +209,8 @@ initSceneManager({
             setCameraCollisionRoot(group);
             outline.selectedObjects = [group, humanoid];
             if (def.id === 'outdoor') updateSeason(seasonValue);
+            // 光照换绑：室内关直射阳光/重摆窗光与顶灯，室外恢复默认
+            timeOfDay.setSceneProfile(def.lighting ?? null);
             const spawn = def.spawns?.[spawnId ?? 'default'] ?? def.spawns?.default;
             if (spawn) teleport(spawn.pos[0], spawn.pos[1], spawn.pos[2], spawn.rotY ?? null);
         },
@@ -232,7 +238,9 @@ initDoorPrompt({
 // ============================================================
 const lighting = createLighting(scene);
 const timeOfDay = createTimeOfDay(scene, lighting);
-timeOfDay.update(2); // 默认中午
+// 初始场景套用光照配置（内部按当前时段重算强度）；默认中午
+timeOfDay.setSceneProfile(SCENES.find((s) => s.id === 'outdoor')?.lighting ?? null);
+timeOfDay.update(2);
 
 // ============================================================
 //  UI（时间/季节滑块、语言切换）

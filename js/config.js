@@ -139,13 +139,24 @@ export const SCENES = [
           default: { pos: [-4, 0, 0], rotY: -0.4 },
           // 西大门外（客厅出口门的落点）：背向房子面朝花园
           houseWest: { pos: [-6.5, 0, 5.6], rotY: 0 },
-      } },
+      },
+      // 室外无窗光/室内灯（旧内饰窗光已被黑内胆挡住，spot 归零）
+      lighting: { spot: 0 } },
     { id: 'f1_living', name: '客厅', nameEn: 'Living Room',
       glbs: ['models/room_living.glb'],
       zones: LIVING_ZONES, categories: LIVING_ZONE_CATEGORIES,
       spawns: {
           // 从室外大门进入：门内一步，面朝房间（+z）
           default: { pos: [0, 0.02, 0.9], rotY: 0 },
+      },
+      // 室内光照（timeOfDay.setSceneProfile）：无直射阳光，窗光为主光源，
+      // 夜晚开顶灯；窗在北墙（z=5），灯在天花板 LAMP 吊灯下方
+      lighting: {
+          sun: 0,
+          ambient: 0.75,
+          spot: 1.3,
+          windowLight: { position: [0, 2.2, 7.5], target: [0, 0.4, 2.0] },
+          lamp: { position: [0, 2.4, 2.5], color: 0xFFD9A0, intensity: 1.6, distance: 7 },
       } },
 ];
 
@@ -201,13 +212,15 @@ export const WINDOW_SPOT_POSITION  = { x: 0.5, y: 2.5 };
 // ── 一天时间系统 ──
 export const SUN_ORBIT_RADIUS = 8;
 
+// view = 窗景片/窗玻璃时段变色（MAT_window_view / MAT_window_glass，见 timeOfDay.js）
+// lamp = 室内灯强度（场景配置 lamp 时生效，见 SCENES[*].lighting.lamp）
 export const TIME_PRESETS = [
-    { name: '清晨', nameEn: 'Dawn',   az: 100, el: 3,   h: 0.07, s: 0.9,  l: 0.55, sun: 0.6,  ambient: 0.15, fill: 0.1,  spot: 0.4,  bg: 0x3d2b4a },
-    { name: '早上', nameEn: 'Morning', az: 150, el: 20,  h: 0.11, s: 0.8,  l: 0.7,  sun: 1.2,  ambient: 0.25, fill: 0.2,  spot: 1.0,  bg: 0x7a8caa },
-    { name: '中午', nameEn: 'Noon',    az: 180, el: 75,  h: 0.14, s: 0.3,  l: 0.95, sun: 2.0,  ambient: 0.4,  fill: 0.35, spot: 1.5,  bg: 0x87a5c0 },
-    { name: '下午', nameEn: 'Afternoon', az: 210, el: 30,  h: 0.10, s: 0.7,  l: 0.75, sun: 1.5,  ambient: 0.3,  fill: 0.25, spot: 1.2,  bg: 0x8a7060 },
-    { name: '傍晚', nameEn: 'Dusk',    az: 225, el: 5,   h: 0.04, s: 1.0,  l: 0.5,  sun: 0.8,  ambient: 0.15, fill: 0.1,  spot: 0.6,  bg: 0x6b4455 },
-    { name: '夜晚', nameEn: 'Night',   az: 180, el: -10, h: 0.6,  s: 0.3,  l: 0.1,  sun: 0,    ambient: 0.03, fill: 0.02, spot: 0,    bg: 0x0a0a1a },
+    { name: '清晨', nameEn: 'Dawn',   az: 100, el: 3,   h: 0.07, s: 0.9,  l: 0.55, sun: 0.6,  ambient: 0.15, fill: 0.1,  spot: 0.4,  bg: 0x3d2b4a, view: 0xE8A06A, lamp: 0.5 },
+    { name: '早上', nameEn: 'Morning', az: 150, el: 20,  h: 0.11, s: 0.8,  l: 0.7,  sun: 1.2,  ambient: 0.25, fill: 0.2,  spot: 1.0,  bg: 0x7a8caa, view: 0x9FC8E8, lamp: 0 },
+    { name: '中午', nameEn: 'Noon',    az: 180, el: 75,  h: 0.14, s: 0.3,  l: 0.95, sun: 2.0,  ambient: 0.4,  fill: 0.35, spot: 1.5,  bg: 0x87a5c0, view: 0xBFE3FF, lamp: 0 },
+    { name: '下午', nameEn: 'Afternoon', az: 210, el: 30,  h: 0.10, s: 0.7,  l: 0.75, sun: 1.5,  ambient: 0.3,  fill: 0.25, spot: 1.2,  bg: 0x8a7060, view: 0xF0C88A, lamp: 0 },
+    { name: '傍晚', nameEn: 'Dusk',    az: 225, el: 5,   h: 0.04, s: 1.0,  l: 0.5,  sun: 0.8,  ambient: 0.15, fill: 0.1,  spot: 0.6,  bg: 0x6b4455, view: 0xFF8A50, lamp: 1.0 },
+    { name: '夜晚', nameEn: 'Night',   az: 180, el: -10, h: 0.6,  s: 0.3,  l: 0.1,  sun: 0,    ambient: 0.03, fill: 0.02, spot: 0,    bg: 0x0a0a1a, view: 0x10204A, lamp: 1.5 },
 ];
 
 // ── 四季预设（草地 + 树叶颜色；秋→冬树叶缩放落叶，见 systems/seasons.js）──

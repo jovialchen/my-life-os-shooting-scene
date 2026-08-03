@@ -50,19 +50,35 @@ export function createLighting(scene) {
     scene.add(windowLight);
     scene.add(windowLight.target);
 
-    /** 应用一组强度（时间系统按时段计算后调用） */
-    function setLevels({ sun: s, ambient: a, fill: f, spot: sp }) {
+    // 室内顶灯（夜间自动开；位姿/颜色由场景配置 lamp 决定，见 timeOfDay.setSceneProfile）
+    const lamp = new THREE.PointLight(0xFFD9A0, 0, 7);
+    lamp.castShadow = false;
+    scene.add(lamp);
+
+    /** 应用一组强度（时间系统按时段计算后调用；lamp 缺省保持现状） */
+    function setLevels({ sun: s, ambient: a, fill: f, spot: sp, lamp: lp }) {
         sun.intensity = s;
         ambient.intensity = a;
         fill.intensity = f;
         windowLight.intensity = sp;
+        if (lp !== undefined) lamp.intensity = lp;
     }
+
+    /** 位姿参数兼容数组 [x,y,z] 与对象 {x,y,z}（场景配置用数组，与 spawns 一致） */
+    const toXYZ = (p) => (Array.isArray(p) ? p : [p.x, p.y, p.z]);
 
     /** 重摆窗光位姿（场景切换时按场景配置调用） */
     function setWindowLightPose(position, target) {
-        windowLight.position.set(position.x, position.y, position.z);
-        windowLight.target.position.set(target.x, target.y, target.z);
+        windowLight.position.set(...toXYZ(position));
+        windowLight.target.position.set(...toXYZ(target));
     }
 
-    return { sun, ambient, fill, windowLight, setLevels, setWindowLightPose };
+    /** 重摆室内顶灯位姿/颜色（场景切换时按场景配置 lamp 调用） */
+    function setLampPose(position, color, distance) {
+        lamp.position.set(...toXYZ(position));
+        if (color !== undefined) lamp.color.set(color);
+        if (distance !== undefined) lamp.distance = distance;
+    }
+
+    return { sun, ambient, fill, windowLight, lamp, setLevels, setWindowLightPose, setLampPose };
 }
