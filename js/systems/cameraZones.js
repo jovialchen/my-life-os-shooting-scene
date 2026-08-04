@@ -94,12 +94,15 @@ export function setZones(newZones, newCategories = []) {
 /**
  * 注入相机碰撞体（模型加载完成后调用一次）
  * @param {THREE.Object3D} root - 房子/岛屿容器，取其中所有可见 mesh
+ * @param {(mesh: THREE.Mesh) => boolean} [filter] - 可选过滤（室内场景只留
+ *   墙体/天花板/地板等结构件，家具不参与——否则 target→相机的射线会被
+ *   桌椅挡住，把机位距离错误收缩到家具前）
  */
-export function setCameraCollisionRoot(root) {
+export function setCameraCollisionRoot(root, filter = null) {
     collisionMeshes = [];
     root.updateWorldMatrix(true, true);
     root.traverse((child) => {
-        if (child.isMesh && child.visible) collisionMeshes.push(child);
+        if (child.isMesh && child.visible && (!filter || filter(child))) collisionMeshes.push(child);
     });
     console.log(`[CameraZones] 碰撞 mesh 数: ${collisionMeshes.length}`);
 }

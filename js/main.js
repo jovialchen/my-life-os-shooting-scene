@@ -206,7 +206,10 @@ initSceneManager({
             });
             refreshNavDoors();
             setZones(def.zones, def.categories);
-            setCameraCollisionRoot(group);
+            // 相机碰撞：室外用全部 mesh；室内只算结构件（墙/天花板/地板/门窗框），
+            // 家具不收缩机位（否则 target→相机射线被桌椅挡住，机位被拉到家具前）
+            setCameraCollisionRoot(group, def.id === 'outdoor' ? null :
+                (m) => /^(WALLS|CEILING|FLOOR|FRAMES|DOOR_)/.test(m.name));
             outline.selectedObjects = [group, humanoid];
             if (def.id === 'outdoor') updateSeason(seasonValue);
             // 光照换绑：室内关直射阳光/重摆窗光与顶灯，室外恢复默认

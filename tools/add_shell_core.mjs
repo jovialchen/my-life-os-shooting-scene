@@ -10,7 +10,10 @@
  * 1. GLASS_windows：窗户洞口填不透明玻璃面片（材质 MAT_window_glass，
  *    淡蓝灰平涂，后续时间系统按名联动变色）。面片位置从 WINDOW_01 格栅
  *    连通块自动聚类得出：按墙面平面分组（质心落在墙面 ±0.13 内），
- *    面内 bbox 间隙 ≤0.35 的连片成一面玻璃。厚度 0.07 居中嵌进墙腔，
+ *    面内 bbox 间隙 ≤0.35 的连成一簇；簇内再按 u 向真实间隙 >0.05 分列
+ *    （逐窗）、列内按 v 向间隙 >0.45 分段（分层），每段出一面玻璃——
+ *    玻璃贴合格栅实际覆盖范围（旧逻辑直接用整簇外接矩形，山墙三扇拱窗
+ *    被并成一面大矩形，顶角穿出屋顶）。厚度 0.07 居中嵌进墙腔，
  *    比格栅（0.11）薄，避免与格栅共面 z-fight；面内四周外扩 0.08 埋入
  *    窗框/墙体。楼梯扶手格栅不在外墙平面，自动跳过。
  *    注意 WINDOW_01 节点带 translation [0,~5.8,0]，聚类用世界坐标。
@@ -181,7 +184,9 @@ console.log('外墙窗平面:', planes.map((p) => `${'xyz'[p.axis]}=${p.value.to
 
 // ── 4. 把全部格栅件（含薄百叶/竖梃）按质心归到平面，再面内聚类 ──
 const PLANE_TOL = 0.13;    // 质心离平面超过此值不算该墙（扶手 z=-4.85 vs 北墙 -4.985 被排除）
-const GAP_2D = 0.35;       // 面内 bbox 间隙 <= 此值连成一面玻璃（窗梃缝 0.08、上下段缝 0.23）
+const GAP_2D = 0.35;       // 面内 bbox 间隙 <= 此值连成一簇（窗梃缝 0.08、上下段缝 0.23）
+const COL_GAP = 0.05;      // 簇内 u 向真实间隙 > 此值分列（窗与窗之间 0.17，逐窗出玻璃）
+const ROW_GAP = 0.45;      // 列内 v 向间隙 > 此值分段（窗梃缝 ≤0.42 不断；楼层间 1.44 断开）
 const PAD_2D = 0.08;       // 面内四周外扩，埋进窗框/墙
 const GLASS_HALF = 0.035;  // 玻璃半厚（0.07，比格栅 0.11 薄，避免共面）
 
@@ -206,23 +211,47 @@ for (const plane of planes) {
     const clusters = new Map();
     members.forEach((c, i) => {
         const r = fd(i);
-        if (!clusters.has(r)) clusters.set(r, { mins: [...c.mins], maxs: [...c.maxs] });
-        const cl = clusters.get(r);
-        for (let k = 0; k < 3; k++) {
-            cl.mins[k] = Math.min(cl.mins[k], c.mins[k]);
-            cl.maxs[k] = Math.max(cl.maxs[k], c.maxs[k]);
-        }
+        if (!clusters.has(r)) clusters.set(r, []);
+        clusters.get(r).push(c);
     });
-    for (const cl of clusters.values()) {
-        const box = { mins: [...cl.mins], maxs: [...cl.maxs] };
-        box.mins[u] -= PAD_2D; box.maxs[u] += PAD_2D;
-        box.mins[v] -= PAD_2D; box.maxs[v] += PAD_2D;
-        box.mins[plane.axis] = plane.value - GLASS_HALF;
-        box.maxs[plane.axis] = plane.value + GLASS_HALF;
-        panels.push(box);
+    // 簇 -> 按 u 向真实间隙分列（逐窗），列内按 v 向大间隙分段（分层）：
+    // 玻璃贴合格栅实际覆盖范围，不再用整簇外接矩形
+    // （旧逻辑把山墙三扇拱窗并成一面大矩形，顶角穿出屋顶）
+    let nPanes = 0;
+    for (const clMembers of clusters.values()) {
+        const cols = [];
+        for (const m of [...clMembers].sort((a, b) => a.mins[u] - b.mins[u])) {
+            const last = cols[cols.length - 1];
+            if (last && m.mins[u] - last.maxs[u] <= COL_GAP) {
+                last.maxs[u] = Math.max(last.maxs[u], m.maxs[u]);
+                last.members.push(m);
+            } else {
+                cols.push({ mins: [...m.mins], maxs: [...m.maxs], members: [m] });
+            }
+        }
+        for (const col of cols) {
+            const segs = [];
+            for (const m of [...col.members].sort((a, b) => a.mins[v] - b.mins[v])) {
+                const last = segs[segs.length - 1];
+                if (last && m.mins[v] - last.hi <= ROW_GAP) {
+                    last.hi = Math.max(last.hi, m.maxs[v]);
+                } else {
+                    segs.push({ lo: m.mins[v], hi: m.maxs[v] });
+                }
+            }
+            for (const s of segs) {
+                const box = { mins: [...col.mins], maxs: [...col.maxs] };
+                box.mins[u] -= PAD_2D; box.maxs[u] += PAD_2D;
+                box.mins[v] = s.lo - PAD_2D; box.maxs[v] = s.hi + PAD_2D;
+                box.mins[plane.axis] = plane.value - GLASS_HALF;
+                box.maxs[plane.axis] = plane.value + GLASS_HALF;
+                panels.push(box);
+                nPanes++;
+            }
+        }
     }
     console.log(`平面 ${'xyz'[plane.axis]}=${plane.value.toFixed(3)}: `
-        + `${members.length} 件 -> ${clusters.size} 面玻璃`);
+        + `${members.length} 件 -> ${clusters.size} 簇 -> ${nPanes} 面玻璃`);
 }
 
 // ── 5. 几何生成：盒体 / 三棱柱 -> 合并顶点表 ──

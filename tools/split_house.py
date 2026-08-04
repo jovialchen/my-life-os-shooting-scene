@@ -7,11 +7,13 @@
   - 密排竖梁隔一根删一根（间距 ~0.25m 的深色细条太多，墙面显得乱），
     每面墙保留首尾两列和通高角柱，并以左半墙为基准镜像对称
   - 背坡右半缺失的 5 根长斜梁从左半镜像补齐
-  - 屋顶/地板的内侧可见面（阁楼天花板、各层顶棚）改刷屋内色(wall)，
-    外侧面保持屋顶红/地板木色
+  - （已停用）屋顶/地板的内侧可见面改刷屋内色：室内已改为独立房间
+    场景、旧内饰被黑内胆封死，内外统一保持分类原色（REPAINT_INTERIOR）
   - 最后按材质拆成 6 个 object，导出 GLB
 
-用法: tools/blender.sh -b models_src/house.blend --python tools/split_house.py
+用法（Windows 本机，blender.sh 是 Linux 便携版包装）:
+  "C:/Program Files/Blender Foundation/Blender 5.1/blender.exe" \
+      -b models_src/house.blend --python tools/split_house.py
 """
 import os
 import sys
@@ -29,6 +31,9 @@ OUT_GLB = os.path.join(ROOT, 'models_src', 'house-split.glb')
 
 # 材质槽顺序固定，分类名 -> 槽位
 SLOTS = ['wall', 'roof', 'floor', 'door', 'window', 'trim']
+
+# 内侧面改刷屋内色（旧室内时代遗留）：False = 内外同色，只看外观
+REPAINT_INTERIOR = False
 
 
 def find_components(obj):
@@ -416,21 +421,25 @@ def main():
     print('部件数:', dict(cnt_parts))
     print('面数:', dict(cnt_faces))
 
-    # 屋顶/地板的内侧可见面改刷屋内色
-    n_in = adjust_interior_faces(obj, face_cat)
-    print(f'内侧面改色: {n_in} 面')
+    # 内侧面改刷屋内色（已停用：室内改为独立房间场景，旧内饰被黑内胆
+    # 封死不可见，改色只会在外观上留下突兀的米白块。房子现在只看外观，
+    # 每个连通块保持分类原色——屋顶全红、地板全木色、木架全深棕）
+    if REPAINT_INTERIOR:
+        # 屋顶/地板的内侧可见面改刷屋内色
+        n_in = adjust_interior_faces(obj, face_cat)
+        print(f'内侧面改色: {n_in} 面')
 
-    # 一楼两翼被误判成墙的室内地板改刷地板色
-    n_gf = repaint_ground_floor(obj, face_cat)
-    print(f'一楼地板改色: {n_gf} 面')
+        # 一楼两翼被误判成墙的室内地板改刷地板色
+        n_gf = repaint_ground_floor(obj, face_cat)
+        print(f'一楼地板改色: {n_gf} 面')
 
-    # 屋内 trim（竖梁/横梁）朝房间的面改刷屋内色
-    n_trim = repaint_interior_trim(obj, face_cat)
-    print(f'屋内木架改色: {n_trim} 面')
+        # 屋内 trim（竖梁/横梁）朝房间的面改刷屋内色
+        n_trim = repaint_interior_trim(obj, face_cat)
+        print(f'屋内木架改色: {n_trim} 面')
 
-    # 阁楼屋顶剩余内侧可见面统一刷屋内色（阁楼内墙/天花板同色）
-    n_attic = repaint_attic_roof(obj, face_cat)
-    print(f'阁楼内侧改色: {n_attic} 面')
+        # 阁楼屋顶剩余内侧可见面统一刷屋内色（阁楼内墙/天花板同色）
+        n_attic = repaint_attic_roof(obj, face_cat)
+        print(f'阁楼内侧改色: {n_attic} 面')
 
     # 建材质 + 材质槽
     mats = build_all_materials()

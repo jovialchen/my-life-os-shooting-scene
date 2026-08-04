@@ -86,7 +86,7 @@ const BASE_MATS = {
 const ROOMS = [
     {
         id: 'f1_kitchen', file: 'models/room_kitchen.glb',
-        w: 7, d: 5, h: 2.7,
+        w: 7, d: 7, h: 3,
         mats: {
             MAT_wall: '#F0E6D0', MAT_floor: '#B8C4C8',
             MAT_counter: '#8C9AA5', MAT_fridge: '#D8E0E4',
@@ -98,31 +98,31 @@ const ROOMS = [
         ],
         windows: [{ wall: 'N', ranges: [[-2.6, -1.3], [-0.4, 0.9]], y0: 0.9, y1: 2.1 }],
         furnish(add, B) {
-            // 北墙台面（避开门洞 x1.7..2.7）：灶台 + 水槽
+            // 北墙台面（避开门洞 x1.7..2.7 及其摆动区）：灶台 + 水槽
             add('FURN_counter', 'MAT_counter', (p) => {
-                B(p, -3.3, 0, 4.1, 1.5, 0.9, 4.9);
+                B(p, -3.3, 0, 6.1, 1.5, 0.9, 6.9);
             });
-            add('FURN_stove', 'MAT_fridge', (p) => B(p, -2.9, 0.9, 4.25, -2.1, 0.98, 4.75));
-            add('FURN_fridge', 'MAT_fridge', (p) => B(p, 2.75, 0, 0.3, 3.45, 1.9, 1.3));
+            add('FURN_stove', 'MAT_fridge', (p) => B(p, -2.9, 0.9, 6.25, -2.1, 0.98, 6.75));
+            add('FURN_fridge', 'MAT_fridge', (p) => B(p, 2.9, 0, 3.0, 3.45, 1.9, 4.0));
             // 餐桌 + 两把椅
             add('FURN_table', 'MAT_furniture', (p) => {
-                B(p, -0.7, 0.66, 1.6, 0.9, 0.74, 2.8);
-                for (const [lx, lz] of [[-0.7, 1.6], [0.84, 1.6], [-0.7, 2.74], [0.84, 2.74]])
+                B(p, -0.7, 0.66, 2.2, 0.9, 0.74, 3.4);
+                for (const [lx, lz] of [[-0.7, 2.2], [0.84, 2.2], [-0.7, 3.34], [0.84, 3.34]])
                     B(p, lx, 0, lz, lx + 0.06, 0.66, lz + 0.06);
             });
             add('FURN_chairs', 'MAT_furniture', (p) => {
-                B(p, -0.5, 0, 1.1, -0.1, 0.45, 1.5);
-                B(p, -0.5, 0.45, 1.1, -0.1, 0.95, 1.2);
-                B(p, 0.3, 0, 2.9, 0.7, 0.45, 3.3);
-                B(p, 0.3, 0.45, 3.2, 0.7, 0.95, 3.3);
+                B(p, -0.5, 0, 1.6, -0.1, 0.45, 2.0);
+                B(p, -0.5, 0.45, 1.6, -0.1, 0.95, 1.7);
+                B(p, 0.3, 0, 3.6, 0.7, 0.45, 4.0);
+                B(p, 0.3, 0.45, 3.9, 0.7, 0.95, 4.0);
             });
-            add('PLANT_pot', 'MAT_pot', (p) => B(p, -3.25, 0, 0.3, -2.85, 0.35, 0.7), { nav_ignore: true });
-            add('PLANT_leaves', 'MAT_plant', (p) => B(p, -3.2, 0.35, 0.35, -2.9, 0.85, 0.65), { nav_ignore: true });
+            add('PLANT_pot', 'MAT_pot', (p) => B(p, -3.3, 0, 0.3, -2.9, 0.35, 0.7), { nav_ignore: true });
+            add('PLANT_leaves', 'MAT_plant', (p) => B(p, -3.25, 0.35, 0.35, -2.95, 0.85, 0.65), { nav_ignore: true });
         },
     },
     {
         id: 'f1_bath', file: 'models/room_bath_f1.glb',
-        w: 2.5, d: 2.5, h: 2.4,
+        w: 7, d: 7, h: 3,
         mats: {
             MAT_wall: '#D8E4E8', MAT_floor: '#A8BCC4',
             MAT_fixture: '#F4F4F0', MAT_mirror: '#B8D8E8',
@@ -133,19 +133,19 @@ const ROOMS = [
         windows: [{ wall: 'N', ranges: [[-0.4, 0.4]], y0: 1.4, y1: 2.0 }],
         furnish(add, B) {
             add('FURN_toilet', 'MAT_fixture', (p) => {
-                B(p, 0.65, 0.3, 2.1, 1.1, 0.75, 2.45);   // 水箱
-                B(p, 0.65, 0, 1.65, 1.1, 0.4, 2.15);     // 座
+                B(p, 2.2, 0.3, 6.1, 2.65, 0.75, 6.45);   // 水箱
+                B(p, 2.2, 0, 5.65, 2.65, 0.4, 6.15);     // 座
             });
             add('FURN_sink', 'MAT_fixture', (p) => {
-                B(p, -1.1, 0.68, 1.85, -0.4, 0.78, 2.4); // 盆
-                B(p, -0.9, 0, 2.0, -0.6, 0.68, 2.3);     // 柱
+                B(p, -3.0, 0.68, 6.0, -2.3, 0.78, 6.55); // 盆
+                B(p, -2.8, 0, 6.15, -2.5, 0.68, 6.45);   // 柱
             });
-            add('MIRROR', 'MAT_mirror', (p) => B(p, -0.95, 1.05, 2.44, -0.55, 1.65, 2.48), { nav_ignore: true });
+            add('MIRROR', 'MAT_mirror', (p) => B(p, -2.85, 1.05, 6.94, -2.45, 1.65, 6.98), { nav_ignore: true });
         },
     },
     {
         id: 'f2_study', file: 'models/room_study.glb',
-        w: 6, d: 6, h: 2.7,
+        w: 7, d: 7, h: 3,
         mats: {
             MAT_wall: '#E8E0D0', MAT_floor: '#C9A876',
             MAT_furniture: '#A9744F', MAT_desk: '#8A6A4A',
@@ -162,27 +162,27 @@ const ROOMS = [
         furnish(add, B) {
             // 东墙书桌 + 椅
             add('FURN_desk', 'MAT_desk', (p) => {
-                B(p, 2.2, 0.64, 2.0, 2.9, 0.72, 3.4);
-                B(p, 2.2, 0, 2.0, 2.32, 0.64, 3.4);
-                B(p, 2.78, 0, 2.0, 2.9, 0.64, 3.4);
+                B(p, 2.7, 0.64, 2.5, 3.4, 0.72, 3.9);
+                B(p, 2.7, 0, 2.5, 2.82, 0.64, 3.9);
+                B(p, 3.28, 0, 2.5, 3.4, 0.64, 3.9);
             });
             add('FURN_chair', 'MAT_furniture', (p) => {
-                B(p, 1.55, 0, 2.5, 1.95, 0.45, 2.9);
-                B(p, 1.55, 0.45, 2.5, 1.65, 0.95, 2.9);
+                B(p, 2.05, 0, 3.0, 2.45, 0.45, 3.4);
+                B(p, 2.05, 0.45, 3.0, 2.15, 0.95, 3.4);
             });
-            // 西墙大书柜（南段，避开床2门洞 x-2.5..-1.5 摆动区）
+            // 西墙大书柜（北段，避开床2门洞 x-2.5..-1.5 摆动区）
             add('FURN_shelf', 'MAT_furniture', (p) => {
-                B(p, -2.95, 0, 3.2, -2.55, 1.9, 5.7);
-                for (const y of [0.6, 1.2]) B(p, -3.0, y, 3.25, -2.55, y + 0.06, 5.65);
+                B(p, -3.45, 0, 3.5, -3.05, 1.9, 6.0);
+                for (const y of [0.6, 1.2]) B(p, -3.5, y, 3.55, -3.05, y + 0.06, 5.95);
             });
-            add('RUG', 'MAT_rug', (p) => B(p, -1.2, 0.02, 2.2, 1.2, 0.035, 4.4), { nav_ignore: true });
-            add('PLANT_pot', 'MAT_pot', (p) => B(p, 2.55, 0, 5.2, 2.95, 0.35, 5.6), { nav_ignore: true });
-            add('PLANT_leaves', 'MAT_plant', (p) => B(p, 2.6, 0.35, 5.25, 2.9, 0.85, 5.55), { nav_ignore: true });
+            add('RUG', 'MAT_rug', (p) => B(p, -1.2, 0.02, 2.5, 1.2, 0.035, 4.7), { nav_ignore: true });
+            add('PLANT_pot', 'MAT_pot', (p) => B(p, 3.05, 0, 6.2, 3.45, 0.35, 6.6), { nav_ignore: true });
+            add('PLANT_leaves', 'MAT_plant', (p) => B(p, 3.1, 0.35, 6.25, 3.4, 0.85, 6.55), { nav_ignore: true });
         },
     },
     ...[1, 2, 3].map((n) => ({
         id: `f2_bed${n}`, file: `models/room_bed${n}.glb`,
-        w: 5, d: 4.5, h: 2.7,
+        w: 7, d: 7, h: 3,
         mats: {
             MAT_wall: ['#F2E4E0', '#E0E8F2', '#E4F0DC'][n - 1],
             MAT_floor: '#C9A876',
@@ -196,20 +196,20 @@ const ROOMS = [
         ],
         windows: [{ wall: 'N', ranges: [[0.6, 2.0]], y0: 0.9, y1: 2.1 }],
         furnish(add, B) {
-            // 床（西北角，避开浴室门洞 x-2.0..-1.0 摆动区 z<4.5）
+            // 床（西墙，床头北端，避开浴室门洞 x-2.0..-1.0 摆动区 z>6）
             add('FURN_bed', 'MAT_bed', (p) => {
-                B(p, -2.35, 0, 1.6, -0.95, 0.5, 3.3);      // 床架+床垫
-                B(p, -2.35, 0.5, 1.75, -0.95, 0.58, 3.1);  // 被面
+                B(p, -3.45, 0, 3.0, -2.05, 0.5, 4.7);      // 床架+床垫
+                B(p, -3.45, 0.5, 3.15, -2.05, 0.58, 4.55); // 被面
             });
-            add('FURN_headboard', 'MAT_furniture', (p) => B(p, -2.35, 0, 3.3, -0.95, 1.05, 3.42));
-            add('FURN_wardrobe', 'MAT_furniture', (p) => B(p, 1.9, 0, 0.2, 2.45, 2.0, 1.4));
-            add('FURN_desk', 'MAT_furniture', (p) => B(p, -2.35, 0, 0.4, -1.35, 0.7, 1.2));
-            add('RUG', 'MAT_rug', (p) => B(p, -0.6, 0.02, 1.6, 1.3, 0.035, 3.2), { nav_ignore: true });
+            add('FURN_headboard', 'MAT_furniture', (p) => B(p, -3.45, 0, 4.7, -2.05, 1.05, 4.82));
+            add('FURN_wardrobe', 'MAT_furniture', (p) => B(p, 2.85, 0, 0.4, 3.45, 2.0, 1.6));
+            add('FURN_desk', 'MAT_furniture', (p) => B(p, -3.4, 0, 0.35, -2.4, 0.7, 1.15));
+            add('RUG', 'MAT_rug', (p) => B(p, -1.6, 0.02, 2.4, 0.4, 0.035, 4.0), { nav_ignore: true });
         },
     })),
     ...[1, 2, 3].map((n) => ({
         id: `f2_bath${n}`, file: `models/room_bath${n}.glb`,
-        w: 2.5, d: 2.5, h: 2.4,
+        w: 7, d: 7, h: 3,
         mats: {
             MAT_wall: ['#E4DCD8', '#D8E0E8', '#DDE8D8'][n - 1],
             MAT_floor: '#A8BCC4',
@@ -221,23 +221,23 @@ const ROOMS = [
         windows: [{ wall: 'N', ranges: [[-0.4, 0.4]], y0: 1.4, y1: 2.0 }],
         furnish(add, B) {
             add('FURN_toilet', 'MAT_fixture', (p) => {
-                B(p, 0.65, 0.3, 2.1, 1.1, 0.75, 2.45);
-                B(p, 0.65, 0, 1.65, 1.1, 0.4, 2.15);
+                B(p, 2.2, 0.3, 6.1, 2.65, 0.75, 6.45);   // 水箱
+                B(p, 2.2, 0, 5.65, 2.65, 0.4, 6.15);     // 座
             });
             // 淋浴间（西墙，玻璃隔断）
             add('FURN_shower', 'MAT_shower', (p) => {
-                B(p, -1.2, 0, 1.5, -1.14, 2.0, 2.45);      // 隔断
-                B(p, -1.14, 1.9, 1.9, -0.7, 1.96, 2.0);    // 花洒杆
+                B(p, -2.75, 0, 3.6, -2.69, 2.0, 4.55);   // 隔断
+                B(p, -3.4, 1.9, 4.0, -2.75, 1.96, 4.1);  // 花洒杆
             });
             add('FURN_sink', 'MAT_fixture', (p) => {
-                B(p, 0.3, 0.68, 1.85, 1.0, 0.78, 2.4);
-                B(p, 0.5, 0, 2.0, 0.8, 0.68, 2.3);
+                B(p, 0.55, 0.68, 6.0, 1.25, 0.78, 6.55);
+                B(p, 0.75, 0, 6.15, 1.05, 0.68, 6.45);
             });
         },
     })),
     {
         id: 'attic_game_a', file: 'models/room_game_a.glb',
-        w: 6, d: 5, h: 2.4,
+        w: 7, d: 7, h: 3,
         mats: {
             MAT_wall: '#E0D8E8', MAT_floor: '#B89A78',
             MAT_furniture: '#8A6A4A', MAT_tv: '#2B2B33',
@@ -249,25 +249,25 @@ const ROOMS = [
         ],
         windows: [{ wall: 'N', ranges: [[-2.2, -0.9]], y0: 0.8, y1: 1.9 }],
         furnish(add, B) {
-            // 电视柜 + 电视（东北，避开 B 门洞 x1.3..2.3）
-            add('FURN_tvstand', 'MAT_furniture', (p) => B(p, 2.5, 0, 3.9, 2.95, 0.5, 4.4));
-            add('FURN_tv', 'MAT_tv', (p) => B(p, 2.55, 0.5, 4.0, 2.9, 1.35, 4.32));
+            // 电视柜 + 电视（东墙，避开 B 门洞 x1.3..2.3 摆动区）
+            add('FURN_tvstand', 'MAT_furniture', (p) => B(p, 3.0, 0, 3.9, 3.45, 0.5, 4.4));
+            add('FURN_tv', 'MAT_tv', (p) => B(p, 3.05, 0.5, 3.95, 3.4, 1.35, 4.35));
             // 懒人沙发朝电视
             add('FURN_sofa', 'MAT_sofa', (p) => {
-                B(p, 1.3, 0, 1.9, 2.3, 0.42, 2.8);
-                B(p, 1.3, 0.42, 1.9, 2.3, 0.7, 2.1);
+                B(p, 1.4, 0, 3.8, 2.4, 0.42, 4.7);
+                B(p, 1.4, 0.42, 3.8, 1.6, 0.7, 4.7);
             });
             // 西墙游戏架
             add('FURN_shelf', 'MAT_furniture', (p) => {
-                B(p, -2.95, 0, 2.0, -2.6, 1.6, 4.4);
-                B(p, -2.98, 0.7, 2.05, -2.6, 0.76, 4.35);
+                B(p, -3.45, 0, 2.5, -3.1, 1.6, 4.9);
+                B(p, -3.48, 0.7, 2.55, -3.1, 0.76, 4.85);
             });
-            add('RUG', 'MAT_rug', (p) => B(p, -1.4, 0.02, 1.4, 0.9, 0.035, 3.6), { nav_ignore: true });
+            add('RUG', 'MAT_rug', (p) => B(p, -1.9, 0.02, 2.0, 0.5, 0.035, 4.2), { nav_ignore: true });
         },
     },
     {
         id: 'attic_game_b', file: 'models/room_game_b.glb',
-        w: 5, d: 4.5, h: 2.4,
+        w: 7, d: 7, h: 3,
         mats: {
             MAT_wall: '#E8DCD0', MAT_floor: '#B89A78',
             MAT_furniture: '#8A6A4A', MAT_foosball: '#4A8C6A',
@@ -280,16 +280,16 @@ const ROOMS = [
         furnish(add, B) {
             // 桌上足球
             add('FURN_foosball', 'MAT_foosball', (p) => {
-                B(p, -1.0, 0.72, 1.5, 0.6, 1.0, 2.7);
-                for (const [lx, lz] of [[-1.0, 1.5], [0.54, 1.5], [-1.0, 2.64], [0.54, 2.64]])
+                B(p, -1.0, 0.72, 2.3, 0.6, 1.0, 3.5);
+                for (const [lx, lz] of [[-1.0, 2.3], [0.54, 2.3], [-1.0, 3.44], [0.54, 3.44]])
                     B(p, lx, 0, lz, lx + 0.06, 0.72, lz + 0.06);
             });
-            add('FURN_chest', 'MAT_chest', (p) => B(p, 1.7, 0, 3.5, 2.4, 0.6, 4.2));
+            add('FURN_chest', 'MAT_chest', (p) => B(p, 2.2, 0, 5.8, 2.9, 0.6, 6.5));
             add('FURN_sofa', 'MAT_sofa', (p) => {
-                B(p, -2.35, 0, 3.3, -1.35, 0.4, 4.2);
-                B(p, -2.35, 0.4, 3.95, -1.35, 0.85, 4.2);
+                B(p, -3.4, 0, 6.0, -2.4, 0.4, 6.9);
+                B(p, -3.4, 0.4, 6.65, -2.4, 0.85, 6.9);
             });
-            add('RUG', 'MAT_rug', (p) => B(p, -1.4, 0.02, 1.2, 1.0, 0.035, 3.2), { nav_ignore: true });
+            add('RUG', 'MAT_rug', (p) => B(p, -1.2, 0.02, 1.8, 0.8, 0.035, 3.8), { nav_ignore: true });
         },
     },
 ];

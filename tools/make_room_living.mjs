@@ -21,7 +21,7 @@ import { writeFileSync } from 'node:fs';
 const OUT = 'models/room_living.glb';
 
 // ── 房间参数 ──
-const W = 6, D = 5, H = 2.7, WT = 0.1;          // 内空 x±3, z 0..5, 墙高 2.7, 墙厚 0.1
+const W = 7, D = 7, H = 3, WT = 0.1;            // 内空 x±3.5, z 0..7, 墙高 3, 墙厚 0.1
 const DOOR_W = 1.0, DOOR_H = 2.1;               // 门洞（南墙 z=0，居中于原点）
 const WIN_Y0 = 0.9, WIN_Y1 = 2.1;               // 窗洞高
 const WIN_X = [[-1.9, -0.6], [1.95, 2.95]];    // 北墙两个窗洞 x 区间
@@ -116,13 +116,13 @@ add('WALLS', 'MAT_wall', (p) => {
         cur = x1;
     }
     pushBox(p, [cur, 0, -WT], [xw, H, 0]);
-    // 北墙（z=D，两窗洞 + 楼梯门洞）
+    // 北墙（z=D，开洞按 x 排序：窗0 [-1.9,-0.6]、楼梯门 [sd0,sd1]、窗1 [1.95,2.95]）
     const sd0 = STAIRS_DOOR_X - DOOR_W / 2, sd1 = STAIRS_DOOR_X + DOOR_W / 2;
     pushBox(p, [-xw, 0, D], [WIN_X[0][0], H, D + WT]);
-    pushBox(p, [WIN_X[0][1], 0, D], [WIN_X[1][0], H, D + WT]);
-    pushBox(p, [WIN_X[1][1], 0, D], [sd0, H, D + WT]);
+    pushBox(p, [WIN_X[0][1], 0, D], [sd0, H, D + WT]);
     pushBox(p, [sd0, DOOR_H, D], [sd1, H, D + WT]);      // 楼梯门过梁
-    pushBox(p, [sd1, 0, D], [xw, H, D + WT]);
+    pushBox(p, [sd1, 0, D], [WIN_X[1][0], H, D + WT]);
+    pushBox(p, [WIN_X[1][1], 0, D], [xw, H, D + WT]);
     for (const [x0, x1] of WIN_X) {
         pushBox(p, [x0, 0, D], [x1, WIN_Y0, D + WT]);          // 窗台
         pushBox(p, [x0, WIN_Y1, D], [x1, H, D + WT]);          // 窗上过梁
@@ -173,32 +173,32 @@ add('VIEW_window', 'MAT_window_view', (p) =>
 
 // 家具（不标属性 = 自动障碍）
 add('FURN_sofa', 'MAT_sofa', (p) => {   // 靠西墙，面朝 +x
-    pushBox(p, [-2.62, 0, 3.2], [-1.72, 0.42, 4.2]);      // 座
-    pushBox(p, [-2.92, 0, 3.2], [-2.62, 0.92, 4.2]);      // 靠背
-    pushBox(p, [-2.62, 0.42, 3.2], [-1.72, 0.66, 3.4]);   // 扶手
-    pushBox(p, [-2.62, 0.42, 4.0], [-1.72, 0.66, 4.2]);
+    pushBox(p, [-3.05, 0, 3.6], [-2.15, 0.42, 4.6]);      // 座
+    pushBox(p, [-3.35, 0, 3.6], [-3.05, 0.92, 4.6]);      // 靠背
+    pushBox(p, [-3.05, 0.42, 3.6], [-2.15, 0.66, 3.8]);   // 扶手
+    pushBox(p, [-3.05, 0.42, 4.4], [-2.15, 0.66, 4.6]);
 });
 add('FURN_table', 'MAT_furniture', (p) => {   // 沙发前茶几
-    pushBox(p, [-1.35, 0.32, 3.35], [-0.45, 0.40, 4.05]);
-    for (const [lx, lz] of [[-1.35, 3.35], [-0.51, 3.35], [-1.35, 3.99], [-0.51, 3.99]])
+    pushBox(p, [-1.75, 0.32, 3.75], [-0.85, 0.40, 4.45]);
+    for (const [lx, lz] of [[-1.75, 3.75], [-0.91, 3.75], [-1.75, 4.39], [-0.91, 4.39]])
         pushBox(p, [lx, 0, lz], [lx + 0.06, 0.32, lz + 0.06]);
 });
-add('FURN_tvstand', 'MAT_furniture', (p) => pushBox(p, [2.35, 0, 3.25], [2.9, 0.5, 4.15]));
-add('FURN_tv', 'MAT_tv', (p) => pushBox(p, [2.45, 0.5, 3.35], [2.65, 1.35, 4.05]));
+add('FURN_tvstand', 'MAT_furniture', (p) => pushBox(p, [2.85, 0, 3.65], [3.4, 0.5, 4.55]));
+add('FURN_tv', 'MAT_tv', (p) => pushBox(p, [2.95, 0.5, 3.75], [3.15, 1.35, 4.45]));
 add('FURN_shelf', 'MAT_furniture', (p) => {   // 东墙书柜
-    pushBox(p, [2.6, 0, 0.3], [2.95, 1.9, 1.5]);
-    pushBox(p, [2.55, 0.6, 0.35], [2.6, 0.66, 1.45]);     // 层板
-    pushBox(p, [2.55, 1.2, 0.35], [2.6, 1.26, 1.45]);
+    pushBox(p, [3.05, 0, 0.3], [3.4, 1.9, 1.5]);
+    pushBox(p, [3.0, 0.6, 0.35], [3.05, 0.66, 1.45]);     // 层板
+    pushBox(p, [3.0, 1.2, 0.35], [3.05, 1.26, 1.45]);
 });
 
 // 纯装饰（nav_ignore）
-add('RUG', 'MAT_rug', (p) => pushBox(p, [-1.6, 0.02, 2.55], [0.3, 0.035, 4.45]),
+add('RUG', 'MAT_rug', (p) => pushBox(p, [-1.6, 0.02, 3.0], [0.8, 0.035, 4.9]),
     { nav_ignore: true });
-add('PLANT_pot', 'MAT_pot', (p) => pushBox(p, [-2.85, 0, 0.25], [-2.45, 0.35, 0.65]),
+add('PLANT_pot', 'MAT_pot', (p) => pushBox(p, [-3.35, 0, 0.25], [-2.95, 0.35, 0.65]),
     { nav_ignore: true });
-add('PLANT_leaves', 'MAT_plant', (p) => pushBox(p, [-2.8, 0.35, 0.3], [-2.5, 0.85, 0.6]),
+add('PLANT_leaves', 'MAT_plant', (p) => pushBox(p, [-3.3, 0.35, 0.3], [-3.0, 0.85, 0.6]),
     { nav_ignore: true });
-add('LAMP', 'MAT_lamp', (p) => pushBox(p, [-0.25, 2.5, 2.25], [0.25, 2.68, 2.75]),
+add('LAMP', 'MAT_lamp', (p) => pushBox(p, [-0.25, H - 0.2, D / 2 - 0.25], [0.25, H - 0.02, D / 2 + 0.25]),
     { nav_ignore: true });
 
 // 出口门：原点在铰链底边（x=-0.48 西侧门框），向屋内（+z）平开 90°

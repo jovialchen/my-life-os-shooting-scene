@@ -53,16 +53,16 @@ export const CAMERA_FOLLOW_DEADZONE = 2.5;   // 跟随死区：角色离 target 
 // 每场景：独立 glb 内容 + 机位表 + 落点表；门 = 传送点
 // （门 extras: door_target_scene / door_target_spawn）
 // spawns 的 pos 为 three 坐标 [x,y,z]，rotY 为落地朝向（弧度）
-// ── 客厅机位（f1_living：房间 6×5×2.7m，原点在门口地板中心）──
+// ── 客厅机位（f1_living：房间 7×7×3m，原点在门口地板中心）──
 // 斜 45° 俯看全屋，轨道距离/俯仰锁小范围，转不出房间
 const LIVING_ZONES = [
     { id: 'living_main', name: '客厅', nameEn: 'Living', category: 'room',
-      pos: [-2.2, 2.2, 1.0], target: [0.8, 0.6, 3.4],
-      minDist: 1.2, maxDist: 5, maxPolar: Math.PI * 0.49,
+      pos: [-2.6, 2.5, 1.2], target: [0.9, 0.6, 4.6],
+      minDist: 1.2, maxDist: 7, maxPolar: Math.PI * 0.49,
       bounds: null },
     { id: 'living_window', name: '客厅·窗', nameEn: 'Living N', category: 'room',
-      pos: [2.3, 2.1, 4.4], target: [-1.4, 0.7, 1.0],
-      minDist: 1.2, maxDist: 6, maxPolar: Math.PI * 0.49,
+      pos: [2.7, 2.4, 6.3], target: [-1.4, 0.7, 1.2],
+      minDist: 1.2, maxDist: 8, maxPolar: Math.PI * 0.49,
       bounds: null },
 ];
 const LIVING_ZONE_CATEGORIES = [
@@ -79,7 +79,8 @@ function roomScene({ id, name, nameEn, glb, w, d, h, spawns, winLight, mirrorZon
         glbs: [glb],
         zones: [{
             id: `${id}_main`, name, nameEn, category: 'room',
-            pos: [sx * w * 0.35, h * 0.82, d * 0.16], target: [-sx * w * 0.18, 0.6, d * 0.66],
+            // 南墙角高位俯拍对角：尽量一屏看全 7×7 房间全景
+            pos: [sx * (w / 2 - 0.4), h * 0.88, 0.35], target: [-sx * 1.0, 0.5, d * 0.62],
             minDist: 1.0, maxDist: Math.max(w, d) * 1.1, maxPolar: Math.PI * 0.49,
             bounds: null,
         }],
@@ -104,32 +105,32 @@ const spS = (x) => ({ pos: [x, 0.02, 0.9], rotY: 0 });
 const spN = (x, d) => ({ pos: [x, 0.02, d - 0.9], rotY: Math.PI });
 const ROOM_SCENES = [
     roomScene({ id: 'f1_kitchen', name: '厨房', nameEn: 'Kitchen', glb: 'models/room_kitchen.glb',
-        w: 7, d: 5, h: 2.7, winLight: winN(-0.85, 5),
-        spawns: { default: spS(0), fromOutdoor: spN(2.2, 5) } }),
+        w: 7, d: 7, h: 3, winLight: winN(-0.85, 7),
+        spawns: { default: spS(0), fromOutdoor: spN(2.2, 7) } }),
     roomScene({ id: 'f1_bath', name: '客卫', nameEn: 'Bathroom', glb: 'models/room_bath_f1.glb',
-        w: 2.5, d: 2.5, h: 2.4, winLight: winN(0, 2.5),
+        w: 7, d: 7, h: 3, winLight: winN(0, 7),
         spawns: { default: spS(0) } }),
     roomScene({ id: 'f2_study', name: '学习室', nameEn: 'Study', glb: 'models/room_study.glb',
-        w: 6, d: 6, h: 2.7,
+        w: 7, d: 7, h: 3,
         winLight: { position: [1.95, 2.0, -2.0], target: [1.95, 0.4, 3.0] },   // 南窗
         spawns: {
             default: spS(0),          // 客厅楼梯上来
             fromBed2: spS(-2),
-            fromBed1: spN(-2, 6), fromBed3: spN(0, 6), fromAtticA: spN(2, 6),
+            fromBed1: spN(-2, 7), fromBed3: spN(0, 7), fromAtticA: spN(2, 7),
         } }),
     ...[1, 2, 3].map((n) => roomScene({
         id: `f2_bed${n}`, name: `卧室${n}`, nameEn: `Bedroom ${n}`, glb: `models/room_bed${n}.glb`,
-        w: 5, d: 4.5, h: 2.7, winLight: winN(1.3, 4.5), mirrorZone: true,   // 床在西北角，从东南拍
-        spawns: { default: spS(0), fromBath: { pos: [-1.5, 0.02, 3.8], rotY: Math.PI } } })),
+        w: 7, d: 7, h: 3, winLight: winN(1.3, 7), mirrorZone: true,   // 床在西墙，从东南拍
+        spawns: { default: spS(0), fromBath: { pos: [-1.5, 0.02, 6.1], rotY: Math.PI } } })),
     ...[1, 2, 3].map((n) => roomScene({
         id: `f2_bath${n}`, name: `卫生间${n}`, nameEn: `Bathroom ${n}`, glb: `models/room_bath${n}.glb`,
-        w: 2.5, d: 2.5, h: 2.4, winLight: winN(0, 2.5),
+        w: 7, d: 7, h: 3, winLight: winN(0, 7),
         spawns: { default: spS(0) } })),
     roomScene({ id: 'attic_game_a', name: '游戏室A', nameEn: 'Game Room A', glb: 'models/room_game_a.glb',
-        w: 6, d: 5, h: 2.4, winLight: winN(-1.55, 5),
-        spawns: { default: spS(0), fromStudy: spS(0), fromGameB: spN(1.8, 5) } }),
+        w: 7, d: 7, h: 3, winLight: winN(-1.55, 7),
+        spawns: { default: spS(0), fromStudy: spS(0), fromGameB: spN(1.8, 7) } }),
     roomScene({ id: 'attic_game_b', name: '游戏室B', nameEn: 'Game Room B', glb: 'models/room_game_b.glb',
-        w: 5, d: 4.5, h: 2.4, winLight: winN(0, 4.5),
+        w: 7, d: 7, h: 3, winLight: winN(0, 7),
         spawns: { default: spS(0) } }),
 ];
 
@@ -154,16 +155,16 @@ export const SCENES = [
           // 阶段 5：各房间回程落点（南墙客卫/厨房门、北墙楼梯门）
           fromBath: { pos: [-1.8, 0.02, 0.9], rotY: 0 },
           fromKitchen: { pos: [1.8, 0.02, 0.9], rotY: 0 },
-          fromStudy: { pos: [1.3, 0.02, 4.1], rotY: Math.PI },
+          fromStudy: { pos: [1.3, 0.02, 6.1], rotY: Math.PI },
       },
       // 室内光照（timeOfDay.setSceneProfile）：无直射阳光，窗光为主光源，
-      // 夜晚开顶灯；窗在北墙（z=5），灯在天花板 LAMP 吊灯下方
+      // 夜晚开顶灯；窗在北墙（z=7），灯在天花板 LAMP 吊灯下方
       lighting: {
           sun: 0,
           ambient: 0.75,
           spot: 1.3,
-          windowLight: { position: [0, 2.2, 7.5], target: [0, 0.4, 2.0] },
-          lamp: { position: [0, 2.4, 2.5], color: 0xFFD9A0, intensity: 1.6, distance: 7 },
+          windowLight: { position: [0, 2.2, 9.0], target: [0, 0.4, 3.0] },
+          lamp: { position: [0, 2.7, 3.5], color: 0xFFD9A0, intensity: 1.6, distance: 10 },
       } },
     ...ROOM_SCENES,
 ];
