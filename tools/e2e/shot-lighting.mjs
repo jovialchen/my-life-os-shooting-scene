@@ -91,14 +91,14 @@ const roomNoon = await page.evaluate(() => {
     };
 });
 check('客厅无直射阳光', roomNoon.sun === 0, String(roomNoon.sun));
-check('客厅 ambient 偏暗(0.4×0.75)', Math.abs(roomNoon.ambient - 0.3) < 0.01, String(roomNoon.ambient));
+check('客厅 ambient 偏暗(0.4×1.1)', Math.abs(roomNoon.ambient - 0.44) < 0.01, String(roomNoon.ambient));
 check('客厅窗光中午主光源(1.5×1.3)', Math.abs(roomNoon.spot - 1.95) < 0.01, String(roomNoon.spot));
 check('客厅窗光位姿按场景配置',
-    roomNoon.spotPos[0] === 0 && roomNoon.spotPos[1] === 2.2 && roomNoon.spotPos[2] === 7.5,
+    roomNoon.spotPos[0] === -1.45 && roomNoon.spotPos[1] === 2.2 && roomNoon.spotPos[2] === 9,
     roomNoon.spotPos.join(','));
 check('客厅顶灯中午关', roomNoon.lamp === 0, String(roomNoon.lamp));
 check('客厅顶灯位姿按场景配置',
-    roomNoon.lampPos[0] === 0 && roomNoon.lampPos[1] === 2.4 && roomNoon.lampPos[2] === 2.5,
+    roomNoon.lampPos[0] === 0 && roomNoon.lampPos[1] === 2.7 && roomNoon.lampPos[2] === 3.5,
     roomNoon.lampPos.join(','));
 check('窗景片中午亮蓝', roomNoon.view === 'bfe3ff', String(roomNoon.view));
 await page.screenshot({ path: 'temp/light_living_noon.png' });

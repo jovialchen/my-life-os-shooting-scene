@@ -11,6 +11,7 @@
  * 用法: node tools/make_rooms.mjs   → 写出 models/room_*.glb × 11
  */
 import { writeFileSync } from 'node:fs';
+import { PALETTE, BASE_MATS } from './room_palette.mjs';
 
 const WT = 0.1;          // 墙厚
 const DOOR_W = 1.0, DOOR_H = 2.1;
@@ -59,7 +60,57 @@ function pushQuadXZ(part, x0, z0, x1, z1, y) {
     part.idx.push(b, b + 2, b + 1, b, b + 3, b + 2);
 }
 
-/** 带洞口的墙（沿 x 方向，洞在 y0..y1、a0..a1 区间掏空） */
+/** 任意四边形（法线由叉积算；back=true 时反向再出一面 = 双面） */
+function pushQuad(part, corners, back = false) {
+    const [a, b, c, d] = corners;
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v = [d[0] - a[0], d[1] - a[1], d[2] - a[2]];
+    let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const len = Math.hypot(...n) || 1;
+    n = n.map((x) => x / len);
+    const emit = (cs, nn) => {
+        const b0 = part.verts.length / 3;
+        for (const p of cs) { part.verts.push(...p); part.norms.push(...nn); }
+        part.idx.push(b0, b0 + 1, b0 + 2, b0, b0 + 2, b0 + 3);
+    };
+    emit(corners, n);
+    if (back) emit([...corners].reverse(), n.map((x) => -x));
+}
+
+/** 洞口在高度 y 处的开口区间（拱窗按收缩级取宽） */
+function openingAt(hole, y) {
+    const cx = (hole.a0 + hole.a1) / 2, w = hole.a1 - hole.a0;
+    if (!hole.arch || y <= hole.y1 - 0.3) return [hole.a0, hole.a1];
+    if (y <= hole.y1 - 0.15) return [cx - w * 0.35, cx + w * 0.35];
+    return [cx - w * 0.175, cx + w * 0.175];
+}
+
+/** 山墙（人字坡两端的三角墙，沿 x 方向）：矩形段 0..eave + 扫描线切片三角段
+ *  洞口（门/拱窗）可从矩形段延续进三角段（阁楼门 2.1m 高过檐口） */
+function pushGableWallX(part, z0, z1, x0, x1, eave, ridge, holes) {
+    pushWallX(part, z0, z1, x0, x1, eave,
+        holes.map((h) => ({ ...h, y1: Math.min(h.y1, eave), arch: false })));
+    const DY = 0.2;
+    for (let yA = eave; yA < ridge - 0.001; yA += DY) {
+        const yB = Math.min(yA + DY, ridge);
+        const yM = (yA + yB) / 2;
+        const hw = x1 * (ridge - yM) / (ridge - eave);   // 该高度带的半宽
+        if (hw < 0.02) continue;
+        const opens = holes
+            .filter((h) => yB > h.y0 + 0.001 && yA < h.y1 - 0.001)
+            .map((h) => openingAt(h, yM))
+            .sort((a, b) => a[0] - b[0]);
+        let cur = -hw;
+        for (const [o0, o1] of opens) {
+            if (o0 - cur > 0.001) pushBox(part, [cur, yA, z0], [o0, yB, z1]);
+            cur = Math.max(cur, o1);
+        }
+        if (hw - cur > 0.001) pushBox(part, [cur, yA, z0], [hw, yB, z1]);
+    }
+}
+/** 带洞口的墙（沿 x 方向，洞在 y0..y1、a0..a1 区间掏空）
+ *  hole.arch=true 时洞顶为台阶拱：起拱线 y1-0.3，两级收缩 ×0.7/×0.35
+ * （各 0.15 高）——与外壳 WINDOW_01 的台阶拱同一语汇（doc/house-map.md） */
 function pushWallX(part, z0, z1, x0, x1, h, holes) {
     const sorted = [...holes].sort((a, b) => a.a0 - b.a0);
     let cur = x0;
@@ -67,6 +118,15 @@ function pushWallX(part, z0, z1, x0, x1, h, holes) {
         if (hole.a0 - cur > 0.001) pushBox(part, [cur, 0, z0], [hole.a0, h, z1]);
         if (hole.y0 > 0.001) pushBox(part, [hole.a0, 0, z0], [hole.a1, hole.y0, z1]);
         if (h - hole.y1 > 0.001) pushBox(part, [hole.a0, hole.y1, z0], [hole.a1, h, z1]);
+        if (hole.arch) {
+            const cx = (hole.a0 + hole.a1) / 2, w = hole.a1 - hole.a0;
+            const ys = hole.y1 - 0.3;
+            for (const [f, yA, yB] of [[0.7, ys, ys + 0.15], [0.35, ys + 0.15, hole.y1]]) {
+                const hw = w * f / 2;
+                pushBox(part, [hole.a0, yA, z0], [cx - hw, yB, z1]);
+                pushBox(part, [cx + hw, yA, z0], [hole.a1, yB, z1]);
+            }
+        }
         cur = Math.max(cur, hole.a1);
     }
     if (x1 - cur > 0.001) pushBox(part, [cur, 0, z0], [x1, h, z1]);
@@ -74,21 +134,17 @@ function pushWallX(part, z0, z1, x0, x1, h, holes) {
 
 // ── 房间规格 ──
 // doors:  { name, wall:'S'|'N', off(沿墙中心偏移), target:[scene,spawn] }
-// windows:{ wall:'S'|'N', ranges:[[a0,a1]..], y0, y1 }
+// windows:{ wall:'S'|'N', centers:[窗中心x..], width, y0, y1, arch }
+//   窗位/数量/宽度对应外壳实测（doc/house-map.md 对应表）；arch=台阶拱窗
+// gable:  { eave, ridge } 人字坡顶（阁楼）；缺省平顶
 // furnish(add, B): B(x0,y0,z0,x1,y1,z1) 便捷盒体
-const BASE_MATS = {
-    MAT_frame: '#6E4B32',
-    MAT_door: '#8A5A3B',
-    MAT_window_view: '#A8D8EA',
-    MAT_lamp: '#FFE9B8',
-};
-
+// 结构色统一取 tools/room_palette.mjs（PALETTE / BASE_MATS 已导入）
 const ROOMS = [
     {
         id: 'f1_kitchen', file: 'models/room_kitchen.glb',
         w: 7, d: 7, h: 3,
         mats: {
-            MAT_wall: '#F0E6D0', MAT_floor: '#B8C4C8',
+            MAT_wall: '#F0E6D0', MAT_floor: PALETTE.floorTile,
             MAT_counter: '#8C9AA5', MAT_fridge: '#D8E0E4',
             MAT_furniture: '#A9744F', MAT_rug: '#C9B458', MAT_pot: '#B0764A', MAT_plant: '#5E8C5A',
         },
@@ -96,7 +152,8 @@ const ROOMS = [
             { name: 'DOOR_living', wall: 'S', off: 0, target: ['f1_living', 'fromKitchen'] },
             { name: 'DOOR_outdoor', wall: 'N', off: 2.2, target: ['outdoor', 'houseEast'] },
         ],
-        windows: [{ wall: 'N', ranges: [[-2.6, -1.3], [-0.4, 0.9]], y0: 0.9, y1: 2.1 }],
+        // W4 北墙东段 F1 3 拱窗（避让北门洞 1.7..2.7）
+        windows: [{ wall: 'N', centers: [-1.4, -0.45, 0.5], width: 0.87, y0: 0.55, y1: 2.45, arch: true }],
         furnish(add, B) {
             // 北墙台面（避开门洞 x1.7..2.7 及其摆动区）：灶台 + 水槽
             add('FURN_counter', 'MAT_counter', (p) => {
@@ -124,13 +181,13 @@ const ROOMS = [
         id: 'f1_bath', file: 'models/room_bath_f1.glb',
         w: 7, d: 7, h: 3,
         mats: {
-            MAT_wall: '#D8E4E8', MAT_floor: '#A8BCC4',
+            MAT_wall: '#D8E4E8', MAT_floor: PALETTE.floorTile,
             MAT_fixture: '#F4F4F0', MAT_mirror: '#B8D8E8',
         },
         doors: [
             { name: 'DOOR_living', wall: 'S', off: 0, target: ['f1_living', 'fromBath'] },
         ],
-        windows: [{ wall: 'N', ranges: [[-0.4, 0.4]], y0: 1.4, y1: 2.0 }],
+        windows: [],   // 卫生间无窗（doc/house-map.md）
         furnish(add, B) {
             add('FURN_toilet', 'MAT_fixture', (p) => {
                 B(p, 2.2, 0.3, 6.1, 2.65, 0.75, 6.45);   // 水箱
@@ -147,7 +204,7 @@ const ROOMS = [
         id: 'f2_study', file: 'models/room_study.glb',
         w: 7, d: 7, h: 3,
         mats: {
-            MAT_wall: '#E8E0D0', MAT_floor: '#C9A876',
+            MAT_wall: '#E8E0D0', MAT_floor: PALETTE.floorWood,
             MAT_furniture: '#A9744F', MAT_desk: '#8A6A4A',
             MAT_rug: '#7A8CAA', MAT_pot: '#B0764A', MAT_plant: '#5E8C5A',
         },
@@ -158,7 +215,8 @@ const ROOMS = [
             { name: 'DOOR_bed3', wall: 'N', off: 0, target: ['f2_bed3', 'default'] },
             { name: 'DOOR_stairs_up', wall: 'N', off: 2, target: ['attic_game_a', 'fromStudy'] },
         ],
-        windows: [{ wall: 'S', ranges: [[1.3, 2.6]], y0: 0.9, y1: 2.1 }],
+        // W8 的 F2 层（西前立面 1 拱窗；房内 5 门占满墙面，只能放 1 窗）
+        windows: [{ wall: 'S', centers: [1.95], width: 0.87, y0: 0.55, y1: 2.45, arch: true }],
         furnish(add, B) {
             // 东墙书桌 + 椅
             add('FURN_desk', 'MAT_desk', (p) => {
@@ -178,6 +236,19 @@ const ROOMS = [
             add('RUG', 'MAT_rug', (p) => B(p, -1.2, 0.02, 2.5, 1.2, 0.035, 4.7), { nav_ignore: true });
             add('PLANT_pot', 'MAT_pot', (p) => B(p, 3.05, 0, 6.2, 3.45, 0.35, 6.6), { nav_ignore: true });
             add('PLANT_leaves', 'MAT_plant', (p) => B(p, 3.1, 0.35, 6.25, 3.4, 0.85, 6.55), { nav_ignore: true });
+            // 实体楼梯（阶段 2.3）：东墙 z4.0→6.08 向北上行（DOOR_stairs_up 在旁，通向阁楼）
+            // 8 步：踏面 0.26、级高 0.32；西沿阶梯挡板每两级一段
+            add('STAIRS', 'MAT_frame', (p) => {
+                for (let k = 1; k <= 8; k++) {
+                    const z1 = 4.0 + 0.26 * k, z0 = z1 - 0.26, top = 0.32 * k;
+                    B(p, 2.79, 0, z0, 3.45, top, z1);
+                }
+                B(p, 2.71, 0, 4.0, 2.79, 1.44, 4.52);
+                B(p, 2.71, 0, 4.52, 2.79, 2.08, 5.04);
+                B(p, 2.71, 0, 5.04, 2.79, 2.72, 5.56);
+                B(p, 2.71, 0, 5.56, 2.79, 2.95, 6.08);
+                B(p, 2.71, 0, 3.92, 3.45, 1.1, 4.0);   // 底部新柱（横档）
+            });
         },
     },
     ...[1, 2, 3].map((n) => ({
@@ -185,7 +256,7 @@ const ROOMS = [
         w: 7, d: 7, h: 3,
         mats: {
             MAT_wall: ['#F2E4E0', '#E0E8F2', '#E4F0DC'][n - 1],
-            MAT_floor: '#C9A876',
+            MAT_floor: PALETTE.floorWood,
             MAT_bed: ['#D98E6A', '#7A9EC9', '#8CB87A'][n - 1],
             MAT_blanket: ['#E8B49A', '#A8C4E4', '#B4D8A4'][n - 1],
             MAT_furniture: '#A9744F', MAT_rug: ['#C96F5A', '#6A8CB8', '#6AA86A'][n - 1],
@@ -194,7 +265,10 @@ const ROOMS = [
             { name: 'DOOR_study', wall: 'S', off: 0, target: ['f2_study', `fromBed${n}`] },
             { name: 'DOOR_bath', wall: 'N', off: -1.5, target: [`f2_bath${n}`, 'default'] },
         ],
-        windows: [{ wall: 'N', ranges: [[0.6, 2.0]], y0: 0.9, y1: 2.1 }],
+        // 北墙 F2 3 拱窗（避让卫生间门洞 -2..-1）；bed3 改南墙 2 窗（W11+W13，避让南门洞）
+        windows: n < 3
+            ? [{ wall: 'N', centers: [-0.4, 0.55, 1.5], width: 0.87, y0: 0.55, y1: 2.45, arch: true }]
+            : [{ wall: 'S', centers: [-2, 2], width: 0.87, y0: 0.55, y1: 2.45, arch: true }],
         furnish(add, B) {
             // 床（西墙，床头北端，避开浴室门洞 x-2.0..-1.0 摆动区 z>6）
             add('FURN_bed', 'MAT_bed', (p) => {
@@ -212,13 +286,13 @@ const ROOMS = [
         w: 7, d: 7, h: 3,
         mats: {
             MAT_wall: ['#E4DCD8', '#D8E0E8', '#DDE8D8'][n - 1],
-            MAT_floor: '#A8BCC4',
+            MAT_floor: PALETTE.floorTile,
             MAT_fixture: '#F4F4F0', MAT_shower: '#9AB8C8',
         },
         doors: [
             { name: 'DOOR_bed', wall: 'S', off: 0, target: [`f2_bed${n}`, 'fromBath'] },
         ],
-        windows: [{ wall: 'N', ranges: [[-0.4, 0.4]], y0: 1.4, y1: 2.0 }],
+        windows: [],   // 卫生间无窗（doc/house-map.md）
         furnish(add, B) {
             add('FURN_toilet', 'MAT_fixture', (p) => {
                 B(p, 2.2, 0.3, 6.1, 2.65, 0.75, 6.45);   // 水箱
@@ -238,8 +312,9 @@ const ROOMS = [
     {
         id: 'attic_game_a', file: 'models/room_game_a.glb',
         w: 7, d: 7, h: 3,
+        gable: { eave: 1.6, ridge: 3.2 },   // 人字坡顶：山墙在南北，屋脊沿 z
         mats: {
-            MAT_wall: '#E0D8E8', MAT_floor: '#B89A78',
+            MAT_wall: '#E0D8E8', MAT_floor: PALETTE.floorWood,
             MAT_furniture: '#8A6A4A', MAT_tv: '#2B2B33',
             MAT_sofa: '#B87AB8', MAT_rug: '#8A6AC9',
         },
@@ -247,7 +322,8 @@ const ROOMS = [
             { name: 'DOOR_stairs', wall: 'S', off: 0, target: ['f2_study', 'fromAtticA'] },
             { name: 'DOOR_game_b', wall: 'N', off: 1.8, target: ['attic_game_b', 'default'] },
         ],
-        windows: [{ wall: 'N', ranges: [[-2.2, -0.9]], y0: 0.8, y1: 1.9 }],
+        // W14 西山墙 3 拱窗（山墙=北墙，避让北门洞 1.3..2.3；坡顶在阶段 2.2）
+        windows: [{ wall: 'N', centers: [-1.9, -0.95, 0], width: 0.87, y0: 1.1, y1: 2.9, arch: true }],
         furnish(add, B) {
             // 电视柜 + 电视（东墙，避开 B 门洞 x1.3..2.3 摆动区）
             add('FURN_tvstand', 'MAT_furniture', (p) => B(p, 3.0, 0, 3.9, 3.45, 0.5, 4.4));
@@ -268,15 +344,17 @@ const ROOMS = [
     {
         id: 'attic_game_b', file: 'models/room_game_b.glb',
         w: 7, d: 7, h: 3,
+        gable: { eave: 1.6, ridge: 3.2 },
         mats: {
-            MAT_wall: '#E8DCD0', MAT_floor: '#B89A78',
+            MAT_wall: '#E8DCD0', MAT_floor: PALETTE.floorWood,
             MAT_furniture: '#8A6A4A', MAT_foosball: '#4A8C6A',
             MAT_chest: '#C9A44A', MAT_rug: '#C98A5A', MAT_sofa: '#D9A06A',
         },
         doors: [
             { name: 'DOOR_game_a', wall: 'S', off: 0, target: ['attic_game_a', 'fromGameB'] },
         ],
-        windows: [{ wall: 'N', ranges: [[-0.8, 0.8]], y0: 0.8, y1: 1.9 }],
+        // W15 东山墙 3 拱窗
+        windows: [{ wall: 'N', centers: [-0.95, 0, 0.95], width: 0.87, y0: 1.1, y1: 2.9, arch: true }],
         furnish(add, B) {
             // 桌上足球
             add('FURN_foosball', 'MAT_foosball', (p) => {
@@ -306,12 +384,13 @@ function buildRoom(spec) {
     }
     const B = (p, x0, y0, z0, x1, y1, z1) => pushBox(p, [x0, y0, z0], [x1, y1, z1]);
 
-    // 洞口表（南/北墙：门 + 窗）
+    // 洞口表（南/北墙：门 + 窗）；窗 centers → ranges
+    const winRanges = (wn) => wn.centers.map((c) => [c - wn.width / 2, c + wn.width / 2]);
     const holesFor = (wall) => [
         ...spec.doors.filter((dr) => dr.wall === wall)
             .map((dr) => ({ a0: dr.off - DOOR_W / 2, a1: dr.off + DOOR_W / 2, y0: 0, y1: DOOR_H })),
         ...spec.windows.filter((wn) => wn.wall === wall)
-            .flatMap((wn) => wn.ranges.map(([a0, a1]) => ({ a0, a1, y0: wn.y0, y1: wn.y1 }))),
+            .flatMap((wn) => winRanges(wn).map(([a0, a1]) => ({ a0, a1, y0: wn.y0, y1: wn.y1, arch: wn.arch }))),
     ];
     // 洞口重叠检查（建模错误会产出碎墙）
     for (const wall of ['S', 'N']) {
@@ -323,19 +402,36 @@ function buildRoom(spec) {
         }
     }
 
-    // 地板 + WALK 逻辑面 + 天花板
+    // 地板 + WALK 逻辑面 + 天花板（阁楼为人字坡顶：两片坡面，檐口 eave → 屋脊 ridge）
+    const gb = spec.gable ?? null;
     add('FLOOR_visible', 'MAT_floor', (p) => B(p, -xw, -0.06, 0, xw, 0, d));
     add('WALK_floor', 'MAT_floor',
         (p) => pushQuadXZ(p, -xw + 0.05, 0.05, xw - 0.05, d - 0.05, 0.015),
         { surface_walkable: true });
-    add('CEILING', 'MAT_wall', (p) => B(p, -xw - WT, h, -WT, xw + WT, h + 0.12, d + WT));
+    add('CEILING', 'MAT_wall', (p) => {
+        if (!gb) {
+            B(p, -xw - WT, h, -WT, xw + WT, h + 0.12, d + WT);
+        } else {
+            pushQuad(p, [[-xw - WT, gb.eave, -WT], [-xw - WT, gb.eave, d + WT],
+                         [0, gb.ridge, d + WT], [0, gb.ridge, -WT]], true);
+            pushQuad(p, [[xw + WT, gb.eave, -WT], [xw + WT, gb.eave, d + WT],
+                         [0, gb.ridge, d + WT], [0, gb.ridge, -WT]], true);
+        }
+    });
 
-    // 墙体：南(z=0)/北(z=d) 带洞，东/西 实心
+    // 墙体：南(z=0)/北(z=d) 带洞（阁楼为山墙：矩形段+三角段），东/西 实心（阁楼到檐口）
     add('WALLS', 'MAT_wall', (p) => {
-        pushWallX(p, -WT, 0, -xw, xw, h, holesFor('S'));
-        pushWallX(p, d, d + WT, -xw, xw, h, holesFor('N'));
-        B(p, -xw - WT, 0, -WT, -xw, h, d + WT);
-        B(p, xw, 0, -WT, xw + WT, h, d + WT);
+        if (!gb) {
+            pushWallX(p, -WT, 0, -xw, xw, h, holesFor('S'));
+            pushWallX(p, d, d + WT, -xw, xw, h, holesFor('N'));
+            B(p, -xw - WT, 0, -WT, -xw, h, d + WT);
+            B(p, xw, 0, -WT, xw + WT, h, d + WT);
+        } else {
+            pushGableWallX(p, -WT, 0, -xw, xw, gb.eave, gb.ridge, holesFor('S'));
+            pushGableWallX(p, d, d + WT, -xw, xw, gb.eave, gb.ridge, holesFor('N'));
+            B(p, -xw - WT, 0, -WT, -xw, gb.eave, d + WT);
+            B(p, xw, 0, -WT, xw + WT, gb.eave, d + WT);
+        }
     });
 
     // 门框 + 窗框（十字棂 + 窗台板）
@@ -354,22 +450,36 @@ function buildRoom(spec) {
             const z1 = wn.wall === 'S' ? 0.03 : d + WT + 0.03;
             const zw0 = wn.wall === 'S' ? -WT : d;
             const zw1 = wn.wall === 'S' ? 0 : d + WT;
-            for (const [x0, x1] of wn.ranges) {
-                B(p, x0 - j, wn.y0 - j, z0, x0, wn.y1 + j, z1);
-                B(p, x1, wn.y0 - j, z0, x1 + j, wn.y1 + j, z1);
-                B(p, x0 - j, wn.y1, z0, x1 + j, wn.y1 + j, z1);
+            for (const [x0, x1] of winRanges(wn)) {
+                const ys = wn.arch ? wn.y1 - 0.3 : wn.y1;   // 起拱线（矩形段顶）
+                B(p, x0 - j, wn.y0 - j, z0, x0, ys + j, z1);
+                B(p, x1, wn.y0 - j, z0, x1 + j, ys + j, z1);
                 B(p, x0 - j - 0.02, wn.y0 - j - 0.04, Math.min(z0, z1) - 0.01, x1 + j + 0.02, wn.y0, Math.max(z0, z1));
-                const cx = (x0 + x1) / 2, cy = (wn.y0 + wn.y1) / 2, m = 0.02;
-                B(p, cx - m, wn.y0, zw0, cx + m, wn.y1, zw1);   // 竖棂
-                B(p, x0, cy - m, zw0, x1, cy + m, zw1);         // 横棂
+                const cx = (x0 + x1) / 2, cy = (wn.y0 + ys) / 2, m = 0.02;
+                B(p, cx - m, wn.y0, zw0, cx + m, ys, zw1);    // 竖棂（矩形段）
+                B(p, x0, cy - m, zw0, x1, cy + m, zw1);       // 横棂
+                if (wn.arch) {
+                    // 拱顶框：起拱线横梁 + 两级踏步边梃 + 顶梁
+                    const w = x1 - x0;
+                    B(p, x0 - j, ys, z0, x1 + j, ys + j, z1);
+                    const hw1 = w * 0.7 / 2, hw2 = w * 0.35 / 2;
+                    B(p, cx - hw1 - j, ys, z0, cx - hw1, ys + 0.15, z1);
+                    B(p, cx + hw1, ys, z0, cx + hw1 + j, ys + 0.15, z1);
+                    B(p, cx - hw2 - j, ys + 0.15, z0, cx - hw2, wn.y1, z1);
+                    B(p, cx + hw2, ys + 0.15, z0, cx + hw2 + j, wn.y1, z1);
+                    B(p, cx - hw2 - j, wn.y1, z0, cx + hw2 + j, wn.y1 + j, z1);
+                } else {
+                    B(p, x0 - j, wn.y1, z0, x1 + j, wn.y1 + j, z1);
+                }
             }
         }
     });
 
     // 窗景片（每面有窗的墙一片，外侧 0.4m）
     for (const wn of spec.windows) {
-        const a0 = Math.min(...wn.ranges.map((r) => r[0])) - 0.4;
-        const a1 = Math.max(...wn.ranges.map((r) => r[1])) + 0.4;
+        const ranges = winRanges(wn);
+        const a0 = Math.min(...ranges.map((r) => r[0])) - 0.4;
+        const a1 = Math.max(...ranges.map((r) => r[1])) + 0.4;
         const [z0, z1] = wn.wall === 'S' ? [-0.46, -0.4] : [d + 0.4, d + 0.46];
         add(`VIEW_window_${wn.wall}`, 'MAT_window_view',
             (p) => B(p, a0, wn.y0 - 0.25, z0, a1, wn.y1 + 0.25, z1),

@@ -306,11 +306,29 @@ spawns 落点表（`fromXxx` 命名；南门到达 `rotY=0` 面朝 +z，北门�
 **落点必须避开家具 bbox**（含门摆动弧）——`tools/test-nav-rooms.mjs` 会对每个
 spawn 做 `isWalkableWorld` 检查并测 default↔各 spawn 双向寻路。
 
-### 7.5 验收流程（每个新房间/改连接后必跑）
+### 7.5 窗户 / 坡顶 / 楼梯 / 色板（plan-0805 阶段 2/3）
+
+- **窗户与外壳一一对应**：每房的窗数量/宽度/间距照搬外壳实测，对应表见
+  `doc/house-map.md`（内部图纸；测绘 `node tools/survey_windows.mjs`）。
+  窗规格：`windows: [{ wall, centers:[...], width, y0, y1, arch }]`；
+  `arch=true` 为**台阶拱窗**（起拱线 y1-0.3，两级收缩 ×0.7/×0.35，与外壳
+  WINDOW_01 同一语汇）；卫生间×4 无窗（`windows: []`，config 侧 `winless`：
+  无窗光、顶灯常开 `lamp.min`）
+- **人字坡顶（阁楼）**：spec 加 `gable: { eave: 1.6, ridge: 3.2 }`——山墙
+  （南北墙）矩形段到 eave + 扫描线三角段到 ridge，洞口（门/拱窗）可延续
+  进三角段；东西墙只到檐口；机位用 `zonePos/zoneTarget` 压到屋脊下高区
+- **实体楼梯**：客厅（北墙，9 步跨楼梯门上方，k≥7 悬空切片）与学习室
+  （东墙，8 步）各一段 `STAIRS` 节点（自动障碍；净空规则 y>CHAR_HEIGHT
+  不挡导航）；楼梯节点断言在 check_room_glb.py 的 STAIRS_EXPECT
+- **统一色板**：结构色（墙/地/框/门/窗景/灯）一律取
+  `tools/room_palette.mjs` 的 `PALETTE`/`BASE_MATS`，不在 spec 里另写 hex
+
+### 7.6 验收流程（每个新房间/改连接后必跑）
 
 ```bash
 node tools/make_rooms.mjs                      # 重新生成 glb
-python3 tools/check_room_glb.py models/room_xxx.glb   # 规范校验
+python3 tools/check_room_glb.py models/room_xxx.glb   # 规范校验（含窗位/楼梯/坡顶断言）
 node tools/test-nav-rooms.mjs                  # 全房间导航连通
 node tools/e2e/shot-all-rooms.mjs <baseUrl>    # 全动线 E2E（门图+落点）
+node tools/e2e/shot-roomnav.mjs <baseUrl>      # 直达导航面板 E2E
 ```

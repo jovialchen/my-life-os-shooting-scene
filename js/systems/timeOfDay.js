@@ -32,7 +32,7 @@ const VIEW_EMISSIVE = 0.55;
  */
 export function createTimeOfDay(scene, lighting) {
     let currentValue = 2;               // 当前时段（切场景后重套用）
-    let profile = { sun: 1, ambient: 1, spot: 1, lamp: 0 };   // 场景光照倍率
+    let profile = { sun: 1, ambient: 1, spot: 1, lamp: 0, lampMin: 0, fill: 1 };   // 场景光照倍率
     const tintMats = [];                // { mat, kind }
     const lastTint = new THREE.Color(TIME_PRESETS[2].view);
     const lastGlow = { color: new THREE.Color(TIME_PRESETS[2].glow), intensity: TIME_PRESETS[2].glowI };
@@ -74,9 +74,9 @@ export function createTimeOfDay(scene, lighting) {
         lighting.setLevels({
             sun:     lerp(a.sun,     b.sun,     t) * profile.sun,
             ambient: lerp(a.ambient, b.ambient, t) * profile.ambient,
-            fill:    lerp(a.fill,    b.fill,    t),
+            fill:    lerp(a.fill,    b.fill,    t) * profile.fill,
             spot:    lerp(a.spot,    b.spot,    t) * profile.spot,
-            lamp:    lerp(a.lamp,    b.lamp,    t) * profile.lamp,
+            lamp:    Math.max(lerp(a.lamp, b.lamp, t), profile.lampMin) * profile.lamp,
         });
 
         scene.background = new THREE.Color(a.bg).lerp(new THREE.Color(b.bg), t);
@@ -91,7 +91,7 @@ export function createTimeOfDay(scene, lighting) {
     /**
      * 换绑场景光照配置（场景切换时调用）
      * @param {object|null} def - SCENES[*].lighting；null = 默认（室外）
-     *   { sun, ambient, spot 倍率, windowLight: {position,target}, lamp: {position,color,intensity,distance} }
+     *   { sun, ambient, spot 倍率, windowLight: {position,target}, lamp: {position,color,intensity,distance,min?} }
      */
     function setSceneProfile(def) {
         profile = {
@@ -99,6 +99,10 @@ export function createTimeOfDay(scene, lighting) {
             ambient: def?.ambient ?? 1,
             spot: def?.spot ?? 1,
             lamp: def?.lamp ? (def.lamp.intensity ?? 1) : 0,
+            // 无窗房顶灯常开下限（lamp.min：时段系数低于它仍按它算，卫生间白天也亮灯）
+            lampMin: def?.lamp?.min ?? 0,
+            // 室内压暗蓝色补光（FILL_LIGHT 偏蓝，满强度会把墙照成脏灰）
+            fill: def?.fill ?? 1,
         };
         if (def?.windowLight) {
             lighting.setWindowLightPose(def.windowLight.position, def.windowLight.target);

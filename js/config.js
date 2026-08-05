@@ -72,15 +72,17 @@ const LIVING_ZONE_CATEGORIES = [
 // ── 房间场景模板（阶段 5：11 间房共用）──
 // 单主机位：斜 45° 俯看全屋；光照：无直射阳光、窗光主光源、夜间顶灯
 // winLight: 窗光位姿（窗外 2m 照向屋内），spawns 见各房间连接表
-function roomScene({ id, name, nameEn, glb, w, d, h, spawns, winLight, mirrorZone = false }) {
+// winless=true：无窗房（卫生间）——无窗光、顶灯为主光源
+function roomScene({ id, name, nameEn, glb, w, d, h, spawns, winLight, mirrorZone = false, winless = false, zonePos = null, zoneTarget = null }) {
     const sx = mirrorZone ? 1 : -1;   // 家具偏西墙的房间（卧室）从东南角拍西北
     return {
         id, name, nameEn,
         glbs: [glb],
         zones: [{
             id: `${id}_main`, name, nameEn, category: 'room',
-            // 南墙角高位俯拍对角：尽量一屏看全 7×7 房间全景
-            pos: [sx * (w / 2 - 0.4), h * 0.88, 0.35], target: [-sx * 1.0, 0.5, d * 0.62],
+            // 南墙角高位俯拍对角：尽量一屏看全 7×7 房间全景（阁楼坡顶用 zonePos 压低机位）
+            pos: zonePos ?? [sx * (w / 2 - 0.4), h * 0.88, 0.35],
+            target: zoneTarget ?? [-sx * 1.0, 0.5, d * 0.62],
             minDist: 1.0, maxDist: Math.max(w, d) * 1.1, maxPolar: Math.PI * 0.49,
             bounds: null,
         }],
@@ -88,12 +90,14 @@ function roomScene({ id, name, nameEn, glb, w, d, h, spawns, winLight, mirrorZon
         spawns,
         lighting: {
             sun: 0,
-            ambient: 0.75,
-            spot: 1.3,
-            windowLight: winLight,
+            ambient: winless ? 1.15 : 1.1,
+            fill: 0.25,   // 室内压暗蓝色补光
+            spot: winless ? 0 : 1.3,
+            ...(winLight ? { windowLight: winLight } : {}),
             lamp: {
                 position: [0, h - 0.3, d / 2], color: 0xFFD9A0,
-                intensity: 1.6, distance: Math.max(w, d) * 1.4,
+                intensity: winless ? 2.2 : 1.6, distance: Math.max(w, d) * 1.4,
+                ...(winless ? { min: 0.8 } : {}),   // 无窗房顶灯常开（白天也亮）
             },
         },
     };
@@ -105,14 +109,14 @@ const spS = (x) => ({ pos: [x, 0.02, 0.9], rotY: 0 });
 const spN = (x, d) => ({ pos: [x, 0.02, d - 0.9], rotY: Math.PI });
 const ROOM_SCENES = [
     roomScene({ id: 'f1_kitchen', name: '厨房', nameEn: 'Kitchen', glb: 'models/room_kitchen.glb',
-        w: 7, d: 7, h: 3, winLight: winN(-0.85, 7),
+        w: 7, d: 7, h: 3, winLight: winN(-0.45, 7),   // W4 北墙 3 拱窗组中心
         spawns: { default: spS(0), fromOutdoor: spN(2.2, 7) } }),
     roomScene({ id: 'f1_bath', name: '客卫', nameEn: 'Bathroom', glb: 'models/room_bath_f1.glb',
-        w: 7, d: 7, h: 3, winLight: winN(0, 7),
+        w: 7, d: 7, h: 3, winLight: null, winless: true,
         spawns: { default: spS(0) } }),
     roomScene({ id: 'f2_study', name: '学习室', nameEn: 'Study', glb: 'models/room_study.glb',
         w: 7, d: 7, h: 3,
-        winLight: { position: [1.95, 2.0, -2.0], target: [1.95, 0.4, 3.0] },   // 南窗
+        winLight: { position: [1.95, 2.0, -2.0], target: [1.95, 0.4, 3.0] },   // 南墙 1 拱窗（W8 F2）
         spawns: {
             default: spS(0),          // 客厅楼梯上来
             fromBed2: spS(-2),
@@ -120,17 +124,23 @@ const ROOM_SCENES = [
         } }),
     ...[1, 2, 3].map((n) => roomScene({
         id: `f2_bed${n}`, name: `卧室${n}`, nameEn: `Bedroom ${n}`, glb: `models/room_bed${n}.glb`,
-        w: 7, d: 7, h: 3, winLight: winN(1.3, 7), mirrorZone: true,   // 床在西墙，从东南拍
+        w: 7, d: 7, h: 3, mirrorZone: true,   // 床在西墙，从东南拍
+        // bed1/2 北墙 3 拱窗（W2/W5，组中心 0.55）；bed3 南墙 2 拱窗（W11+W13）
+        winLight: n < 3 ? winN(0.55, 7)
+            : { position: [0, 2.0, -2.0], target: [0, 0.4, 3.0] },
         spawns: { default: spS(0), fromBath: { pos: [-1.5, 0.02, 6.1], rotY: Math.PI } } })),
     ...[1, 2, 3].map((n) => roomScene({
         id: `f2_bath${n}`, name: `卫生间${n}`, nameEn: `Bathroom ${n}`, glb: `models/room_bath${n}.glb`,
-        w: 7, d: 7, h: 3, winLight: winN(0, 7),
+        w: 7, d: 7, h: 3, winLight: null, winless: true,
         spawns: { default: spS(0) } })),
     roomScene({ id: 'attic_game_a', name: '游戏室A', nameEn: 'Game Room A', glb: 'models/room_game_a.glb',
-        w: 7, d: 7, h: 3, winLight: winN(-1.55, 7),
+        w: 7, d: 7, h: 3, winLight: winN(-0.95, 7),   // W14 山墙 3 拱窗组中心
+        // 坡顶阁楼：机位压在屋脊下高区（檐口 1.6 处不能用默认 2.64 高位机位）
+        zonePos: [-1.2, 1.9, 0.4], zoneTarget: [0.5, 0.8, 4.4],
         spawns: { default: spS(0), fromStudy: spS(0), fromGameB: spN(1.8, 7) } }),
     roomScene({ id: 'attic_game_b', name: '游戏室B', nameEn: 'Game Room B', glb: 'models/room_game_b.glb',
         w: 7, d: 7, h: 3, winLight: winN(0, 7),
+        zonePos: [1.2, 1.9, 0.4], zoneTarget: [-0.5, 0.8, 4.4],   // 桌上足球偏西，从东南拍
         spawns: { default: spS(0) } }),
 ];
 
@@ -158,19 +168,20 @@ export const SCENES = [
           fromStudy: { pos: [1.3, 0.02, 6.1], rotY: Math.PI },
       },
       // 室内光照（timeOfDay.setSceneProfile）：无直射阳光，窗光为主光源，
-      // 夜晚开顶灯；窗在北墙（z=7），灯在天花板 LAMP 吊灯下方
+      // 夜晚开顶灯；窗在北墙（z=7，3 拱窗组中心 x-1.45），灯在天花板 LAMP 吊灯下方
       lighting: {
           sun: 0,
-          ambient: 0.75,
+          ambient: 1.1,
+          fill: 0.25,
           spot: 1.3,
-          windowLight: { position: [0, 2.2, 9.0], target: [0, 0.4, 3.0] },
+          windowLight: { position: [-1.45, 2.2, 9.0], target: [-1.45, 0.4, 3.0] },
           lamp: { position: [0, 2.7, 3.5], color: 0xFFD9A0, intensity: 1.6, distance: 10 },
       } },
     ...ROOM_SCENES,
 ];
 
 // 渲染器参数
-export const TONE_MAPPING_EXPOSURE = 1.1;
+export const TONE_MAPPING_EXPOSURE = 1.15;
 
 // 后期处理 — Bloom
 export const BLOOM_STRENGTH  = 0.15;
@@ -178,8 +189,8 @@ export const BLOOM_RADIUS    = 0.6;
 export const BLOOM_THRESHOLD = 0.85;
 
 // 后期处理 — 三渲二描边（OutlinePass，见 systems/toon.js）
-export const OUTLINE_STRENGTH  = 2.5;
-export const OUTLINE_THICKNESS = 1.0;
+export const OUTLINE_STRENGTH  = 3.0;
+export const OUTLINE_THICKNESS = 1.5;
 export const OUTLINE_COLOR     = '#4a3f35';   // 深棕，比纯黑柔和
 
 // 点击检测（拖动 vs 点击阈值，px）
@@ -188,7 +199,7 @@ export const CLICK_DRAG_THRESHOLD = 5;
 // ── 灯光系统 ──
 
 // 环境光
-export const AMBIENT_LIGHT_COLOR     = 0xf0f0f0;
+export const AMBIENT_LIGHT_COLOR     = 0xf7efdf;   // 暖白（手绘风暖基调）
 export const AMBIENT_LIGHT_INTENSITY = 0.5;
 
 // 主方向光（太阳）

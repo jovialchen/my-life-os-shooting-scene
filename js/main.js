@@ -52,9 +52,10 @@ import {
     setCameraCollisionRoot, setZones,
 } from './systems/cameraZones.js';
 import {
-    initSceneManager, registerSceneContainer, setInitialScene, switchTo,
+    initSceneManager, registerSceneContainer, setInitialScene, switchTo, getActiveScene,
 } from './systems/sceneManager.js';
 import { initDoorPrompt, updateDoorPrompt } from './systems/doorPrompt.js';
+import { initRoomNav } from './systems/roomNav.js';
 import { parseSurfaces } from './systems/surfaceParser.js';
 import { applyToonShading } from './systems/toon.js';
 
@@ -236,6 +237,9 @@ initDoorPrompt({
     onTrigger: (door) => switchTo(door.targetScene, door.targetSpawn ?? undefined),
 });
 
+// 房间直达导航面板（全部场景一键直达，门动线之外的捷径）
+initRoomNav({ onJump: (sceneId) => switchTo(sceneId) });
+
 // ============================================================
 //  灯光 + 时间系统
 // ============================================================
@@ -319,7 +323,7 @@ function animate() {
 animate();
 
 // 调试句柄（控制台/自动化测试用）：window.__app
-window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo, config: { SCENES } };
+window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo, getActiveScene, config: { SCENES } };
 
 // ============================================================
 //  截图调试模式（无头浏览器验收用，不影响正常交互）

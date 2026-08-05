@@ -18,8 +18,8 @@ let _gradientMap = null;
 export function createToonGradient(steps = 3) {
     const data = new Uint8Array(steps);
     for (let i = 0; i < steps; i++) {
-        // 0 最暗 ~ 255 最亮；暗部抬高一点，保持可爱风格的通透感
-        data[i] = Math.round(120 + (135 * i) / (steps - 1));
+        // 0 最暗 ~ 255 最亮；暗部压低拉开明暗对比（手绘风硬切色阶）
+        data[i] = Math.round(112 + (143 * i) / (steps - 1));
     }
     const tex = new THREE.DataTexture(data, steps, 1, THREE.RedFormat);
     tex.minFilter = THREE.NearestFilter;
