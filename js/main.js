@@ -17,7 +17,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
-import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
 
@@ -26,7 +25,6 @@ import {
     CAMERA_FOV, CAMERA_NEAR, CAMERA_FAR, CAMERA_POS, CAMERA_TARGET,
     TONE_MAPPING_EXPOSURE,
     BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,
-    OUTLINE_STRENGTH, OUTLINE_THICKNESS, OUTLINE_COLOR,
     ORBIT_DAMPING, ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
     CAMERA_ZONES, SCENES,
 } from './config.js';
@@ -57,7 +55,7 @@ import {
 import { initDoorPrompt, updateDoorPrompt } from './systems/doorPrompt.js';
 import { initRoomNav } from './systems/roomNav.js';
 import { parseSurfaces } from './systems/surfaceParser.js';
-import { applyToonShading } from './systems/toon.js';
+import { applyInkShading, createInkPaperPass, createInkMist, setInkTime, updateInk } from './systems/inkwash.js';
 
 // ── UI ──
 import { initUI, updateCompass } from './ui.js';
@@ -136,6 +134,10 @@ const { group: houseShellGroup } = createHouseShell({
 });
 scene.add(houseShellGroup);
 
+// 水墨雾片（环岛 + 低空雾毯；切到室内场景时隐藏，见 onActivated）
+const inkMist = createInkMist();
+scene.add(inkMist);
+
 // ============================================================
 //  季节系统（草地 + 树木/花果；具体目标在模型加载后注入）
 // ============================================================
@@ -163,7 +165,7 @@ initCameraZones(camera, controls, renderer, humanoid);
 initSceneManager({
     scene,
     hooks: {
-        // 室内场景按需加载：glb → 三渲二 → 隐藏 WALK_ → 返回容器
+        // 室内场景按需加载：glb → 水墨材质 → 隐藏 WALK_ → 返回容器
         // （门不在此注册——onActivated 统一 clearDoors + 重注册，保证状态恢复）
         loadScene: (def) => new Promise((resolve) => {
             new GLTFLoader().load(
@@ -172,7 +174,7 @@ initSceneManager({
                     const group = new THREE.Group();
                     group.name = `scene:${def.id}`;
                     const model = gltf.scene;
-                    applyToonShading(model);   // 三渲二：Standard → MeshToonMaterial
+                    applyInkShading(model);   // 水墨：Standard → 无光照晕染材质
                     model.traverse((child) => {
                         if (!child.isMesh) return;
                         child.castShadow = true;
@@ -211,7 +213,7 @@ initSceneManager({
             // 家具不收缩机位（否则 target→相机射线被桌椅挡住，机位被拉到家具前）
             setCameraCollisionRoot(group, def.id === 'outdoor' ? null :
                 (m) => /^(WALLS|CEILING|FLOOR|FRAMES|DOOR_)/.test(m.name));
-            outline.selectedObjects = [group, humanoid];
+            inkMist.visible = def.id === 'outdoor';   // 雾片只在室外场景
             if (def.id === 'outdoor') updateSeason(seasonValue);
             // 光照换绑：室内关直射阳光/重摆窗光与顶灯，室外恢复默认
             timeOfDay.setSceneProfile(def.lighting ?? null);
@@ -245,6 +247,11 @@ initRoomNav({ onJump: (sceneId) => switchTo(sceneId) });
 // ============================================================
 const lighting = createLighting(scene);
 const timeOfDay = createTimeOfDay(scene, lighting);
+// 水墨模式：不打光，时段变化只改全局色温/纸色/雾（蒙版 update，覆盖所有调用路径）
+{
+    const _update = timeOfDay.update;
+    timeOfDay.update = (v) => { _update(v); setInkTime(v, scene); };
+}
 // 初始场景套用光照配置（内部按当前时段重算强度）；默认中午
 timeOfDay.setSceneProfile(SCENES.find((s) => s.id === 'outdoor')?.lighting ?? null);
 timeOfDay.update(2);
@@ -263,18 +270,9 @@ initUI({
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
-// 三渲二描边（房子/岛屿/角色）
-const outline = new OutlinePass(
-    new THREE.Vector2(innerWidth, innerHeight), scene, camera
-);
-outline.edgeStrength = OUTLINE_STRENGTH;
-outline.edgeGlow = 0.0;
-outline.edgeThickness = OUTLINE_THICKNESS;
-outline.pulsePeriod = 0;
-outline.visibleEdgeColor.set(OUTLINE_COLOR);
-outline.hiddenEdgeColor.set(OUTLINE_COLOR);
-outline.selectedObjects = [houseShellGroup, humanoid];
-composer.addPass(outline);
+// 水墨风不描边（原作无轮廓线）；纸感后处理：S 曲线 + 纸底 + 纸纹 + 暗角
+const paperPass = createInkPaperPass();
+composer.addPass(paperPass);
 
 const bloom = new UnrealBloomPass(
     new THREE.Vector2(innerWidth, innerHeight),
@@ -291,6 +289,7 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
     composer.setSize(innerWidth, innerHeight);
+    paperPass.uniforms.uRes.value.set(innerWidth, innerHeight);
 });
 
 // ============================================================
@@ -317,13 +316,14 @@ function animate() {
     updateWalker(delta);
     updateDoors(delta);
     updateDoorPrompt();
+    updateInk(delta);   // 水墨雾漂移
 
     composer.render();
 }
 animate();
 
 // 调试句柄（控制台/自动化测试用）：window.__app
-window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo, getActiveScene, config: { SCENES } };
+window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo, getActiveScene, teleport, config: { SCENES } };
 
 // ============================================================
 //  截图调试模式（无头浏览器验收用，不影响正常交互）

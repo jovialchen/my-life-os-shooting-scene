@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { registerDoor } from '../systems/doors.js';
 import { parseSurfaces } from '../systems/surfaceParser.js';
-import { applyToonShading } from '../systems/toon.js';
+import { applyInkShading, cloneInkMaterial } from '../systems/inkwash.js';
 
 // ── 草地/岛屿参数（花园/栅栏/寻路等模块依赖）──
 const GRASS_RADIUS = 25;
@@ -55,7 +55,7 @@ export function createHouseShell({ onModelsReady } = {}) {
         (gltf) => {
             const island = gltf.scene;
             island.name = 'islandModel';
-            applyToonShading(island);   // 三渲二：Standard → MeshToonMaterial
+            applyInkShading(island);   // 水墨：Standard → 无光照晕染材质
 
             const trunks = new Map();       // treeKey → {x, z}（缩放锚点用）
             const treeParts = new Map();    // treeKey → { leaves, fruits, snow }
@@ -97,7 +97,8 @@ export function createHouseShell({ onModelsReady } = {}) {
                                { x: child.position.x, z: child.position.z });
                 } else if (ud.season_leaves && child.isMesh) {
                     // 每棵树克隆独立材质：各自的花色/秋色需要单独着色
-                    child.material = child.material.clone();
+                    // （cloneInkMaterial：Material.clone 丢 onBeforeCompile，需重挂水墨注入）
+                    child.material = cloneInkMaterial(child.material);
                     partOf(child.name.replace(/_leaves$/, '')).leaves = child;
                 } else if (ud.season_fruits) {
                     partOf(child.name.replace(/_fruits$/, '')).fruits = child;
@@ -150,7 +151,7 @@ export function createHouseShell({ onModelsReady } = {}) {
         (gltf) => {
             const model = gltf.scene;
             model.name = 'houseModel';
-            applyToonShading(model);   // 三渲二：Standard → MeshToonMaterial
+            applyInkShading(model);   // 水墨：Standard → 无光照晕染材质
 
             // 给所有 mesh 打上 isOccluder 标记（墙体遮挡透明系统用）
             // 带 interactable_type='door' 的门板注册到门交互系统

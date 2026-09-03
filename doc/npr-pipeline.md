@@ -1,4 +1,36 @@
-# 三渲二（NPR）方案：Blender 还是 Three.js？
+# 渲染风格：水墨管线（当前）/ 三渲二（旧）
+
+> **2026-09 更新**：项目已从三渲二切换到国风水墨管线（对标《诗中世界2.blend》）。
+> 下方"三渲二方案"保留作历史参考，对应代码 `js/systems/toon.js` 仍可用但未接入。
+
+## 水墨管线（js/systems/inkwash.js）
+
+灵感来源：《诗中世界2.blend》整个场景 **0 盏灯**，全部材质是
+Emission（无光照）+ 垂直渐变 ColorRamp + 3D Noise 晕染 + AO 暖棕 + 菲涅尔雾片。
+光影是"画"上去的，不是算出来的。
+
+Three.js 侧复刻：
+
+| 原作（Blender） | 本项目（Three.js） |
+|---|---|
+| Emission 无光照 | MeshBasicMaterial + onBeforeCompile 注入 |
+| Noise → ColorRamp 晕染 | GLSL 3D value noise（世界坐标，uBlotch 强度） |
+| AO 暖棕凹陷 | 低处水渍暗边（uLowY/uLowStain，近地面染晕） |
+| LayerWeight 菲涅尔雾片 | createInkMist()：噪声透明度 + 四边渐隐的雾片组 |
+| 宣纸纹理背景 | 纸感后处理 Pass（S 曲线 + 纸底提亮 + 纸纹颗粒 + 暗角）+ 暖雾融边 |
+| 时段变化 | setInkTime()：不打光，只改全局乘色 uTimeTint / 纸色 / 雾色 |
+
+接入点：
+- `houseShell.js` / `main.js` 的 loadScene：`applyInkShading(root)` 替代 applyToonShading
+- 材质保留 `name`/`color`/`map`：季节系统（set color）照常工作
+- `MAT_window_view` / `MAT_window_glass` 例外保留 toon（timeOfDay 的 emissive 变色依赖它）
+- 克隆材质必须用 `cloneInkMaterial()`（Material.clone 丢 onBeforeCompile）
+- `main.js` 蒙版 `timeOfDay.update` → 每次时段变化后调 `setInkTime`
+- 雾片只在室外场景显示（onActivated 里 `inkMist.visible`）
+
+---
+
+# 旧方案存档：三渲二（NPR）：Blender 还是 Three.js？
 
 ## 结论先行
 

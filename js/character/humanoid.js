@@ -61,6 +61,15 @@ export function createHumanoid() {
                     child.castShadow = true;
                     child.receiveShadow = true;
 
+                    // 水墨环境适配：MToon 阴影色偏灰（shadeColorFactor 默认偏暗灰），
+                    // 往受光色拉回 45%，阴影保有原来的色相但不发灰
+                    const mats = Array.isArray(child.material) ? child.material : [child.material];
+                    for (const m of mats) {
+                        if (m?.isMToonMaterial && m.shadeColorFactor) {
+                            m.shadeColorFactor.lerp(m.color ?? new THREE.Color(0xffffff), 0.45);
+                        }
+                    }
+
                     // 检测 ShaderMaterial（MToon），替换为 MeshStandardMaterial
                     if (child.material && child.material.type === 'ShaderMaterial') {
                         const m = child.material;
