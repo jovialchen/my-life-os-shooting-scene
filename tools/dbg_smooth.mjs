@@ -1,0 +1,13 @@
+import { register } from 'node:module';
+register('./test-nav-loader.mjs', import.meta.url);
+const THREE = await import('three');
+const { buildNavGrid, rebuildDynamicObstacles, findPath, smoothPath } = await import('../js/character/pathfinding.js');
+const { parseGlbNodes } = await import('./nav-glb.mjs');
+const { walkable, obstacles } = parseGlbNodes(['models/room_living.glb']);
+buildNavGrid({ walkable, obstacles });
+rebuildDynamicObstacles([]);
+const path = findPath(new THREE.Vector3(0, 0.02, 0.9), new THREE.Vector3(3.55, 3.03, 9.3));
+console.log('findPath 点数:', path.length);
+const sm = smoothPath(path);
+console.log('smoothPath 点数:', sm.length);
+for (const p of sm) console.log(`  (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`);

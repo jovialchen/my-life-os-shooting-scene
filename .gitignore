@@ -5,6 +5,8 @@ tools/__pycache__/
 tools/e2e/.cache
 # 调试渲染产物（tools/preview.py 等可随时重新生成）
 tools/preview/
+# e2e 截图产物（tools/e2e/shot-*.mjs 可随时重新生成）
+temp/
 
 # Blender 自动备份
 *.blend1

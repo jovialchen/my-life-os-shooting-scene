@@ -247,6 +247,9 @@ export function smoothPath(path) {
     while (anchor < path.length - 1) {
         let farthest = anchor + 1;
         for (let i = anchor + 2; i < path.length; i++) {
+            // 跨层段（楼梯等 |Δy| > MAX_STEP）不拉直——平滑后的斜线偏离梯段中线时，
+            // 行走会撞上踏步侧壁卡死（实测：客厅楼梯斜切后卡在楼梯侧面）
+            if (Math.abs(path[i].y - path[anchor].y) > MAX_STEP) break;
             if (hasLineOfSight(path[anchor], path[i])) {
                 farthest = i;
             }

@@ -1,18 +1,26 @@
-/** 阶段 3.1：客厅样板间生成器（纯 Node 写 GLB，无需 Blender）
+/** 客厅生成器（纯 Node 写 GLB，无需 Blender）
  *
- * 原计划为 Blender 脚本（tools/make_room_living.py）；当前设备无 Blender，
- * 改为程序化直写 GLB（与 tools/add_shell_core.mjs 同一套 glTF 写法）。
+ * 2026-09 三次改造：房间扩容 7×7 → **10 宽 × 12 深**（x ±5，z 0..12），
+ * 先做空壳（只有门/窗/楼梯），家具后续再加。
  *
- * 全项目房间规范（后续 11 间房以此为模板）：
+ * 楼梯（本版核心改动）：
+ *   - 沿**东墙**从南向北上爬（17 步，踏面 0.28、级高 3.0/17≈0.176），
+ *     东北角到顶平台（y=3.0），顶部升入天花板井口上的 STAIRWELL 暗井；
+ *   - 楼梯**可行走**：每步顶面 + 平台铺 WALK_ 面（surface_walkable），
+ *     可见梯体 STAIRS 标 nav_ignore（导航只认 WALK_ 面）；
+ *   - 传送上楼 = 走入暗井触发区（config.js f1_living.triggers → f2_study），
+ *     不再设楼梯门；学习室回程落在楼梯顶（spawns.fromStudy）。
+ *
+ * 全项目房间规范（其余 11 间房以 make_rooms.mjs 为模板，规范一致）：
  *   - 坐标系：房间独立坐标，**原点在门口地板中心**（three 坐标：y 上，z 进房间）
  *   - 地板：可见 FLOOR_visible + WALK_floor 逻辑面（抬高 0.015，
  *     extras surface_walkable=True，JS 端隐藏只作导航数据）
  *   - 墙/天花板/家具：平涂材质（rough=1/metal=0），不标属性（自动障碍）；
- *     纯装饰（地毯/盆栽/吊灯/窗景片）标 nav_ignore
+ *     纯装饰（窗景片/暗井/可见梯体）标 nav_ignore
  *   - 门：独立 mesh、origin 在铰链底边、door extras +
  *     door_target_scene / door_target_spawn（传送目标）
  *   - 窗户：墙体开口 + 窗框；窗口外侧放窗景片（材质 MAT_window_view，
- *     标 nav_ignore；时间系统按材质名联动变色，阶段 4）
+ *     标 nav_ignore；时间系统按材质名联动变色）
  *
  * 用法: node tools/make_room_living.mjs   → 写出 models/room_living.glb
  */
@@ -22,14 +30,21 @@ import { PALETTE } from './room_palette.mjs';
 const OUT = 'models/room_living.glb';
 
 // ── 房间参数 ──
-const W = 7, D = 7, H = 3, WT = 0.1;            // 内空 x±3.5, z 0..7, 墙高 3, 墙厚 0.1
+const W = 10, D = 12, H = 3, WT = 0.1;          // 内空 x±5, z 0..12, 墙高 3, 墙厚 0.1
 const DOOR_W = 1.0, DOOR_H = 2.1;               // 门洞（南墙 z=0，居中于原点）
-// 北墙 3 拱窗（W1 北墙西段 F1：宽 0.87 间距 0.95，避让楼梯门洞 0.8..1.8，doc/house-map.md）
-const WIN = { centers: [-2.4, -1.45, -0.5], width: 0.87, y0: 0.55, y1: 2.45, arch: true };
+// 北墙 3 拱窗偏西（让开东墙楼梯；窗宽 0.87 间距 0.95，与外壳 W1 语汇一致）
+const WIN = { centers: [-3.0, -2.05, -1.1], width: 0.87, y0: 0.55, y1: 2.45, arch: true };
 const WIN_X = WIN.centers.map((c) => [c - WIN.width / 2, c + WIN.width / 2]);
-// 阶段 5：南墙加厨房/客卫门，北墙加楼梯门（→学习室）
-const S_DOORS = [-1.8, 0, 1.8];                 // 南墙三个门洞中心（客卫/出口/厨房）
-const STAIRS_DOOR_X = 1.3;                      // 北墙楼梯门洞中心（落点避开电视柜/沙发/茶几）
+// 南墙三门：客卫 / 大门（居中）/ 厨房
+const S_DOORS = [-2.8, 0, 2.8];
+// 楼梯：东墙（x 4.1..5.0），z 5.9 起步向北爬 17 步到 y=3.0，东北角平台
+const ST = {
+    x0: 4.1, z0: 5.9, steps: 17,
+    tread: 0.28, rise: 3.0 / 17,
+    landingZ0: 5.9 + 16 * 0.28,    // 最后一步 z 起点 10.38；平台延伸到北墙
+};
+// 天花板井口（楼梯上段上方）：x 4.0..5.1, z 7.4..12.1
+const HOLE = { x0: 4.0, x1: W / 2 + WT, z0: 7.4, z1: D + WT };
 
 // ── 材质（平涂：rough=1 metal=0）；结构色统一取 tools/room_palette.mjs ──
 const MATS = {
@@ -37,14 +52,9 @@ const MATS = {
     MAT_floor: PALETTE.floorWood,
     MAT_frame: PALETTE.frame,
     MAT_door: PALETTE.door,
-    MAT_window_view: PALETTE.windowView,   // 窗景片：白天亮蓝（时段变色阶段 4 做）
-    MAT_sofa: '#D98E6A',
-    MAT_furniture: '#A9744F',
-    MAT_tv: '#2B2B33',
-    MAT_rug: '#C96F5A',
-    MAT_pot: '#B0764A',
-    MAT_plant: '#5E8C5A',
-    MAT_lamp: PALETTE.lamp,
+    MAT_window_view: PALETTE.windowView,   // 窗景片：时间系统按名联动变色
+    MAT_stairs: '#C09A6B',     // 浅木踏步
+    MAT_stairwell: '#14100C',  // 楼梯间暗井
 };
 
 // sRGB hex -> glTF baseColorFactor（线性）
@@ -124,12 +134,25 @@ function add(name, mat, build, extras = null, translation = null) {
     parts.push({ name, mat, extras, translation, part });
 }
 
-// 可见地板 + WALK 逻辑面（抬高 0.015）
+// 可见地板
 add('FLOOR_visible', 'MAT_floor', (p) => pushBox(p, [-W / 2, -0.06, 0], [W / 2, 0, D]));
-add('WALK_floor', 'MAT_floor', (p) => pushQuadXZ(p, -W / 2 + 0.05, 0.05, W / 2 - 0.05, D - 0.05, 0.015),
-    { surface_walkable: true });
 
-// 墙体（南墙三门洞、北墙三拱窗洞+楼梯门洞）
+// WALK 逻辑面（抬高 0.015）：主地板让开楼梯带（x>3.05, z>4.7），
+// 楼梯每步顶面 + 顶部平台各铺一片——导航只认这些面
+add('WALK_floor', 'MAT_floor', (p) => {
+    pushQuadXZ(p, -W / 2 + 0.05, 0.05, ST.x0 - 0.05, D - 0.05, 0.015);          // 主地板
+    pushQuadXZ(p, ST.x0 - 0.05, 0.05, W / 2 - 0.05, ST.z0 - 0.05, 0.015);       // 楼梯南侧条
+}, { surface_walkable: true });
+add('WALK_stairs', 'MAT_stairs', (p) => {
+    for (let k = 1; k <= ST.steps; k++) {
+        const z0 = ST.z0 + (k - 1) * ST.tread;
+        // x 向西伸出 0.1 与地板面交叠（否则 5cm 缝隙卡走位的格子采样）
+        pushQuadXZ(p, ST.x0 - 0.1, z0, W / 2 - 0.05, z0 + ST.tread, k * ST.rise + 0.015);
+    }
+    pushQuadXZ(p, ST.x0 - 0.1, ST.landingZ0, W / 2 - 0.05, D - 0.05, 3.0 + 0.015);    // 平台
+}, { surface_walkable: true });
+
+// 墙体（南墙三门洞、北墙三拱窗洞；楼梯从东墙上楼，北墙不再开楼梯门）
 add('WALLS', 'MAT_wall', (p) => {
     const xw = W / 2;
     // 南墙（z=0，门洞在 S_DOORS 各处 x±0.5 高 2.1）
@@ -141,19 +164,23 @@ add('WALLS', 'MAT_wall', (p) => {
         cur = x1;
     }
     pushBox(p, [cur, 0, -WT], [xw, H, 0]);
-    // 北墙（z=D：3 拱窗洞 + 楼梯门洞，窗位已核对不压楼梯门洞 0.8..1.8）
-    const sd0 = STAIRS_DOOR_X - DOOR_W / 2, sd1 = STAIRS_DOOR_X + DOOR_W / 2;
-    pushWallX(p, D, D + WT, -xw, xw, H, [
-        ...WIN_X.map(([a0, a1]) => ({ a0, a1, y0: WIN.y0, y1: WIN.y1, arch: true })),
-        { a0: sd0, a1: sd1, y0: 0, y1: DOOR_H },
-    ]);
+    // 北墙（z=D：3 拱窗洞，无门洞）
+    pushWallX(p, D, D + WT, -xw, xw, H,
+        WIN_X.map(([a0, a1]) => ({ a0, a1, y0: WIN.y0, y1: WIN.y1, arch: true })));
     // 西/东墙（封住转角）
     pushBox(p, [-xw - WT, 0, -WT], [-xw, H, D + WT]);
     pushBox(p, [xw, 0, -WT], [xw + WT, H, D + WT]);
 });
 
-// 天花板
-add('CEILING', 'MAT_wall', (p) => pushBox(p, [-W / 2 - WT, H, -WT], [W / 2 + WT, H + 0.12, D + WT]));
+// 天花板（楼梯上段上方开井口，井口上罩暗井黑盒）
+add('CEILING', 'MAT_wall', (p) => {
+    pushBox(p, [-W / 2 - WT, H, -WT], [W / 2 + WT, H + 0.12, HOLE.z0]);   // 南侧整板
+    pushBox(p, [-W / 2 - WT, H, HOLE.z0], [HOLE.x0, H + 0.12, D + WT]);   // 井口西条
+});
+// 楼梯间暗井（底面从井下看 = "通向二楼的黑暗"；传送触发区在平台处）
+add('STAIRWELL', 'MAT_stairwell', (p) =>
+    pushBox(p, [HOLE.x0 - 0.05, H, HOLE.z0 - 0.05], [HOLE.x1 + 0.05, H + 1.4, HOLE.z1 + 0.05]),
+    { nav_ignore: true });
 
 // 门框 + 窗框（含十字窗棂、窗台板）
 add('FRAMES', 'MAT_frame', (p) => {
@@ -164,13 +191,6 @@ add('FRAMES', 'MAT_frame', (p) => {
         pushBox(p, [x0 - j, 0, -WT - 0.02], [x0, DOOR_H + j, 0.02]);
         pushBox(p, [x1, 0, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
         pushBox(p, [x0 - j, DOOR_H, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
-    }
-    // 北墙楼梯门框
-    {
-        const x0 = STAIRS_DOOR_X - DOOR_W / 2, x1 = STAIRS_DOOR_X + DOOR_W / 2;
-        pushBox(p, [x0 - j, 0, D - 0.02], [x0, DOOR_H + j, D + WT + 0.02]);
-        pushBox(p, [x1, 0, D - 0.02], [x1 + j, DOOR_H + j, D + WT + 0.02]);
-        pushBox(p, [x0 - j, DOOR_H, D - 0.02], [x1 + j, DOOR_H + j, D + WT + 0.02]);
     }
     // 窗框（拱窗：边框到起拱线 + 拱顶踏步框 + 矩形段十字棂 + 窗台板）
     for (const [x0, x1] of WIN_X) {
@@ -200,51 +220,14 @@ add('VIEW_window', 'MAT_window_view', (p) =>
                [WIN_X[WIN_X.length - 1][1] + 0.4, WIN.y1 + 0.25, D + 0.46]),
     { nav_ignore: true });
 
-// 家具（不标属性 = 自动障碍）
-add('FURN_sofa', 'MAT_sofa', (p) => {   // 靠西墙，面朝 +x
-    pushBox(p, [-3.05, 0, 3.6], [-2.15, 0.42, 4.6]);      // 座
-    pushBox(p, [-3.35, 0, 3.6], [-3.05, 0.92, 4.6]);      // 靠背
-    pushBox(p, [-3.05, 0.42, 3.6], [-2.15, 0.66, 3.8]);   // 扶手
-    pushBox(p, [-3.05, 0.42, 4.4], [-2.15, 0.66, 4.6]);
-});
-add('FURN_table', 'MAT_furniture', (p) => {   // 沙发前茶几
-    pushBox(p, [-1.75, 0.32, 3.75], [-0.85, 0.40, 4.45]);
-    for (const [lx, lz] of [[-1.75, 3.75], [-0.91, 3.75], [-1.75, 4.39], [-0.91, 4.39]])
-        pushBox(p, [lx, 0, lz], [lx + 0.06, 0.32, lz + 0.06]);
-});
-add('FURN_tvstand', 'MAT_furniture', (p) => pushBox(p, [2.85, 0, 3.65], [3.4, 0.5, 4.55]));
-add('FURN_tv', 'MAT_tv', (p) => pushBox(p, [2.95, 0.5, 3.75], [3.15, 1.35, 4.45]));
-add('FURN_shelf', 'MAT_furniture', (p) => {   // 东墙书柜
-    pushBox(p, [3.05, 0, 0.3], [3.4, 1.9, 1.5]);
-    pushBox(p, [3.0, 0.6, 0.35], [3.05, 0.66, 1.45]);     // 层板
-    pushBox(p, [3.0, 1.2, 0.35], [3.05, 1.26, 1.45]);
-});
-
-// 纯装饰（nav_ignore）
-add('RUG', 'MAT_rug', (p) => pushBox(p, [-1.6, 0.02, 3.0], [0.8, 0.035, 4.9]),
-    { nav_ignore: true });
-add('PLANT_pot', 'MAT_pot', (p) => pushBox(p, [-3.35, 0, 0.25], [-2.95, 0.35, 0.65]),
-    { nav_ignore: true });
-add('PLANT_leaves', 'MAT_plant', (p) => pushBox(p, [-3.3, 0.35, 0.3], [-3.0, 0.85, 0.6]),
-    { nav_ignore: true });
-add('LAMP', 'MAT_lamp', (p) => pushBox(p, [-0.25, H - 0.2, D / 2 - 0.25], [0.25, H - 0.02, D / 2 + 0.25]),
-    { nav_ignore: true });
-
-// 实体楼梯（阶段 2.3，plan-0805）：北墙楼梯门旁，沿墙向西上行
-// 9 步：踏面 0.25、级高 0.32；k≤6 落地实体，k≥7 悬空切片
-// （楼梯门扇/落点从底下穿过：门板顶 2.08 < 悬步底 2.12，spawn [1.3,6.1] 在悬步下）
-add('STAIRS', 'MAT_frame', (p) => {
-    for (let k = 1; k <= 9; k++) {
-        const x1 = 3.45 - 0.25 * (k - 1), x0 = x1 - 0.25, top = 0.32 * k;
-        pushBox(p, [x0, k <= 6 ? 0 : top - 0.12, 6.1], [x1, top, 6.95]);
+// 楼梯可见梯体（17 步实体到地 + 顶部平台实体；导航走 WALK_stairs，梯体只作外观）
+add('STAIRS', 'MAT_stairs', (p) => {
+    for (let k = 1; k <= ST.steps; k++) {
+        const z0 = ST.z0 + (k - 1) * ST.tread, top = k * ST.rise;
+        pushBox(p, [ST.x0, 0, z0], [W / 2, top, z0 + ST.tread]);            // 实心踏步
     }
-    // 阶梯挡板（南沿，每两级一段）+ 底部新柱
-    pushBox(p, [3.2, 0, 6.02], [3.45, 1.12, 6.1]);
-    pushBox(p, [2.7, 0, 6.02], [3.2, 1.76, 6.1]);
-    pushBox(p, [2.2, 0, 6.02], [2.7, 2.4, 6.1]);
-    pushBox(p, [1.95, 0, 6.02], [2.2, 2.72, 6.1]);
-    pushBox(p, [3.37, 0, 5.94], [3.45, 1.15, 6.1]);
-});
+    pushBox(p, [ST.x0 - 0.05, 0, ST.landingZ0], [W / 2 + 0.05, 3.0, D + 0.05]); // 平台（东北角实体）
+}, { nav_ignore: true });
 
 // 出口门：原点在铰链底边（x=-0.48 西侧门框），向屋内（+z）平开 90°
 // doors.js: dir left=-1 → rotation.y = -90° → 门板从 +x 转向 +z（屋内）
@@ -260,7 +243,7 @@ add('DOOR_exit', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]
     },
     [-DOOR_W / 2 + 0.02, 0.02, 0]);
 
-// 阶段 5 新增三扇传送门（南门 dir=left 开向屋内，北门 dir=right）
+// 南墙另外两扇传送门（dir=left 开向屋内）
 add('DOOR_bath', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]),
     {
         interactable_type: 'door',
@@ -283,17 +266,6 @@ add('DOOR_kitchen', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.
         door_target_spawn: 'default',
     },
     [S_DOORS[2] - 0.48, 0.02, 0]);
-add('DOOR_stairs', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]),
-    {
-        interactable_type: 'door',
-        door_swing_angle: 90.0,
-        door_swing_dir: 'right',
-        door_slide: false,
-        door_locked: false,
-        door_target_scene: 'f2_study',
-        door_target_spawn: 'default',
-    },
-    [STAIRS_DOOR_X - 0.48, 0.02, D]);
 
 // ── 写 GLB ──
 const matNames = Object.keys(MATS);
@@ -331,6 +303,7 @@ for (const { name, mat, extras, translation, part } of parts) {
     part.norms.forEach((v, i) => nbuf.writeFloatLE(v, i * 4));
     const ibuf = Buffer.alloc(part.idx.length * 2);
     part.idx.forEach((v, i) => ibuf.writeUInt16LE(v, i * 2));
+    if (part.verts.length / 3 > 65535) throw new Error(`${name} 顶点超 uint16 上限`);
 
     const mins = [0, 1, 2].map((k) => Math.min(...part.verts.filter((_, i) => i % 3 === k)));
     const maxs = [0, 1, 2].map((k) => Math.max(...part.verts.filter((_, i) => i % 3 === k)));

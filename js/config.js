@@ -53,16 +53,17 @@ export const CAMERA_FOLLOW_DEADZONE = 2.5;   // 跟随死区：角色离 target 
 // 每场景：独立 glb 内容 + 机位表 + 落点表；门 = 传送点
 // （门 extras: door_target_scene / door_target_spawn）
 // spawns 的 pos 为 three 坐标 [x,y,z]，rotY 为落地朝向（弧度）
-// ── 客厅机位（f1_living：房间 7×7×3m，原点在门口地板中心）──
+// ── 客厅机位（f1_living：房间 10×12×3m，原点在门口地板中心）──
 // 斜 45° 俯看全屋，轨道距离/俯仰锁小范围，转不出房间
 const LIVING_ZONES = [
     { id: 'living_main', name: '客厅', nameEn: 'Living', category: 'room',
-      pos: [-2.6, 2.5, 1.2], target: [0.9, 0.6, 4.6],
-      minDist: 1.2, maxDist: 7, maxPolar: Math.PI * 0.49,
+      pos: [-4.2, 2.7, 1.2], target: [1.2, 0.5, 6.5],
+      minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
       bounds: null },
     { id: 'living_window', name: '客厅·窗', nameEn: 'Living N', category: 'room',
-      pos: [2.7, 2.4, 6.3], target: [-1.4, 0.7, 1.2],
-      minDist: 1.2, maxDist: 8, maxPolar: Math.PI * 0.49,
+      // 东北角高位看西南（避开东墙楼梯 x>4.1）
+      pos: [3.2, 2.5, 10.5], target: [-2.0, 0.7, 2.0],
+      minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
       bounds: null },
 ];
 const LIVING_ZONE_CATEGORIES = [
@@ -90,7 +91,9 @@ function roomScene({ id, name, nameEn, glb, w, d, h, spawns, winLight, mirrorZon
         spawns,
         lighting: {
             sun: 0,
-            ambient: winless ? 1.15 : 1.1,
+            // ambient 是时段倍率（中午档基础值 0.4）：×3.2 ≈ 绝对 1.3；
+            // 低了 MToon 人物全身掉进阴影色（"蒙灰"）
+            ambient: 3.2,
             fill: 0.25,   // 室内压暗蓝色补光
             spot: winless ? 0 : 1.3,
             ...(winLight ? { windowLight: winLight } : {}),
@@ -162,20 +165,27 @@ export const SCENES = [
       spawns: {
           // 从室外大门进入：门内一步，面朝房间（+z）
           default: { pos: [0, 0.02, 0.9], rotY: 0 },
-          // 阶段 5：各房间回程落点（南墙客卫/厨房门、北墙楼梯门）
-          fromBath: { pos: [-1.8, 0.02, 0.9], rotY: 0 },
-          fromKitchen: { pos: [1.8, 0.02, 0.9], rotY: 0 },
-          fromStudy: { pos: [1.3, 0.02, 6.1], rotY: Math.PI },
+          // 各房间回程落点（南墙客卫/厨房门）
+          fromBath: { pos: [-2.8, 0.02, 0.9], rotY: 0 },
+          fromKitchen: { pos: [2.8, 0.02, 0.9], rotY: 0 },
+          // 从学习室下楼：楼梯顶平台（暗井口外侧，面朝南 -z 下楼方向）
+          fromStudy: { pos: [4.55, 3.03, 10.9], rotY: Math.PI },
       },
+      // 走入楼梯间暗井自动传送到二楼（学习室）
+      triggers: [
+          { min: [4.0, 2.7, 11.2], max: [5.05, 3.4, 12.05], target: 'f2_study', spawn: 'default' },
+      ],
       // 室内光照（timeOfDay.setSceneProfile）：无直射阳光，窗光为主光源，
-      // 夜晚开顶灯；窗在北墙（z=7，3 拱窗组中心 x-1.45），灯在天花板 LAMP 吊灯下方
+      // 夜晚开顶灯；窗在北墙（z=12，3 拱窗组中心 x-2.05）
+      // 注意 ambient 是时段倍率（中午档基础值 0.4）：×3.2 ≈ 绝对 1.3，
+      // 低了 MToon 人物全身掉进阴影色（"蒙灰"）
       lighting: {
           sun: 0,
-          ambient: 1.1,
+          ambient: 3.2,
           fill: 0.25,
           spot: 1.3,
-          windowLight: { position: [-1.45, 2.2, 9.0], target: [-1.45, 0.4, 3.0] },
-          lamp: { position: [0, 2.7, 3.5], color: 0xFFD9A0, intensity: 1.6, distance: 10 },
+          windowLight: { position: [-2.05, 2.0, 14.0], target: [-2.05, 0.4, 5.5] },
+          lamp: { position: [0, 2.7, 6.0], color: 0xFFD9A0, intensity: 1.6, distance: 16 },
       } },
     ...ROOM_SCENES,
 ];

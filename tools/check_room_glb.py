@@ -15,7 +15,7 @@ GLB = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'models', 'room_l
 
 # 各房窗景片期望（doc/house-map.md 对应表）：墙 + 窗组中心 x；None = 无窗房
 VIEW_EXPECT = {
-    'room_living.glb': ('N', -1.45),
+    'room_living.glb': ('N', -2.05),   # 8×10 客厅：窗组偏西（让开东墙楼梯）
     'room_kitchen.glb': ('N', -0.45),
     'room_bath_f1.glb': None,
     'room_study.glb': ('S', 1.95),
@@ -126,7 +126,8 @@ for name, node in walk_nodes:
     mesh = gltf['meshes'][node['mesh']]
     acc = gltf['accessors'][mesh['primitives'][0]['attributes']['POSITION']]
     print(f"  {name}: min={[round(v,3) for v in acc['min']]} max={[round(v,3) for v in acc['max']]}")
-    if not (0.005 <= acc['min'][1] <= acc['max'][1] <= 0.05):
+    # 抬高 0.01~0.02 规则只限地板面；楼梯面（WALK_stairs 等）本来就是多高度的
+    if name == 'WALK_floor' and not (0.005 <= acc['min'][1] <= acc['max'][1] <= 0.05):
         fail(f'{name} 逻辑面应抬高 0.01~0.02（实测 y {acc["min"][1]}..{acc["max"][1]}）')
 
 print('\n== 材质 ==')

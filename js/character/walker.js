@@ -374,6 +374,14 @@ export function debugWalkLoop(ax, az, bx, bz) {
     startDebugWalk(loopDest);
 }
 
+/** 调试/测试：寻路走到指定点（点击寻路的程序化入口，?walkloop 的单次版）
+ *  y 省略时用地面采样推断目标高度（找楼梯顶平台等多层目标必须带正确高度层） */
+export function walkTo(x, z, y = null) {
+    if (!humanoidGroup) return;
+    const ty = y ?? groundHeightAt(x, z, humanoidGroup.position.y) ?? humanoidGroup.position.y;
+    startDebugWalk(new THREE.Vector3(x, ty, z));
+}
+
 function startDebugWalk(p) {
     const path = findPath(humanoidGroup.position, p);
     waypoints = path && path.length > 0 ? smoothPath(path) : [p.clone()];

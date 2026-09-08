@@ -236,6 +236,80 @@ smoke-app / shot-room / shot-lighting / shot-all-rooms / mem-switch
 
 ### ⏭ 全部 6 个阶段已完成 🎉
 
+### ✅ 客厅改造已完成（2026-09，参考 帽子米塔的房间.blend）
+
+起因：房间内部太"空盒子"难看。第一版加了硬装细节但配色布局翻车（暖色大杂烩、
+家具沿墙排队、小摆件碎成噪点）；用户拍板**二次改造：灰绿主色 + 全推翻重排**，
+方向定为"色彩减法 + 会客区围合 + 造型减法"。改写 `tools/make_room_living.mjs`：
+
+- **配色纪律**（二次改造核心）：全房唯一彩色 = 灰绿（MAT_sofa #93A98A /
+  窗帘 / 地毯边），唯一点缀 = 陶土 MAT_accent #C96F5A（抱枕×2/花瓶/一本书/
+  画芯色块），其余全中性（暖白墙、浅原木 MAT_furniture #C09A6B、深棕只做
+  线脚框）。教训：颜色超过 3 个色系必乱。
+- **布局围合**：西墙三人沙发 + 地毯南沿单人椅（面朝北）+ 薄面细腿茶几 +
+  小一号地毯（只铺茶几区，灰绿细边+米白芯）；东墙减薄电视柜 + 两层矮书架
+  （开口朝房间！侧板曾把书全挡住）；玄关条案；西北阅读角（落地灯+大盆栽）。
+- **造型**：沙发/茶几/电视柜/书架全部细腿离地；小摆件砍半；窗帘去帘头
+  留窄双片（大片帘头曾读成假窗框）。
+- **楼梯修复（第三轮）**：奶白楼梯贴奶白墙读成"幽灵块"、悬空步没处去——
+  踏板改浅木（MAT_furniture）、挡板/新柱奶白（拆 STAIRS / STAIRS_side 两节点）；
+  天花开井口（x 0.95..2.35, z 6.0..7.1）+ 井口上方黑盒 STAIRWELL
+  （MAT_stairwell #14100C，底面即"通向二楼的黑暗"），楼梯顶部没入井口。
+  注意：楼梯纯装饰，实际上下楼走楼梯门传送（DOOR_stairs → f2_study）。
+- **光照**：f1_living ambient 1.1 → 0.9（墙/护墙板/楼梯全奶白时太惨白）。
+- **几何 helper**：`pushBoxRotY`（绕 y 旋转盒：靠枕/书/插枝）、`pushCyl`
+  （圆柱/圆台：灯罩/花盆/花瓶/杯子）。
+- **机位修正（config.js）**：living_window 旧机位 (2.7,2.4,6.3) 紧贴 2.4m
+  高楼梯挡板南沿、视野全被 STAIRS 挡死（射线实测 0.2m 即命中），南移到
+  (2.5,2.45,5.5)。
+- **test-nav-room.mjs**：地毯/电视柜探针随新布局改坐标（(0.4,4.6) /
+  (3.15,4.1)），新增单人椅障碍探针 (-0.1,3.0)；连通性断言不动。
+- **截图工具**：`tools/e2e/shot-living-zones.mjs`（两机位）、
+  `tools/e2e/shot-living-north.mjs`（北墙/沙发/东墙特写）；
+  `tools/e2e/probe_window_{cam,ray}.mjs`（机位遮挡定位，留档）。
+
+验证：`node tools/make_room_living.mjs` → check_room_glb PASS；
+test-nav-room 全绿；shot-room E2E 全 PASS；temp/living_*.png 目检通过。
+
+### ✅ 客厅三次改造：扩容 10×12 空壳 + 可走楼梯传送（2026-09）
+
+用户反馈房间太小，要求扩容、先做空壳（只有门窗和楼梯）、**楼梯本身能传送到二楼**
+（此前楼梯是纯装饰，上下楼靠北墙楼梯门）。布局已与用户确认（一楼 3 间经客厅连通，
+二楼 7 间经学习室连通，阁楼 2 间互通）。最终尺寸 10 宽 × 12 深（8×10 仍嫌小）。
+
+- **`tools/make_room_living.mjs` 重写为空壳**：W=10（x±5）D=12（z 0..12）；
+  南墙三门 x -2.8/0/2.8；北墙 3 拱窗偏西（中心 -3.0/-2.05/-1.1）；
+  家具/护墙板/窗帘/吊灯全部移除（先看空间比例，家具后续再加）。
+- **可走楼梯（东墙）**：17 步实心踏步（踏面 0.28、级高 3/17≈0.176）沿东墙
+  z 5.9→10.66 爬升，东北角 y=3.0 平台；每步顶面+平台铺 `WALK_stairs`
+  （surface_walkable，导航多层支持，级差 0.176 < MAX_STEP 0.35），可见梯体
+  STAIRS 标 nav_ignore；主地板 WALK_floor 让开楼梯带（梯下不可走）。
+  天花板开井口（x 4.0..5.1, z 7.4..12.1）+ 上方 STAIRWELL 黑盒（MAT_stairwell）。
+- **传送改触发区**：客厅→学习室不再用门（DOOR_stairs 删除，客厅剩 3 门）；
+  config.js SCENES 新增 `triggers`（包围盒 + target/spawn），main.js 动画循环里
+  逐帧检测 humanoid 位置，走入暗井触发区自动 switchTo（isTransitioning 防抖）。
+  学习室回程落点 fromStudy 在楼梯顶平台 (4.55,3.03,10.9) 且在触发区外（防回环）。
+- **楼梯走不上去的根因（pathfinding.js）**：`smoothPath` 把 85 个梯段路径点拉直成
+  3 个，行走斜线偏离梯段中线、角色撞上楼梯侧壁卡死。修复：跨层段
+  （|Δy| > MAX_STEP）不参与拉直。另把 WALK_stairs 向西伸 0.1 与地板面交叠
+  （消除 5cm 缝隙的格子采样抖动）。
+- **人物"蒙灰"的根因（config.js）**：SCENES[*].lighting.ambient 是**时段倍率**
+  （中午档基础值 0.4），填 0.9~1.3 实际只有 0.36~0.52，MToon 人物全身掉进阴影色。
+  客厅与 roomScene 模板统一改 3.2（中午绝对值 ≈1.3，人物恢复粉色）。
+- **调试设施**：walker.js 新增 `walkTo(x, z, y?)`（挂 __app，e2e 实测爬楼梯用）；
+  main.js __app 暴露 `nav.{findPath,isWalkableWorld,groundHeightAt}`；
+  新增 tools/e2e/probe_stair_walk.mjs / probe_nav_runtime.mjs / probe_char_tint.mjs /
+  probe_char_light.mjs / shot-living-shell.mjs。
+- **配套适配**：config 机位/光照/落点按 10×12 重调；check_room_glb 的 WALK
+  抬高断言只限 WALK_floor（楼梯面多层）、窗景片中心改 -2.05；test-nav-room
+  新增爬楼梯寻路断言；shot-room 门数 4→3 + 触发区传送/回程不落环断言；
+  shot-all-rooms 门图同步。
+
+验证：check_room_glb PASS；test-nav-room 全绿；shot-room E2E 全 PASS
+（含走入暗井自动传送、fromStudy 落楼梯顶不回环）；shot-all-rooms 全动线 PASS；
+walkTo 实测楼梯上下全程无卡顿；temp/char_living.png 人物发色正常。
+**注意：改动未 commit。**
+
 ## 分阶段实施
 
 ### 阶段 1：场景管理骨架 ✅ 已完成（见上）

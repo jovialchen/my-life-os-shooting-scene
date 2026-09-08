@@ -20,7 +20,8 @@ const GRAPH = {
     outdoor: { DOOR_entrance: ['f1_living', 'default'], DOOR_entrance_east: ['f1_kitchen', 'fromOutdoor'] },
     f1_living: {
         DOOR_exit: ['outdoor', 'houseWest'], DOOR_bath: ['f1_bath', 'default'],
-        DOOR_kitchen: ['f1_kitchen', 'default'], DOOR_stairs: ['f2_study', 'default'],
+        DOOR_kitchen: ['f1_kitchen', 'default'],
+        // 客厅→学习室改走楼梯间暗井触发区（triggers），不再有 DOOR_stairs
     },
     f1_kitchen: { DOOR_living: ['f1_living', 'fromKitchen'], DOOR_outdoor: ['outdoor', 'houseEast'] },
     f1_bath: { DOOR_living: ['f1_living', 'fromBath'] },

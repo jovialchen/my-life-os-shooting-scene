@@ -31,8 +31,8 @@ import {
 
 // ── 角色系统 ──
 import { createHumanoid, updateHumanoid, setHumanoidLookAt } from './character/humanoid.js';
-import { initWalker, updateWalker, debugWalkLoop, teleport } from './character/walker.js';
-import { buildNavGrid, rebuildDynamicObstacles } from './character/pathfinding.js';
+import { initWalker, updateWalker, debugWalkLoop, teleport, walkTo } from './character/walker.js';
+import { buildNavGrid, rebuildDynamicObstacles, findPath, isWalkableWorld, groundHeightAt } from './character/pathfinding.js';
 
 // ── 外壳房子（岛屿 + GLB 模型）──
 import { createHouseShell } from './elements/houseShell.js';
@@ -51,11 +51,12 @@ import {
 } from './systems/cameraZones.js';
 import {
     initSceneManager, registerSceneContainer, setInitialScene, switchTo, getActiveScene,
+    isTransitioning,
 } from './systems/sceneManager.js';
 import { initDoorPrompt, updateDoorPrompt } from './systems/doorPrompt.js';
 import { initRoomNav } from './systems/roomNav.js';
 import { parseSurfaces } from './systems/surfaceParser.js';
-import { applyInkShading, createInkPaperPass, createInkMist, setInkTime, updateInk } from './systems/inkwash.js';
+import { applyInkShading, createInkPaperPass, createInkMist, setInkTime, updateInk, setInkRoof, setInkWall, setInkFlora } from './systems/inkwash.js';
 
 // ── UI ──
 import { initUI, updateCompass } from './ui.js';
@@ -318,12 +319,28 @@ function animate() {
     updateDoorPrompt();
     updateInk(delta);   // 水墨雾漂移
 
+    // 区域触发器（如客厅楼梯间暗井：走入自动传送，见 config SCENES[*].triggers）
+    {
+        const def = SCENES.find((s) => s.id === getActiveScene());
+        if (def?.triggers && !isTransitioning()) {
+            const p = humanoid.position;
+            for (const t of def.triggers) {
+                if (p.x >= t.min[0] && p.x <= t.max[0] &&
+                    p.y >= t.min[1] && p.y <= t.max[1] &&
+                    p.z >= t.min[2] && p.z <= t.max[2]) {
+                    switchTo(t.target, t.spawn);
+                    break;
+                }
+            }
+        }
+    }
+
     composer.render();
 }
 animate();
 
 // 调试句柄（控制台/自动化测试用）：window.__app
-window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo, getActiveScene, teleport, config: { SCENES } };
+window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo, getActiveScene, teleport, walkTo, nav: { findPath, isWalkableWorld, groundHeightAt }, config: { SCENES } };
 
 // ============================================================
 //  截图调试模式（无头浏览器验收用，不影响正常交互）
@@ -364,6 +381,20 @@ let pendingScene = null;      // onModelsReady 后切换
             t.z + d * Math.sin(pol) * Math.cos(az),
         );
         controls.update();
+    }
+    if (q.has('roofshade') || q.has('roofline')) {
+        setInkRoof(q.has('roofshade') ? parseFloat(q.get('roofshade')) : null,
+                   q.has('roofline') ? parseFloat(q.get('roofline')) : null);
+    }
+    if (q.has('wallgrain')) setInkWall(parseFloat(q.get('wallgrain')));
+    {
+        const flora = {};
+        for (const [param, key] of [['leafshade', 'leafShade'], ['leafgrain', 'leafGrain'],
+                                    ['barkgrain', 'barkGrain'], ['rockshade', 'rockShade'],
+                                    ['rockgrain', 'rockGrain']]) {
+            if (q.has(param)) flora[key] = parseFloat(q.get(param));
+        }
+        if (Object.keys(flora).length) setInkFlora(flora);
     }
     if (q.has('walkloop')) {
         pendingWalkLoop = q.get('walkloop').split(',').map(Number);
