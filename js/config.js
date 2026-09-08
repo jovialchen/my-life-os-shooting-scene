@@ -61,7 +61,7 @@ const LIVING_ZONES = [
       minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
       bounds: null },
     { id: 'living_window', name: '客厅·窗', nameEn: 'Living N', category: 'room',
-      // 东北角高位看西南（避开东墙楼梯 x>4.1）
+      // 东北角高位看西南（避开东墙楼梯 x>3.9）
       pos: [3.2, 2.5, 10.5], target: [-2.0, 0.7, 2.0],
       minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
       bounds: null },
@@ -168,12 +168,12 @@ export const SCENES = [
           // 各房间回程落点（南墙客卫/厨房门）
           fromBath: { pos: [-2.8, 0.02, 0.9], rotY: 0 },
           fromKitchen: { pos: [2.8, 0.02, 0.9], rotY: 0 },
-          // 从学习室下楼：楼梯顶平台（暗井口外侧，面朝南 -z 下楼方向）
-          fromStudy: { pos: [4.55, 3.03, 10.9], rotY: Math.PI },
+          // 从学习室下楼：楼梯顶平台（顶部门洞触发区南侧，面朝南 -z 下楼方向）
+          fromStudy: { pos: [4.5, 3.02, 11.3], rotY: Math.PI },
       },
-      // 走入楼梯间暗井自动传送到二楼（学习室）
+      // 走上楼梯、将进顶部门洞时自动传送到二楼（学习室）
       triggers: [
-          { min: [4.0, 2.7, 11.2], max: [5.05, 3.4, 12.05], target: 'f2_study', spawn: 'default' },
+          { min: [4.0, 2.9, 11.95], max: [5.05, 3.6, 12.35], target: 'f2_study', spawn: 'default' },
       ],
       // 室内光照（timeOfDay.setSceneProfile）：无直射阳光，窗光为主光源，
       // 夜晚开顶灯；窗在北墙（z=12，3 拱窗组中心 x-2.05）

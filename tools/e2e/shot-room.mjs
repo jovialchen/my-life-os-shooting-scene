@@ -118,14 +118,14 @@ await page.waitForFunction(() => window.__app.getDoors().length === 3, { timeout
 const clickState = await page.evaluate(() => window.__app.getDoors().map((d) => d.obj.name));
 check('点击传送门 → 切到客厅', clickState.includes('DOOR_exit'), clickState.join());
 
-// ── 6. 楼梯间暗井触发区：走入自动传送到学习室（8×10 空壳楼梯）──
+// ── 6. 楼梯顶部门洞触发区：走入自动传送到学习室（挑高井道楼梯）──
 //    （回到客厅 → 直接落进触发区 → 应自动切走；fromStudy 落点在触发区外，不应回环）
 await page.evaluate(() => window.__app.switchTo('f1_living'));
 await page.waitForFunction(() => window.__app.getDoors().length === 3, { timeout: 10000 });
 await new Promise((r) => setTimeout(r, 800));
-await page.evaluate(() => window.__app.teleport(4.55, 3.03, 11.5, Math.PI));   // 触发区内（z≥11.2）
+await page.evaluate(() => window.__app.teleport(4.5, 3.02, 12.05, Math.PI));   // 触发区内（z≥11.95）
 await page.waitForFunction(() => window.__app.getActiveScene() === 'f2_study', { timeout: 10000 });
-check('走入暗井触发区 → 自动传送到学习室', true);
+check('走入顶部门洞触发区 → 自动传送到学习室', true);
 await new Promise((r) => setTimeout(r, 1000));   // 等切换过渡结束再切回
 await page.evaluate(() => window.__app.switchTo('f1_living', 'fromStudy'));
 await page.waitForFunction(() => window.__app.getActiveScene() === 'f1_living', { timeout: 10000 });
@@ -135,8 +135,8 @@ const backState = await page.evaluate(() => ({
     pos: window.__app.humanoid.position.toArray().map((v) => +v.toFixed(2)),
 }));
 check('fromStudy 落在楼梯顶平台', backState.scene === 'f1_living' &&
-    Math.abs(backState.pos[0] - 4.55) < 0.3 && Math.abs(backState.pos[2] - 10.9) < 0.3 &&
-    Math.abs(backState.pos[1] - 3.03) < 0.1, backState.pos.join(','));
+    Math.abs(backState.pos[0] - 4.5) < 0.3 && Math.abs(backState.pos[2] - 11.3) < 0.3 &&
+    Math.abs(backState.pos[1] - 3.02) < 0.1, backState.pos.join(','));
 check('落点在触发区外（不回环传送）', backState.scene === 'f1_living');
 
 await browser.close();
