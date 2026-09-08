@@ -28,6 +28,14 @@ const U = {
     uMistTime:  { value: 0 },                           // 雾漂移时间
     uMistColor: { value: new THREE.Color(0xefe3c2) },   // 雾色（时段联动）
     uPaperColor:{ value: new THREE.Color(0xefe3c2) },   // 宣纸底色（时段联动，后处理用）
+    uRoofShade: { value: 0.7 },                         // 屋顶瓦垄假光影强度（仅 MAT_roof）
+    uRoofLine:  { value: 0.8 },                         // 屋顶瓦缝勾线强度（仅 MAT_roof）
+    uWallGrain: { value: 0.45 },                        // 墙面灰泥纹理强度（仅 MAT_wall）
+    uLeafShade: { value: 0.6 },                         // 树冠团块明暗强度（仅 MAT_leaves）
+    uLeafGrain: { value: 0.4 },                         // 叶面碎点强度（仅 MAT_leaves）
+    uBarkGrain: { value: 0.5 },                         // 树干竖纹强度（仅 MAT_trunk）
+    uRockShade: { value: 0.6 },                         // 石头块面明暗强度（仅 MAT_rock/MAT_stone）
+    uRockGrain: { value: 0.35 },                        // 石头颗粒强度（仅 MAT_rock/MAT_stone）
 };
 
 // ── 时段调色预设（对齐 config.TIME_PRESETS 六段，水墨不打光只调色）──
@@ -66,6 +74,20 @@ float inkNoise(vec3 p) {
 /** 窗玻璃/窗景片保留 toon（timeOfDay 的 emissive 变色依赖它） */
 const KEEP_TOON = new Set(['MAT_window_view', 'MAT_window_glass']);
 
+/** 屋顶材质：无光照下瓦垄全平，需要注入假光影 + 瓦缝勾线 */
+const ROOF_MAT = 'MAT_roof';
+/** 墙面材质：灰泥大平面，需要细颗粒 + 垂直刷痕的淡纹理 */
+const WALL_MAT = 'MAT_wall';
+
+const VARIANTS = {
+    roof:  { mats: [ROOF_MAT],              compile: (s) => injectInk(s, ROOF_GLSL, ROOF_UNIFORMS),  key: 'inkwash_roof' },
+    wall:  { mats: [WALL_MAT],              compile: (s) => injectInk(s, WALL_GLSL, WALL_UNIFORMS),  key: 'inkwash_wall' },
+    leaf:  { mats: ['MAT_leaves'],          compile: (s) => injectInk(s, LEAF_GLSL, LEAF_UNIFORMS),  key: 'inkwash_leaf' },
+    trunk: { mats: ['MAT_trunk'],           compile: (s) => injectInk(s, TRUNK_GLSL, TRUNK_UNIFORMS), key: 'inkwash_trunk' },
+    rock:  { mats: ['MAT_rock', 'MAT_stone'], compile: (s) => injectInk(s, ROCK_GLSL, ROCK_UNIFORMS), key: 'inkwash_rock' },
+};
+const variantOf = (name) => Object.keys(VARIANTS).find((k) => VARIANTS[k].mats.includes(name)) ?? '';
+
 /**
  * 单个材质 → 水墨材质（MeshBasicMaterial + onBeforeCompile 注入晕染/水渍/调色）
  * 已是 Basic/Shader(MToon)/toon 保留名的跳过或转 toon
@@ -84,9 +106,11 @@ export function toInkMaterial(material) {
         opacity: material.opacity ?? 1,
         alphaTest: material.alphaTest ?? 0,
     });
-    ink.onBeforeCompile = inkCompile;
-    ink.customProgramCacheKey = () => 'inkwash';
-    ink.userData = { ...material.userData, inkwash: true };
+    const variant = variantOf(material.name);
+    const v = VARIANTS[variant];
+    ink.onBeforeCompile = v ? v.compile : inkCompile;
+    ink.customProgramCacheKey = () => (v ? v.key : 'inkwash');
+    ink.userData = { ...material.userData, inkwash: true, inkVariant: variant };
     return ink;
 }
 
@@ -97,27 +121,111 @@ export function toInkMaterial(material) {
 export function cloneInkMaterial(material) {
     const c = material.clone();
     if (material.userData?.inkwash) {
-        c.onBeforeCompile = inkCompile;
-        c.customProgramCacheKey = () => 'inkwash';
+        const v = VARIANTS[material.userData.inkVariant];
+        c.onBeforeCompile = v ? v.compile : inkCompile;
+        c.customProgramCacheKey = () => (v ? v.key : 'inkwash');
     }
     return c;
 }
 
 /** onBeforeCompile 注入：世界坐标噪声晕染 + 暖赭偏移 + 低处水渍 + 时段调色 */
 function inkCompile(shader) {
+    injectInk(shader, '', '');
+}
+
+/** 屋顶变体 GLSL：在通用晕染之上叠加瓦垄假光影 + 世界坐标瓦缝勾线 */
+const ROOF_GLSL = /* glsl */`
+    // ── 瓦垄假光影：虚拟东南上方光源，3 阶色阶（皴擦感，让瓦垄起伏显形）──
+    vec3 rn = normalize(vInkWorldNormal);
+    float rnl = dot(rn, normalize(vec3(0.45, 0.75, 0.35))) * 0.5 + 0.5;
+    float band = rnl < 0.42 ? 0.78 : (rnl < 0.72 ? 0.95 : 1.12);
+    outgoingLight *= mix(1.0, band, uRoofShade);
+    // ── 瓦缝勾线：世界坐标投影 + 噪声抖动（手绘勾勒，不依赖 UV）──
+    float wob = (inkNoise(wp * 1.8) - 0.5) * 0.35;
+    // 顺坡而下的垄线：坐标取坡面的水平切向
+    vec3 tAcross = cross(rn, vec3(0.0, 1.0, 0.0));
+    tAcross /= max(length(tAcross), 1e-3);
+    float cRidge = dot(wp, tAcross) * 4.5 + wob;
+    float fR = fract(cRidge);
+    float ridgeLine = 1.0 - smoothstep(0.0, fwidth(cRidge) * 1.2 + 0.035, min(fR, 1.0 - fR));
+    // 横向瓦垄（等高线，一垄一垄的叠瓦）
+    float cRow = wp.y * 4.0 + wob * 1.4;
+    float fW = fract(cRow);
+    float rowLine = 1.0 - smoothstep(0.0, fwidth(cRow) * 1.2 + 0.05, min(fW, 1.0 - fW));
+    float roofLine = max(ridgeLine, rowLine * 0.7);
+    // 只在朝上/斜向上的坡面画线（屋檐底面、山墙立面不画）
+    roofLine *= smoothstep(0.05, 0.35, rn.y);
+    outgoingLight *= 1.0 - roofLine * uRoofLine * 0.5;
+`;
+const ROOF_UNIFORMS = 'uniform float uRoofShade;\nuniform float uRoofLine;';
+
+/** 墙面变体 GLSL：灰泥细颗粒 + 垂直刷痕（淡，保持灰泥柔和，不勾硬线） */
+const WALL_GLSL = /* glsl */`
+    // ── 灰泥纹理：世界坐标按墙面朝向投影到 2D，避免依赖 UV ──
+    vec3 wn = normalize(vInkWorldNormal);
+    vec2 wuv = abs(wn.x) > 0.7 ? wp.zy : (abs(wn.z) > 0.7 ? wp.xy : wp.xz);
+    // 垂直刷痕：横向快变、纵向慢变的条带噪声（抹子走竖纹）
+    float streak = inkNoise(vec3(wuv.x * 7.0, wuv.y * 0.9, 3.7));
+    // 细颗粒：两层高频噪声（灰泥的砂感）
+    float g1 = inkNoise(vec3(wuv * 13.0, 7.3));
+    float g2 = inkNoise(vec3(wuv * 31.0, 17.1));
+    float wallGrain = (streak - 0.5) * 0.9 + (g1 - 0.5) * 0.6 + (g2 - 0.5) * 0.3;
+    outgoingLight *= 1.0 + wallGrain * uWallGrain;
+`;
+const WALL_UNIFORMS = 'uniform float uWallGrain;';
+
+/** 树冠变体 GLSL：团块假光影（动漫树丛的明暗面）+ 底部压暗 + 叶簇碎点 */
+const LEAF_GLSL = /* glsl */`
+    vec3 ln = normalize(vInkWorldNormal);
+    // 团块明暗：虚拟东南上方光源，3 阶色阶
+    float lnl = dot(ln, normalize(vec3(0.45, 0.75, 0.35))) * 0.5 + 0.5;
+    float lband = lnl < 0.45 ? 0.80 : (lnl < 0.75 ? 1.0 : 1.12);
+    outgoingLight *= mix(1.0, lband, uLeafShade);
+    // 叶丛底部压暗（下方枝叶更密更暗）
+    outgoingLight *= 1.0 - smoothstep(0.2, -0.6, ln.y) * uLeafShade * 0.3;
+    // 叶簇碎点：两层细噪声模仿笔触
+    float speck = inkNoise(wp * 9.0) * 0.6 + inkNoise(wp * 23.0 + 5.0) * 0.4;
+    outgoingLight *= 1.0 + (speck - 0.5) * uLeafGrain;
+`;
+const LEAF_UNIFORMS = 'uniform float uLeafShade;\nuniform float uLeafGrain;';
+
+/** 树干变体 GLSL：纵向拉长的 3D 噪声 = 环绕树干的竖向树皮纹 */
+const TRUNK_GLSL = /* glsl */`
+    float bark = inkNoise(vec3(wp.x * 13.0, wp.y * 1.6, wp.z * 13.0)) * 0.7
+               + inkNoise(vec3(wp.x * 30.0, wp.y * 4.0, wp.z * 30.0) + 4.2) * 0.3;
+    outgoingLight *= 1.0 + (bark - 0.5) * uBarkGrain;
+`;
+const TRUNK_UNIFORMS = 'uniform float uBarkGrain;';
+
+/** 石头变体 GLSL：硬切 3 阶块面（斧劈皴）+ 细颗粒 */
+const ROCK_GLSL = /* glsl */`
+    vec3 kn = normalize(vInkWorldNormal);
+    float knl = dot(kn, normalize(vec3(0.45, 0.75, 0.35))) * 0.5 + 0.5;
+    float kband = knl < 0.45 ? 0.75 : (knl < 0.7 ? 0.95 : 1.15);
+    outgoingLight *= mix(1.0, kband, uRockShade);
+    float kgrain = inkNoise(wp * 11.0) * 0.6 + inkNoise(wp * 27.0 + 9.0) * 0.4;
+    outgoingLight *= 1.0 + (kgrain - 0.5) * uRockGrain;
+`;
+const ROCK_UNIFORMS = 'uniform float uRockShade;\nuniform float uRockGrain;';
+
+function injectInk(shader, variantGLSL, variantUniforms) {
+    const needNormal = variantGLSL.length > 0;
     Object.assign(shader.uniforms, U);
     shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vInkWorldPos;')
+        .replace('#include <common>', `#include <common>
+varying vec3 vInkWorldPos;${needNormal ? '\nvarying vec3 vInkWorldNormal;' : ''}`)
         .replace('#include <project_vertex>',
-            '#include <project_vertex>\nvInkWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+            `#include <project_vertex>
+vInkWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;${needNormal ? '\nvInkWorldNormal = normalize(mat3(modelMatrix) * normal);' : ''}`);
     shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
-varying vec3 vInkWorldPos;
+varying vec3 vInkWorldPos;${needNormal ? '\nvarying vec3 vInkWorldNormal;' : ''}
 uniform vec3 uTimeTint;
 uniform float uBlotch;
 uniform float uNoiseScale;
 uniform float uLowStain;
 uniform float uLowY;
+${variantUniforms}
 ${NOISE_GLSL}`)
         .replace('#include <opaque_fragment>', /* glsl */`{
     vec3 wp = vInkWorldPos;
@@ -133,6 +241,7 @@ ${NOISE_GLSL}`)
     float low = smoothstep(uLowY, uLowY - 1.6, wp.y);
     outgoingLight = mix(outgoingLight, outgoingLight * vec3(0.80, 0.70, 0.58),
                         low * uLowStain * (0.4 + 0.6 * n1));
+${variantGLSL}
     // 时段全局调色
     outgoingLight *= uTimeTint;
 }
@@ -341,4 +450,34 @@ export function setInkTime(value, scene) {
 /** 动画循环里调用：雾漂移 */
 export function updateInk(delta) {
     U.uMistTime.value += delta;
+}
+
+/**
+ * 屋顶瓦片风格调参（仅 MAT_roof 生效）
+ * @param {number|null} shade - 瓦垄假光影强度 0~1（null 不变）
+ * @param {number|null} line  - 瓦缝勾线强度 0~1（null 不变）
+ */
+export function setInkRoof(shade = null, line = null) {
+    if (shade !== null) U.uRoofShade.value = shade;
+    if (line !== null) U.uRoofLine.value = line;
+}
+
+/**
+ * 墙面灰泥纹理调参（仅 MAT_wall 生效）
+ * @param {number|null} grain - 纹理强度 0~1（null 不变）
+ */
+export function setInkWall(grain = null) {
+    if (grain !== null) U.uWallGrain.value = grain;
+}
+
+/**
+ * 植物/石头纹理调参（null 的项不变）
+ * @param {{leafShade?:number, leafGrain?:number, barkGrain?:number, rockShade?:number, rockGrain?:number}} opts
+ */
+export function setInkFlora(opts = {}) {
+    if (opts.leafShade != null) U.uLeafShade.value = opts.leafShade;
+    if (opts.leafGrain != null) U.uLeafGrain.value = opts.leafGrain;
+    if (opts.barkGrain != null) U.uBarkGrain.value = opts.barkGrain;
+    if (opts.rockShade != null) U.uRockShade.value = opts.rockShade;
+    if (opts.rockGrain != null) U.uRockGrain.value = opts.rockGrain;
 }

@@ -24,9 +24,27 @@ Three.js 侧复刻：
 - `houseShell.js` / `main.js` 的 loadScene：`applyInkShading(root)` 替代 applyToonShading
 - 材质保留 `name`/`color`/`map`：季节系统（set color）照常工作
 - `MAT_window_view` / `MAT_window_glass` 例外保留 toon（timeOfDay 的 emissive 变色依赖它）
+- `MAT_roof` 走专用变体（ROOF_GLSL）：无光照下瓦垄几何渲成平面，
+  额外注入①法线 3 阶假光影（uRoofShade）②世界坐标瓦缝勾线（uRoofLine，
+  顺坡垄线 + 横向等高垄线，噪声抖动仿手绘；不用 UV——屋顶 UV 是碎片化
+  自动展开，不可用）。调参：`setInkRoof(shade, line)` 或 URL `?roofshade=&roofline=`
+- `MAT_wall` 走专用变体（WALL_GLSL）：灰泥细颗粒 + 垂直刷痕（uWallGrain，
+  世界坐标按墙面朝向投影 2D，不用 UV）。调参：`setInkWall(grain)` 或 URL `?wallgrain=`
+- `MAT_leaves`（LEAF_GLSL）：树冠团块 3 阶假光影 + 底部压暗 + 叶簇碎点
+  （uLeafShade/uLeafGrain）。季节系统克隆树叶材质走 cloneInkMaterial，变体随
+  userData.inkVariant 保留，花色/秋色照常叠加
+- `MAT_trunk`（TRUNK_GLSL）：纵向拉长 3D 噪声 = 环绕树干的竖向树皮纹（uBarkGrain）
+- `MAT_rock`/`MAT_stone`（ROCK_GLSL）：硬切 3 阶块面（斧劈皴）+ 细颗粒
+  （uRockShade/uRockGrain），作用于岛底岩层和石板路
+- 以上五项调参：`setInkFlora({leafShade, leafGrain, barkGrain, rockShade, rockGrain})`
+  或 URL `?leafshade=&leafgrain=&barkgrain=&rockshade=&rockgrain=`
+- 新增材质变体：在 VARIANTS 里登记材质名 + GLSL + cache key 即可
 - 克隆材质必须用 `cloneInkMaterial()`（Material.clone 丢 onBeforeCompile）
 - `main.js` 蒙版 `timeOfDay.update` → 每次时段变化后调 `setInkTime`
 - 雾片只在室外场景显示（onActivated 里 `inkMist.visible`）
+- 验收截图：`node tools/e2e/shot-roof.mjs`（屋顶开/关 + 多时段）、
+  `node tools/e2e/shot-wall.mjs`（墙面开/关 + 室内外 + 傍晚）、
+  `node tools/e2e/shot-flora.mjs`（树/石板路开/关 + 秋季 + 岛底岩层）
 
 ---
 
