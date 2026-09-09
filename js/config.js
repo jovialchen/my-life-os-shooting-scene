@@ -165,9 +165,9 @@ export const SCENES = [
       spawns: {
           // 从室外大门进入：门内一步，面朝房间（+z）
           default: { pos: [0, 0.02, 0.9], rotY: 0 },
-          // 各房间回程落点（南墙客卫/厨房门）
-          fromBath: { pos: [-2.8, 0.02, 0.9], rotY: 0 },
-          fromKitchen: { pos: [2.8, 0.02, 0.9], rotY: 0 },
+          // 各房间回程落点（西墙客卫/厨房门内侧一步，面朝房间 +x）
+          fromBath: { pos: [-4.0, 0.02, 1.6], rotY: Math.PI / 2 },
+          fromKitchen: { pos: [-4.0, 0.02, 4.3], rotY: Math.PI / 2 },
           // 从学习室下楼：楼梯顶平台（顶部门洞触发区南侧，面朝南 -z 下楼方向）
           fromStudy: { pos: [4.5, 3.02, 11.3], rotY: Math.PI },
       },

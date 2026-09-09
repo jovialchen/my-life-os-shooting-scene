@@ -1,5 +1,5 @@
 /**
- * 门交互系统：点击门板 → 开/关动画
+ * 门/窗帘交互系统：点击 → 开/关动画
  *
  * 门板来自 GLB 中带 custom property `interactable_type = "door"` 的物体，
  * 建模规范见 doc/blender-workflow-instructions.md「二、门的制作」：
@@ -8,6 +8,12 @@
  *   - door_swing_dir: "left" / "right"（从铰链侧看）
  *   - door_slide: 平开=False，推拉=True
  *   - door_locked: 是否锁住
+ *
+ * 窗帘来自 `interactable_type = "curtain"` 的物体（建模规范见
+ * doc/design-surface-system.md）：
+ *   - origin 在帘布外侧边缘，开帘 = scale.x 收拢成褶
+ *   - curtain_group: 同组帘片联动开关（如一副帘的左右两片）
+ *   - 必须同时标 nav_ignore（窗帘永不进导航/障碍）
  *
  * 注意：initDoors 必须在 initWalker 之前调用，
  * 这样点到门时 stopImmediatePropagation 能阻止角色走过去。
@@ -20,6 +26,7 @@ import * as THREE from 'three';
 import { CLICK_DRAG_THRESHOLD } from '../config.js';
 
 const DOOR_SPEED = 1.5;    // 开/关进度速度（0→1 约 0.67s）
+const CURTAIN_GATHER = 0.12;   // 窗帘收拢后的宽度比例（1=全闭 → 0.12=收成褶堆）
 
 const doors = [];          // 已注册的门
 let camera = null;
@@ -104,7 +111,7 @@ export function clearDoors() {
     for (const d of doors) {
         d.obj.userData._doorState = {
             openT: d.openT, targetT: d.targetT,
-            baseRotY: d.baseRotY, basePos: d.basePos,
+            baseRotY: d.baseRotY, basePos: d.basePos, baseScaleX: d.baseScaleX,
         };
     }
     doors.length = 0;
@@ -112,14 +119,16 @@ export function clearDoors() {
 }
 
 /**
- * 注册一个门板物体（GLB 加载后由 houseShell 调用）
- * @param {THREE.Object3D} obj - userData.interactable_type === 'door' 的物体
+ * 注册一个可交互物体（GLB 加载后由 houseShell / main 调用）
+ * @param {THREE.Object3D} obj - userData.interactable_type 为 'door' 或 'curtain' 的物体
  */
 export function registerDoor(obj) {
     const ud = obj.userData;
     const saved = ud._doorState ?? null;   // clearDoors 暂存的开合状态
     const door = {
         obj,
+        kind: ud.interactable_type === 'curtain' ? 'curtain' : 'door',
+        curtainGroup: ud.curtain_group ?? null,   // 同组帘片联动（仅窗帘）
         slide: ud.door_slide === true,
         swing: THREE.MathUtils.degToRad(ud.door_swing_angle ?? 90),
         dir: ud.door_swing_dir === 'left' ? -1 : 1,
@@ -130,9 +139,10 @@ export function registerDoor(obj) {
         targetT: saved?.targetT ?? 0,
         baseRotY: saved?.baseRotY ?? obj.rotation.y,
         basePos: saved?.basePos ?? obj.position.clone(),
+        baseScaleX: saved?.baseScaleX ?? obj.scale.x,   // 窗帘收拢基准
     };
     doors.push(door);
-    console.log(`[Doors] 注册门 ${obj.name}: slide=${door.slide} swing=${ud.door_swing_angle} dir=${ud.door_swing_dir} locked=${door.locked}`);
+    console.log(`[Doors] 注册${door.kind === 'curtain' ? '窗帘' : '门'} ${obj.name}: slide=${door.slide} swing=${ud.door_swing_angle} dir=${ud.door_swing_dir} locked=${door.locked}`);
 }
 
 function toggleDoor(door) {
@@ -140,9 +150,13 @@ function toggleDoor(door) {
         console.log(`[Doors] ${door.obj.name} 锁住了`);
         return;
     }
+    // 窗帘：同 curtain_group 的所有帘片联动（一副帘点哪片都整副开合）
+    const group = door.kind === 'curtain' && door.curtainGroup
+        ? doors.filter(d => d.kind === 'curtain' && d.curtainGroup === door.curtainGroup)
+        : [door];
     const opening = door.targetT <= 0.5;
-    door.targetT = opening ? 1 : 0;
-    onDoorToggle?.();
+    for (const d of group) d.targetT = opening ? 1 : 0;
+    if (door.kind === 'door') onDoorToggle?.();
     // 传送门：开门动画照播，同时触发场景切换（淡出遮罩盖住动画）
     if (opening && door.targetScene) onDoorTrigger?.(door);
 }
@@ -164,7 +178,10 @@ export function updateDoors(delta) {
             : d.openT + Math.sign(d.targetT - d.openT) * step;
 
         const e = easeInOut(d.openT);
-        if (d.slide) {
+        if (d.kind === 'curtain') {
+            // 窗帘：origin 在外侧边缘，scale.x 收拢成褶堆
+            d.obj.scale.x = d.baseScaleX * (1 + (CURTAIN_GATHER - 1) * e);
+        } else if (d.slide) {
             // 推拉门：door_swing_angle 是滑动距离（米），沿门板宽度方向(local X)
             d.obj.position.x = d.basePos.x + d.dir * d.swing * e;
         } else {

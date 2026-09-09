@@ -38,12 +38,17 @@ const OUT = 'models/room_living.glb';
 // ── 房间参数 ──
 const W = 10, D = 12, H = 4.5, WT = 0.1;        // 内空 x±5, z 0..12, 墙高 4.5（高厅）, 墙厚 0.1
 const DOOR_W = 1.0, DOOR_H = 2.1;               // 门洞（南墙 z=0，居中于原点）
-// 北墙 3 拱窗偏西（让开东墙楼梯；窗宽 0.87 间距 0.95，与外壳 W1 语汇一致；
-// 层高 4.5 后抬高：窗台 0.9、窗顶 3.1）
-const WIN = { centers: [-3.0, -2.05, -1.1], width: 0.87, y0: 0.9, y1: 3.1, arch: true };
+// 北墙 3 拱窗偏西（让开东墙楼梯；拱形/3 扇布局与外壳 W1 语汇一致，
+// 2026-09 应要求加大：宽 1.2 间距 1.45、窗台 0.55、窗顶 3.5，组中心保持 -2.05）
+const WIN = { centers: [-3.5, -2.05, -0.6], width: 1.2, y0: 0.55, y1: 3.5, arch: true };
 const WIN_X = WIN.centers.map((c) => [c - WIN.width / 2, c + WIN.width / 2]);
-// 南墙三门：客卫 / 大门（居中）/ 厨房
-const S_DOORS = [-2.8, 0, 2.8];
+// 南墙（房屋前立面）：只有一扇大门（居中）+ 门两侧各一扇拱窗——与外壳西翼
+// F1 前立面一致（户外看 = 1 门 2 窗，W8/W10 门脸拱窗宽 0.87；房内 sill 0.55 / 顶 2.45）
+const S_WIN = { centers: [-2.8, 2.8], width: 0.87, y0: 0.55, y1: 2.45 };
+const S_WIN_X = S_WIN.centers.map((c) => [c - S_WIN.width / 2, c + S_WIN.width / 2]);
+// 客卫/厨房门在西墙（进门右手边：外壳西大门在立面偏左，进门面朝屋内时
+// 通往中厅/厨房的门应在右手侧；西墙 z 0..12 无楼梯占用）
+const SIDE_DOORS = [1.6, 4.3];   // 门中心 z（门洞宽 1.0 高 2.1）
 // 楼梯：东墙（x 3.9..5.0 宽 1.1），z 5.9 起步向北爬 17 步到 y=3.0，顶部接平台薄板
 // （平台高度 = 二楼标高 3.0，与层高 H 解耦——H 抬高后平台/触发区/落点不变）
 const ST = {
@@ -60,16 +65,27 @@ const HOLE = { x0: 3.8, x1: W / 2 + WT, z0: 7.4, z1: D + WT };
 const TOP_DOOR = { x0: 4.0, x1: 5.0, y1: 5.0 };
 
 // ── 材质（平涂：rough=1 metal=0）；结构色统一取 tools/room_palette.mjs ──
+// 内墙/天花板用独立材质名（_interior）：inkwash 按材质名挂变体，
+// 与外墙 MAT_wall 的灰泥质感区分开（室内墙纸 / 平滑顶面）
 const MATS = {
-    MAT_wall: PALETTE.wall,
-    MAT_ceiling: PALETTE.ceiling,     // 天花板独立色（比墙亮半档，否则水墨无光照墙顶不分）
+    MAT_wall_interior: '#B5C9A4',       // 内墙：淡豆绿（2026-09 从果绿 #9CCB86 调柔）
+    MAT_ceiling_interior: '#B7D6E8',    // 天花板：浅蓝
     MAT_floor_wood: PALETTE.floorWood, // 木地板：inkwash floor 变体画拼缝+木纹
     MAT_frame: PALETTE.frame,
     MAT_door: PALETTE.door,
     MAT_window_view: PALETTE.windowView,   // 窗景片：时间系统按名联动变色
+    MAT_curtain: '#E9E0C9',     // 窗帘：亚麻米白（inkwash curtain 变体画竖褶）
     MAT_stairs: '#C09A6B',     // WALK 逻辑面（隐藏，不进画面）
     MAT_tread: '#8A5A3B',      // 悬臂踏步板 + 平台面（胡桃木，同门板色系）
     MAT_stairwell: '#14100C',  // 顶部门洞暗龛
+};
+
+// 窗帘（北墙）：整面一副帘盖过 3 拱窗（南墙门脸两窗的帘见下方 addCurtain 循环）
+const CURTAIN = {
+    x0: WIN_X[0][0] - 0.27,                       // 帘布左缘（比窗组宽出一点）
+    x1: WIN_X[WIN_X.length - 1][1] + 0.27,
+    y0: 0.42, y1: 3.62,                            // 垂到窗台下 → 帘杆下
+    z0: D - 0.12, z1: D - 0.06,                    // 挂在墙内面（z=D）前方
 };
 
 // sRGB hex -> glTF baseColorFactor（线性）
@@ -141,6 +157,19 @@ function pushWallX(part, z0, z1, x0, x1, h, holes) {
     if (x1 - cur > 0.001) pushBox(part, [cur, 0, z0], [x1, h, z1]);
 }
 
+/** 带洞口的墙（沿 z 方向，洞口为矩形——门洞用） */
+function pushWallZ(part, x0, x1, z0, z1, h, holes) {
+    const sorted = [...holes].sort((a, b) => a.a0 - b.a0);
+    let cur = z0;
+    for (const hole of sorted) {
+        if (hole.a0 - cur > 0.001) pushBox(part, [x0, 0, cur], [x1, h, hole.a0]);
+        if (hole.y0 > 0.001) pushBox(part, [x0, 0, hole.a0], [x1, hole.y0, hole.a1]);
+        if (h - hole.y1 > 0.001) pushBox(part, [x0, hole.y1, hole.a0], [x1, h, hole.a1]);
+        cur = Math.max(cur, hole.a1);
+    }
+    if (z1 - cur > 0.001) pushBox(part, [x0, 0, cur], [x1, h, z1]);
+}
+
 // ── 房间建模 ──
 const parts = [];   // { name, mat, extras?, translation?, part }
 function add(name, mat, build, extras = null, translation = null) {
@@ -174,39 +203,37 @@ add('WALK_stairs', 'MAT_stairs', (p) => {
     stairs_to: [(TOP_DOOR.x0 + TOP_DOOR.x1) / 2, 3.02, D + 0.05],
 });
 
-// 墙体（南墙三门洞、北墙三拱窗洞；楼梯从东墙上楼，北墙不再开楼梯门）
-add('WALLS', 'MAT_wall', (p) => {
+// 墙体（南墙 1 大门 + 门两侧 2 拱窗；北墙 3 拱窗；西墙客卫/厨房两门洞）
+add('WALLS', 'MAT_wall_interior', (p) => {
     const xw = W / 2;
-    // 南墙（z=0，门洞在 S_DOORS 各处 x±0.5 高 2.1）
-    const sHoles = S_DOORS.map((c) => [c - DOOR_W / 2, c + DOOR_W / 2]);
-    let cur = -xw;
-    for (const [x0, x1] of sHoles) {
-        pushBox(p, [cur, 0, -WT], [x0, H, 0]);
-        pushBox(p, [x0, DOOR_H, -WT], [x1, H, 0]);       // 门上过梁
-        cur = x1;
-    }
-    pushBox(p, [cur, 0, -WT], [xw, H, 0]);
+    // 南墙（z=0：居中门洞 + S_WIN 两拱窗洞，与户外前立面 1 门 2 窗一致）
+    pushWallX(p, -WT, 0, -xw, xw, H, [
+        { a0: -DOOR_W / 2, a1: DOOR_W / 2, y0: 0, y1: DOOR_H },
+        ...S_WIN_X.map(([a0, a1]) => ({ a0, a1, y0: S_WIN.y0, y1: S_WIN.y1, arch: true })),
+    ]);
     // 北墙（z=D：3 拱窗洞，无门洞；井道 footprint 处在平台层以上开豁口，
     // 豁口里的是井道北墙及其顶部门洞——否则 4.5m 实墙会把门洞封死）
     pushWallX(p, D, D + WT, -xw, xw, H, [
         ...WIN_X.map(([a0, a1]) => ({ a0, a1, y0: WIN.y0, y1: WIN.y1, arch: true })),
         { a0: SHAFT.x0, a1: xw, y0: ST.top, y1: H },
     ]);
-    // 西墙（封住转角）
-    pushBox(p, [-xw - WT, 0, -WT], [-xw, H, D + WT]);
+    // 西墙：客卫/厨房两门洞（进门右手边——外壳西大门在立面偏左，
+    // 进门面向屋内时通往中厅/东翼的门应在右手侧）
+    pushWallZ(p, -xw - WT, -xw, -WT, D + WT, H,
+        SIDE_DOORS.map((c) => ({ a0: c - DOOR_W / 2, a1: c + DOOR_W / 2, y0: 0, y1: DOOR_H })));
     // 东墙：井道段（z ≥ SHAFT.z0）只砌到平台层，上面由井道东墙接住（避免共面重叠）
     pushBox(p, [xw, 0, -WT], [xw + WT, H, SHAFT.z0]);
     pushBox(p, [xw, 0, SHAFT.z0], [xw + WT, ST.top, D + WT]);
 });
 
 // 天花板（楼梯上段上方开井口，井口向上接挑高井道）
-add('CEILING', 'MAT_ceiling', (p) => {
+add('CEILING', 'MAT_ceiling_interior', (p) => {
     pushBox(p, [-W / 2 - WT, H, -WT], [W / 2 + WT, H + 0.12, HOLE.z0]);   // 南侧整板
     pushBox(p, [-W / 2 - WT, H, HOLE.z0], [HOLE.x0, H + 0.12, D + WT]);   // 井口西条
 });
 // 挑高井道（y 3.0..5.2，base=平台层不随层高走：西/南/东墙 + 北墙顶部门洞 + 顶盖；
 // 楼梯全程净空 ≥2m）
-add('SHAFT', 'MAT_wall', (p) => {
+add('SHAFT', 'MAT_wall_interior', (p) => {
     pushBox(p, [SHAFT.x0, SHAFT.base, SHAFT.z0], [SHAFT.x0 + WT, SHAFT.top, D + WT]);       // 西墙
     pushBox(p, [SHAFT.x0, SHAFT.base, SHAFT.z0], [W / 2 + WT, SHAFT.top, SHAFT.z0 + WT]);   // 南墙
     pushBox(p, [W / 2, SHAFT.base, SHAFT.z0], [W / 2 + WT, SHAFT.top, D + WT]);             // 东墙（接房间东墙）
@@ -229,33 +256,47 @@ add('STAIRWELL', 'MAT_stairwell', (p) =>
 add('FRAMES', 'MAT_frame', (p) => {
     const j = 0.06;   // 框条宽
     const E = 0.008;  // 共面错开量
-    // 南墙门框（凸出墙面两侧各 0.02）
-    for (const c of S_DOORS) {
-        const x0 = c - DOOR_W / 2, x1 = c + DOOR_W / 2;
+    const xw = W / 2;
+    // 南墙大门门框（凸出墙面两侧各 0.02）
+    {
+        const x0 = -DOOR_W / 2, x1 = DOOR_W / 2;
         pushBox(p, [x0 - j, 0, -WT - 0.02], [x0 + E, DOOR_H + j, 0.02]);
         pushBox(p, [x1 - E, 0, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
         pushBox(p, [x0 - j, DOOR_H - E, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
     }
+    // 西墙客卫/厨房门框（沿 z 墙，凸出墙面两侧各 0.02）
+    for (const c of SIDE_DOORS) {
+        const z0 = c - DOOR_W / 2, z1 = c + DOOR_W / 2;
+        pushBox(p, [-xw - WT - 0.02, 0, z0 - j], [-xw + 0.02, DOOR_H + j, z0 + E]);
+        pushBox(p, [-xw - WT - 0.02, 0, z1 - E], [-xw + 0.02, DOOR_H + j, z1 + j]);
+        pushBox(p, [-xw - WT - 0.02, DOOR_H - E, z0 - j], [-xw + 0.02, DOOR_H + j, z1 + j]);
+    }
     // 窗框（拱窗：边框到起拱线 + 拱顶踏步框 + 矩形段十字棂 + 窗台板）
-    for (const [x0, x1] of WIN_X) {
-        const z0 = D - 0.03, z1 = D + WT + 0.03;
-        const ys = WIN.y1 - 0.3;   // 起拱线
+    // f = 墙房内侧面 z，o = 出房方向（北墙 +1 / 南墙 -1）
+    const winFrame = (x0, x1, y0, y1, f, o) => {
+        const z0 = Math.min(f - o * 0.03, f + o * (WT + 0.03));
+        const z1 = Math.max(f - o * 0.03, f + o * (WT + 0.03));
+        const m0 = Math.min(f, f + o * WT), m1 = Math.max(f, f + o * WT);   // 棂在墙体内
+        const sz0 = Math.min(f - o * 0.07, z1), sz1 = Math.max(f - o * 0.07, z0); // 窗台板探入房 0.04
+        const ys = y1 - 0.3;   // 起拱线
         const j2 = 0.06;
-        pushBox(p, [x0 - j2, WIN.y0 - j2, z0], [x0 + E, ys + j2, z1]);   // 边框
-        pushBox(p, [x1 - E, WIN.y0 - j2, z0], [x1 + j2, ys + j2, z1]);
-        pushBox(p, [x0 - j2 - 0.02, WIN.y0 - j2 - 0.04, z0 - 0.04], [x1 + j2 + 0.02, WIN.y0 + E, z1]); // 窗台板
-        const cx = (x0 + x1) / 2, cy = (WIN.y0 + ys) / 2, m = 0.028;   // 棂半宽（0.056 全宽≈框条，太细会亚像素闪）
-        pushBox(p, [cx - m, WIN.y0 + E, D], [cx + m, ys - E, D + WT]);   // 竖棂（矩形段）
-        pushBox(p, [x0 + E, cy - m, D], [x1 - E, cy + m, D + WT]);       // 横棂
+        pushBox(p, [x0 - j2, y0 - j2, z0], [x0 + E, ys + j2, z1]);   // 边框
+        pushBox(p, [x1 - E, y0 - j2, z0], [x1 + j2, ys + j2, z1]);
+        pushBox(p, [x0 - j2 - 0.02, y0 - j2 - 0.04, sz0], [x1 + j2 + 0.02, y0 + E, sz1]); // 窗台板
+        const cx = (x0 + x1) / 2, cy = (y0 + ys) / 2, m = 0.028;   // 棂半宽（0.056 全宽≈框条，太细会亚像素闪）
+        pushBox(p, [cx - m, y0 + E, m0], [cx + m, ys - E, m1]);   // 竖棂（矩形段）
+        pushBox(p, [x0 + E, cy - m, m0], [x1 - E, cy + m, m1]);   // 横棂
         // 拱顶框：起拱线横梁 + 两级踏步边梃 + 顶梁
         const w = x1 - x0, hw1 = w * 0.7 / 2, hw2 = w * 0.35 / 2;
         pushBox(p, [x0 - j2, ys - E, z0], [x1 + j2, ys + j2, z1]);
         pushBox(p, [cx - hw1 - j2, ys - E, z0], [cx - hw1 + E, ys + 0.15 - E, z1]);
         pushBox(p, [cx + hw1 - E, ys - E, z0], [cx + hw1 + j2, ys + 0.15 - E, z1]);
-        pushBox(p, [cx - hw2 - j2, ys + 0.15 - E, z0], [cx - hw2 + E, WIN.y1 - E, z1]);
-        pushBox(p, [cx + hw2 - E, ys + 0.15 - E, z0], [cx + hw2 + j2, WIN.y1 - E, z1]);
-        pushBox(p, [cx - hw2 - j2, WIN.y1 - E, z0], [cx + hw2 + j2, WIN.y1 + j2, z1]);
-    }
+        pushBox(p, [cx - hw2 - j2, ys + 0.15 - E, z0], [cx - hw2 + E, y1 - E, z1]);
+        pushBox(p, [cx + hw2 - E, ys + 0.15 - E, z0], [cx + hw2 + j2, y1 - E, z1]);
+        pushBox(p, [cx - hw2 - j2, y1 - E, z0], [cx + hw2 + j2, y1 + j2, z1]);
+    };
+    for (const [x0, x1] of WIN_X) winFrame(x0, x1, WIN.y0, WIN.y1, D, 1);       // 北墙 3 拱窗
+    for (const [x0, x1] of S_WIN_X) winFrame(x0, x1, S_WIN.y0, S_WIN.y1, 0, -1); // 南墙门脸 2 拱窗
 });
 
 // 窗景片（北墙外侧大面片，时间系统按材质名联动变色）
@@ -263,6 +304,46 @@ add('VIEW_window', 'MAT_window_view', (p) =>
     pushBox(p, [WIN_X[0][0] - 0.4, WIN.y0 - 0.25, D + 0.4],
                [WIN_X[WIN_X.length - 1][1] + 0.4, WIN.y1 + 0.25, D + 0.46]),
     { nav_ignore: true });
+
+// 南墙门脸窗景片（南墙外侧大面片；也在大门洞后，开门一瞬看到"天色"而不是虚空）
+add('VIEW_window_s', 'MAT_window_view', (p) =>
+    pushBox(p, [S_WIN_X[0][0] - 0.4, S_WIN.y0 - 0.25, -0.46],
+               [S_WIN_X[S_WIN_X.length - 1][1] + 0.4, S_WIN.y1 + 0.25, -0.40]),
+    { nav_ignore: true });
+
+// 窗帘：北墙整面一副 + 南墙门脸两窗各一副。两片帘布 origin 各在**外侧边缘**，
+// 开帘 = JS 端 scale.x 1→0.12 向两侧收拢成褶（doors.js，kind='curtain'）；
+// 同 curtain_group 的帘片联动；nav_ignore：纯视觉/交互物，不进导航也不算障碍
+function addCurtain({ x0, x1, y0, y1, rodY, z0, z1, group }) {
+    add(`CURTAIN_ROD_${group}`, 'MAT_frame', (p) => {
+        pushBox(p, [x0 - 0.08, rodY - 0.03, z0 - 0.01],
+                   [x1 + 0.08, rodY + 0.03, z1 + 0.01]);   // 横杆
+        pushBox(p, [x0 - 0.13, rodY - 0.05, z0 - 0.03],
+                   [x0 - 0.06, rodY + 0.05, z1 + 0.03]);   // 端头球（方）
+        pushBox(p, [x1 + 0.06, rodY - 0.05, z0 - 0.03],
+                   [x1 + 0.13, rodY + 0.05, z1 + 0.03]);
+    }, { nav_ignore: true });
+    const half = (x1 - x0) / 2;
+    const extras = { interactable_type: 'curtain', curtain_group: group, nav_ignore: true };
+    // 左片：origin 在左缘（几何向右伸展），收拢时往左堆
+    add(`CURTAIN_L_${group}`, 'MAT_curtain', (p) =>
+        pushBox(p, [0, y0, z0], [half, y1, z1]), extras, [x0, 0, 0]);
+    // 右片：origin 在右缘（几何向左伸展），收拢时往右堆
+    add(`CURTAIN_R_${group}`, 'MAT_curtain', (p) =>
+        pushBox(p, [-half, y0, z0], [0, y1, z1]), extras, [x1, 0, 0]);
+}
+// 北墙：整面一副帘盖过 3 拱窗
+addCurtain({ x0: CURTAIN.x0, x1: CURTAIN.x1, y0: CURTAIN.y0, y1: CURTAIN.y1,
+             rodY: 3.63, z0: CURTAIN.z0, z1: CURTAIN.z1, group: 'north' });
+// 南墙门脸 2 拱窗：每窗一副（中间隔着大门，不能共享）
+for (const [i, c] of S_WIN.centers.entries()) {
+    addCurtain({
+        x0: c - S_WIN.width / 2 - 0.27, x1: c + S_WIN.width / 2 + 0.27,
+        y0: 0.42, y1: 2.55, rodY: 2.60,
+        z0: 0.06, z1: 0.12,   // 挂在南墙内面（z=0）前方
+        group: `south_${i}`,
+    });
+}
 
 // 楼梯可见梯体：悬空梯——0.07 厚悬臂踏步板（东端插进东墙，梯下完全挑空），
 // 顶部平台 0.15 薄板。踏步是障碍（低矮踏步下不让人进）但 nav_no_inflate：
@@ -298,29 +379,30 @@ add('DOOR_exit', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]
     },
     [-DOOR_W / 2 + 0.02, 0.02, 0]);
 
-// 南墙另外两扇传送门（dir=left 开向屋内）
-add('DOOR_bath', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]),
+// 西墙两扇传送门（客卫/厨房）：门板沿 z 伸展，origin 在南侧铰链边（z=门洞南缘），
+// dir right=+1 → rotation.y = +90° → 门板从 +z 转向 +x（屋内）
+add('DOOR_bath', 'MAT_door', (p) => pushBox(p, [-0.02, 0, 0], [0.02, 2.06, 0.96]),
     {
         interactable_type: 'door',
         door_swing_angle: 90.0,
-        door_swing_dir: 'left',
+        door_swing_dir: 'right',
         door_slide: false,
         door_locked: false,
         door_target_scene: 'f1_bath',
         door_target_spawn: 'default',
     },
-    [S_DOORS[0] - 0.48, 0.02, 0]);
-add('DOOR_kitchen', 'MAT_door', (p) => pushBox(p, [0, 0, -0.02], [0.96, 2.06, 0.02]),
+    [-W / 2, 0.02, SIDE_DOORS[0] - 0.48]);
+add('DOOR_kitchen', 'MAT_door', (p) => pushBox(p, [-0.02, 0, 0], [0.02, 2.06, 0.96]),
     {
         interactable_type: 'door',
         door_swing_angle: 90.0,
-        door_swing_dir: 'left',
+        door_swing_dir: 'right',
         door_slide: false,
         door_locked: false,
         door_target_scene: 'f1_kitchen',
         door_target_spawn: 'default',
     },
-    [S_DOORS[2] - 0.48, 0.02, 0]);
+    [-W / 2, 0.02, SIDE_DOORS[1] - 0.48]);
 
 // ── 写 GLB ──
 const matNames = Object.keys(MATS);

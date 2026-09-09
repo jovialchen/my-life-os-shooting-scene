@@ -101,10 +101,10 @@ let shotFramesLeft = Infinity;   // 截图模式：渲染 N 帧后停帧（?fram
 // ============================================================
 let seasonValue = 0;   // 当前季节滑块值（模型加载完成后补刷）
 
-/** 门开合时重建导航动态障碍（关着的门板是障碍） */
+/** 门开合时重建导航动态障碍（关着的门板是障碍；窗帘 kind='curtain' 永不挡路） */
 function refreshNavDoors() {
     const closed = getDoors()
-        .filter(d => d.targetT < 0.5)
+        .filter(d => d.kind === 'door' && d.targetT < 0.5)
         .map(d => new THREE.Box3().setFromObject(d.obj));
     rebuildDynamicObstacles(closed);
 }
@@ -203,10 +203,11 @@ initSceneManager({
         // 场景激活：重建导航/门/机位/相机碰撞/描边，角色落到 spawn
         onActivated: (def, group, spawnId) => {
             buildNavGrid(parseSurfaces(group));
-            // 门换绑：清掉旧场景门（状态暂存 obj.userData），注册新场景门
+            // 门/窗帘换绑：清掉旧场景（状态暂存 obj.userData），注册新场景
             clearDoors();
             group.traverse((child) => {
-                if (child.userData?.interactable_type === 'door') registerDoor(child);
+                const t = child.userData?.interactable_type;
+                if (t === 'door' || t === 'curtain') registerDoor(child);
             });
             refreshNavDoors();
             setZones(def.zones, def.categories);

@@ -22,7 +22,8 @@ Blender 选中 mesh → Object Properties → Custom Properties → 添加属性
 | `surface_sittable` | Boolean | `True` | 人可以坐在上面 |
 | `surface_layable` | Boolean | `True` | 人可以躺在上面 |
 | `surface_placeable` | Boolean | `True` | 可以在上面放小物品 |
-| `interactable_type` | String | `"door"` | 交互物体类型（目前只有门） |
+| `interactable_type` | String | `"door"` / `"curtain"` | 交互物体类型（门 / 窗帘） |
+| `curtain_group` | String | `"north"` | 同组帘片联动开关（仅窗帘，配合 `nav_ignore` 使用） |
 | `stairs_to` | Array | `[x, y, z]` | 点击楼梯面时自动走到梯顶点（`walker.js` 点击目标改写；客厅 `WALK_stairs` 在用，配合顶部触发区传送上楼） |
 
 一个 mesh 可以有多个属性。例如：
@@ -96,6 +97,19 @@ Blender 里建模时：
 墙壁本身在导航网格里天然是障碍（没标 walkable 的 mesh 都是障碍）。门洞处如果墙没有建模（有个缺口），那么下方的 walkable 面会暴露出来，格子标记为可走——但门关闭时，门板 mesh 覆盖在上面，重新把那些格子标回障碍。
 
 这比旧代码里手动算 `_markShellDoorWalls` / `_clearShellDoorway` 硬编码坐标干净得多——门的位置、大小、铰链在哪，全在模型里。
+
+### 交互物体：窗帘（2026-09 新增，已落地）
+
+窗帘和门共用 `doors.js` 的点击开关机制，但**不是障碍**——纯视觉/交互物，必须同时标 `nav_ignore`（不进导航、不被 `refreshNavDoors` 当动态障碍）。
+
+**建模规范（见 `tools/make_room_living.mjs` 的 `addCurtain()`）：**
+
+- 帘片：独立 mesh，`interactable_type = "curtain"` + `nav_ignore = True`。**Object Origin 设在帘布外侧边缘**——开帘动画 = `scale.x` 从 1 收到 0.12，向边缘收拢成褶堆。
+- 联动：同 `curtain_group` 的帘片一点俱开（一副帘的左右两片）。
+- 帘杆等纯装饰件只标 `nav_ignore`。
+- 水墨质感：`MAT_curtain` 材质名触发 inkwash 的 curtain 变体（竖褶明暗 + 布纹；褶纹用对象本地 x，收拢时跟着压缩）。
+
+室内墙面/天花板质感同理按材质名区分：`MAT_wall_interior`（墙纸竖条纹，客厅果绿）、`MAT_ceiling_interior`（平滑浅蓝顶），与外墙 `MAT_wall` 的灰泥变体互不干扰。
 
 ---
 

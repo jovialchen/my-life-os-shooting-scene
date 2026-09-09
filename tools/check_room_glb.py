@@ -14,8 +14,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GLB = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'models', 'room_living.glb')
 
 # 各房窗景片期望（doc/house-map.md 对应表）：墙 + 窗组中心 x；None = 无窗房
+# 值可以是单片 (wall, cx) 或多片列表 [（wall, cx), ...]（客厅南北墙各一片）
 VIEW_EXPECT = {
-    'room_living.glb': ('N', -2.05),   # 8×10 客厅：窗组偏西（让开东墙楼梯）
+    'room_living.glb': [('N', -2.05), ('S', 0.0)],   # 10×12 客厅：北墙 3 拱窗组偏西 + 南墙门脸 2 拱窗
     'room_kitchen.glb': ('N', -0.45),
     'room_bath_f1.glb': None,
     'room_study.glb': ('S', 1.95),
@@ -106,20 +107,24 @@ elif expect is None:
     if view_nodes:
         fail(f'无窗房不应有 VIEW_ 窗景片: {[n for n, _ in view_nodes]}')
 else:
-    exp_wall, exp_cx = expect
-    if len(view_nodes) != 1:
-        fail(f'应有 1 片 VIEW_ 窗景片（实际 {len(view_nodes)}）')
+    exp_list = [expect] if isinstance(expect, tuple) else expect
+    if len(view_nodes) != len(exp_list):
+        fail(f'应有 {len(exp_list)} 片 VIEW_ 窗景片（实际 {len(view_nodes)}）')
     else:
-        name, node = view_nodes[0]
-        mesh = gltf['meshes'][node['mesh']]
-        acc = gltf['accessors'][mesh['primitives'][0]['attributes']['POSITION']]
-        cx = (acc['min'][0] + acc['max'][0]) / 2
-        cz = (acc['min'][2] + acc['max'][2]) / 2
-        wall = 'S' if cz < 0 else 'N'
-        if wall != exp_wall:
-            fail(f'{name} 墙错误：期望 {exp_wall} 墙，实际 {wall} 墙（z={cz:.2f}）')
-        if abs(cx - exp_cx) > 0.05:
-            fail(f'{name} 窗组中心 x 期望 {exp_cx}，实际 {cx:.2f}')
+        actual = []
+        for name, node in view_nodes:
+            mesh = gltf['meshes'][node['mesh']]
+            acc = gltf['accessors'][mesh['primitives'][0]['attributes']['POSITION']]
+            cx = (acc['min'][0] + acc['max'][0]) / 2
+            cz = (acc['min'][2] + acc['max'][2]) / 2
+            actual.append((('S' if cz < 0 else 'N'), cx, name))
+        actual.sort(key=lambda t: (t[0], t[1]))
+        for (exp_wall, exp_cx), (wall, cx, name) in zip(
+                sorted(exp_list, key=lambda t: (t[0], t[1])), actual):
+            if wall != exp_wall:
+                fail(f'{name} 墙错误：期望 {exp_wall} 墙，实际 {wall} 墙')
+            if abs(cx - exp_cx) > 0.05:
+                fail(f'{name} 窗组中心 x 期望 {exp_cx}，实际 {cx:.2f}')
 
 print('\n== WALK 面范围 ==')
 for name, node in walk_nodes:

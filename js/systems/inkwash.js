@@ -38,6 +38,11 @@ const U = {
     uRockGrain: { value: 0.35 },                        // 石头颗粒强度（仅 MAT_rock/MAT_stone）
     uWoodLine:  { value: 0.55 },                        // 木地板拼缝勾线强度（仅 MAT_floor_wood）
     uWoodGrain: { value: 0.5 },                         // 木地板木纹强度（仅 MAT_floor_wood）
+    uPaperStripe: { value: 0.3 },                       // 室内墙纸竖条纹强度（仅 MAT_wall_interior）
+    uPaperGrain:  { value: 0.22 },                      // 室内墙纸细颗粒强度（仅 MAT_wall_interior）
+    uCeilMottle:  { value: 0.14 },                      // 室内顶面大尺度斑驳强度（仅 MAT_ceiling_interior）
+    uCurtainPleat: { value: 0.5 },                      // 窗帘竖褶明暗强度（仅 MAT_curtain）
+    uCurtainGrain: { value: 0.25 },                     // 窗帘布纹颗粒强度（仅 MAT_curtain）
 };
 
 // ── 时段调色预设（对齐 config.TIME_PRESETS 六段，水墨不打光只调色）──
@@ -84,9 +89,19 @@ const WALL_MAT = 'MAT_wall';
 /** 木地板材质：纯色大平面没看头，需要拼缝勾线 + 顺板木纹 */
 const WOOD_FLOOR_MAT = 'MAT_floor_wood';
 
+/** 室内墙材质：与外墙灰泥区分——墙纸竖条纹 + 更细的颗粒 */
+const WALL_INTERIOR_MAT = 'MAT_wall_interior';
+/** 室内天花板材质：平滑顶面，只留极淡斑驳 */
+const CEILING_INTERIOR_MAT = 'MAT_ceiling_interior';
+/** 窗帘布料：竖褶明暗 + 布纹 */
+const CURTAIN_MAT = 'MAT_curtain';
+
 const VARIANTS = {
     roof:  { mats: [ROOF_MAT],              compile: (s) => injectInk(s, ROOF_GLSL, ROOF_UNIFORMS),  key: 'inkwash_roof' },
     wall:  { mats: [WALL_MAT],              compile: (s) => injectInk(s, WALL_GLSL, WALL_UNIFORMS),  key: 'inkwash_wall' },
+    wallInterior: { mats: [WALL_INTERIOR_MAT], compile: (s) => injectInk(s, WALL_INTERIOR_GLSL, WALL_INTERIOR_UNIFORMS), key: 'inkwash_wall_interior' },
+    ceilingInterior: { mats: [CEILING_INTERIOR_MAT], compile: (s) => injectInk(s, CEILING_INTERIOR_GLSL, CEILING_INTERIOR_UNIFORMS), key: 'inkwash_ceiling_interior' },
+    curtain: { mats: [CURTAIN_MAT],         compile: (s) => injectInk(s, CURTAIN_GLSL, CURTAIN_UNIFORMS), key: 'inkwash_curtain' },
     leaf:  { mats: ['MAT_leaves'],          compile: (s) => injectInk(s, LEAF_GLSL, LEAF_UNIFORMS),  key: 'inkwash_leaf' },
     trunk: { mats: ['MAT_trunk'],           compile: (s) => injectInk(s, TRUNK_GLSL, TRUNK_UNIFORMS), key: 'inkwash_trunk' },
     rock:  { mats: ['MAT_rock', 'MAT_stone'], compile: (s) => injectInk(s, ROCK_GLSL, ROCK_UNIFORMS), key: 'inkwash_rock' },
@@ -180,6 +195,41 @@ const WALL_GLSL = /* glsl */`
 `;
 const WALL_UNIFORMS = 'uniform float uWallGrain;';
 
+/** 室内墙变体 GLSL：墙纸感——细竖条纹（0.07m 周期正弦，柔和不勾线）+ 更细更弱的颗粒。
+ *  与外墙灰泥（粗抹痕+砂感）明确区分：条纹规则、颗粒细、振幅小 */
+const WALL_INTERIOR_GLSL = /* glsl */`
+    vec3 wn2 = normalize(vInkWorldNormal);
+    vec2 wuv2 = abs(wn2.x) > 0.7 ? wp.zy : (abs(wn2.z) > 0.7 ? wp.xy : wp.xz);
+    // 墙纸竖条：横向规则条纹 + 轻微噪声抖动（印刷墙纸，不是手工抹痕）
+    float stripe = sin(wuv2.x * 6.28318 / 0.07
+                       + (inkNoise(vec3(wuv2.y * 0.8, 2.2, 5.5)) - 0.5) * 0.8);
+    // 细颗粒：两层高频噪声（纸面纤维，比外墙砂感细一档）
+    float pg = inkNoise(vec3(wuv2 * 21.0, 9.1)) * 0.6
+             + inkNoise(vec3(wuv2 * 47.0, 19.3)) * 0.4;
+    outgoingLight *= 1.0 + stripe * 0.5 * uPaperStripe + (pg - 0.5) * uPaperGrain;
+`;
+const WALL_INTERIOR_UNIFORMS = 'uniform float uPaperStripe;\nuniform float uPaperGrain;';
+
+/** 室内天花板变体 GLSL：平滑顶面，只留极淡的大尺度斑驳（安静，不抢墙面） */
+const CEILING_INTERIOR_GLSL = /* glsl */`
+    float cmottle = inkNoise(wp * 0.9) * 0.7 + inkNoise(wp * 2.3 + 4.0) * 0.3;
+    outgoingLight *= 1.0 + (cmottle - 0.5) * uCeilMottle;
+`;
+const CEILING_INTERIOR_UNIFORMS = 'uniform float uCeilMottle;';
+
+/** 窗帘变体 GLSL：竖褶明暗（对象本地 x 的余弦褶——scale.x 收拢时褶跟着压缩）
+ *  + 布纹细颗粒。cos 是偶函数：左右两片（本地 x 一正一负）褶纹镜像对称 */
+const CURTAIN_GLSL = /* glsl */`
+    float cwob = (inkNoise(vInkLocalPos * 3.0) - 0.5) * 0.6;
+    float pleat = cos(vInkLocalPos.x * 6.28318 / 0.16 + cwob) * 0.5 + 0.5;
+    pleat *= pleat;   // 褶峰收窄、褶谷放宽
+    outgoingLight *= mix(1.0, 0.72 + 0.5 * pleat, uCurtainPleat);
+    float cloth = inkNoise(vec3(vInkLocalPos.xy * 40.0, 3.3)) * 0.5
+                + inkNoise(vInkLocalPos * 90.0 + 7.0) * 0.5;
+    outgoingLight *= 1.0 + (cloth - 0.5) * uCurtainGrain;
+`;
+const CURTAIN_UNIFORMS = 'uniform float uCurtainPleat;\nuniform float uCurtainGrain;';
+
 /** 树冠变体 GLSL：团块假光影（动漫树丛的明暗面）+ 底部压暗 + 叶簇碎点 */
 const LEAF_GLSL = /* glsl */`
     vec3 ln = normalize(vInkWorldNormal);
@@ -246,13 +296,16 @@ function injectInk(shader, variantGLSL, variantUniforms) {
     Object.assign(shader.uniforms, U);
     shader.vertexShader = shader.vertexShader
         .replace('#include <common>', `#include <common>
-varying vec3 vInkWorldPos;${needNormal ? '\nvarying vec3 vInkWorldNormal;' : ''}`)
+varying vec3 vInkWorldPos;
+varying vec3 vInkLocalPos;${needNormal ? '\nvarying vec3 vInkWorldNormal;' : ''}`)
         .replace('#include <project_vertex>',
             `#include <project_vertex>
-vInkWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;${needNormal ? '\nvInkWorldNormal = normalize(mat3(modelMatrix) * normal);' : ''}`);
+vInkWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+vInkLocalPos = transformed;${needNormal ? '\nvInkWorldNormal = normalize(mat3(modelMatrix) * normal);' : ''}`);
     shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
-varying vec3 vInkWorldPos;${needNormal ? '\nvarying vec3 vInkWorldNormal;' : ''}
+varying vec3 vInkWorldPos;
+varying vec3 vInkLocalPos;${needNormal ? '\nvarying vec3 vInkWorldNormal;' : ''}
 uniform vec3 uTimeTint;
 uniform float uBlotch;
 uniform float uNoiseScale;
@@ -523,4 +576,17 @@ export function setInkFlora(opts = {}) {
     if (opts.barkGrain != null) U.uBarkGrain.value = opts.barkGrain;
     if (opts.rockShade != null) U.uRockShade.value = opts.rockShade;
     if (opts.rockGrain != null) U.uRockGrain.value = opts.rockGrain;
+}
+
+/**
+ * 室内质感调参（内墙墙纸/室内顶面/窗帘；null 的项不变）
+ * @param {{paperStripe?:number, paperGrain?:number, ceilMottle?:number,
+ *   curtainPleat?:number, curtainGrain?:number}} opts
+ */
+export function setInkInterior(opts = {}) {
+    if (opts.paperStripe != null) U.uPaperStripe.value = opts.paperStripe;
+    if (opts.paperGrain != null) U.uPaperGrain.value = opts.paperGrain;
+    if (opts.ceilMottle != null) U.uCeilMottle.value = opts.ceilMottle;
+    if (opts.curtainPleat != null) U.uCurtainPleat.value = opts.curtainPleat;
+    if (opts.curtainGrain != null) U.uCurtainGrain.value = opts.curtainGrain;
 }
