@@ -1,7 +1,8 @@
 /** 客厅生成器（纯 Node 写 GLB，无需 Blender）
  *
  * 2026-09 三次改造：房间扩容 7×7 → **10 宽 × 12 深**（x ±5，z 0..12），
- * 先做空壳（只有门/窗/楼梯），家具后续再加。
+ * 先做空壳（只有门/窗/楼梯），家具后续再加；层高后抬到 **4.5m 高厅**
+ * （楼梯平台/井道基座保持 y=3.0 二楼标高不变，北墙 3 拱窗随层高抬高）。
  *
  * 楼梯（局部挑高楼梯间方案）：
  *   - 沿**东墙**从南向北上爬（17 步，踏面 0.28、级高 3.0/17≈0.176，宽 1.1），
@@ -14,6 +15,7 @@
  *     学习室回程落在平台上、触发区南侧（spawns.fromStudy，不回环）；
  *   - 楼梯**可行走**：每步顶面 + 平台铺 WALK_ 面（surface_walkable），
  *     可见梯体 STAIRS / 暗龛标 nav_ignore（导航只认 WALK_ 面）；
+ *     WALK_stairs 带 extras stairs_to=梯顶门洞口，点楼梯任意处自动上楼（walker.js）；
  *
  * 全项目房间规范（其余 11 间房以 make_rooms.mjs 为模板，规范一致）：
  *   - 坐标系：房间独立坐标，**原点在门口地板中心**（three 坐标：y 上，z 进房间）
@@ -34,21 +36,24 @@ import { PALETTE } from './room_palette.mjs';
 const OUT = 'models/room_living.glb';
 
 // ── 房间参数 ──
-const W = 10, D = 12, H = 3, WT = 0.1;          // 内空 x±5, z 0..12, 墙高 3, 墙厚 0.1
+const W = 10, D = 12, H = 4.5, WT = 0.1;        // 内空 x±5, z 0..12, 墙高 4.5（高厅）, 墙厚 0.1
 const DOOR_W = 1.0, DOOR_H = 2.1;               // 门洞（南墙 z=0，居中于原点）
-// 北墙 3 拱窗偏西（让开东墙楼梯；窗宽 0.87 间距 0.95，与外壳 W1 语汇一致）
-const WIN = { centers: [-3.0, -2.05, -1.1], width: 0.87, y0: 0.55, y1: 2.45, arch: true };
+// 北墙 3 拱窗偏西（让开东墙楼梯；窗宽 0.87 间距 0.95，与外壳 W1 语汇一致；
+// 层高 4.5 后抬高：窗台 0.9、窗顶 3.1）
+const WIN = { centers: [-3.0, -2.05, -1.1], width: 0.87, y0: 0.9, y1: 3.1, arch: true };
 const WIN_X = WIN.centers.map((c) => [c - WIN.width / 2, c + WIN.width / 2]);
 // 南墙三门：客卫 / 大门（居中）/ 厨房
 const S_DOORS = [-2.8, 0, 2.8];
 // 楼梯：东墙（x 3.9..5.0 宽 1.1），z 5.9 起步向北爬 17 步到 y=3.0，顶部接平台薄板
+// （平台高度 = 二楼标高 3.0，与层高 H 解耦——H 抬高后平台/触发区/落点不变）
 const ST = {
-    x0: 3.9, z0: 5.9, steps: 17,
+    x0: 3.9, z0: 5.9, steps: 17, top: 3.0,
     tread: 0.28, rise: 3.0 / 17,
     landingZ0: 5.9 + 17 * 0.28,    // = 10.66：第 17 步之后接平台
 };
-// 挑高井道（楼梯上段上方）：西墙 x 3.75..3.85、南墙 z 7.35..7.45，y 3.0..5.2 + 顶盖
-const SHAFT = { x0: 3.75, z0: 7.35, top: 5.2 };
+// 挑高井道（楼梯上段上方）：西墙 x 3.75..3.85、南墙 z 7.35..7.45，
+// base 3.0（平台层，不随 H 走）→ top 5.2 + 顶盖；井道墙骑跨天花板井口边
+const SHAFT = { x0: 3.75, z0: 7.35, base: 3.0, top: 5.2 };
 // 天花板井口 = 井道 footprint（x 3.8..5.1, z 7.4..12.1，井道墙骑跨井口边）
 const HOLE = { x0: 3.8, x1: W / 2 + WT, z0: 7.4, z1: D + WT };
 // 井道北墙顶部门洞（平台层，通往二楼的暗门洞；1.0 宽——障碍膨胀后仍剩 ≥4 格通道）
@@ -161,8 +166,12 @@ add('WALK_stairs', 'MAT_stairs', (p) => {
         pushQuadXZ(p, ST.x0 - 0.1, k === 1 ? z0 - 0.05 : z0, W / 2 - 0.05, z0 + ST.tread, k * ST.rise + 0.015);
     }
     // 顶部平台（向北延伸进顶部门洞暗龛；传送在走到门前触发）
-    pushQuadXZ(p, ST.x0 - 0.05, ST.landingZ0, W / 2 - 0.05, D + 0.3, 3.0 + 0.015);
-}, { surface_walkable: true });
+    pushQuadXZ(p, ST.x0 - 0.05, ST.landingZ0, W / 2 - 0.05, D + 0.3, ST.top + 0.015);
+}, {
+    surface_walkable: true,
+    // 点击楼梯任意处 → walker.js 把目标改写为梯顶门洞口（自动上楼；在梯顶反点不触发）
+    stairs_to: [(TOP_DOOR.x0 + TOP_DOOR.x1) / 2, 3.02, D + 0.05],
+});
 
 // 墙体（南墙三门洞、北墙三拱窗洞；楼梯从东墙上楼，北墙不再开楼梯门）
 add('WALLS', 'MAT_wall', (p) => {
@@ -176,12 +185,17 @@ add('WALLS', 'MAT_wall', (p) => {
         cur = x1;
     }
     pushBox(p, [cur, 0, -WT], [xw, H, 0]);
-    // 北墙（z=D：3 拱窗洞，无门洞）
-    pushWallX(p, D, D + WT, -xw, xw, H,
-        WIN_X.map(([a0, a1]) => ({ a0, a1, y0: WIN.y0, y1: WIN.y1, arch: true })));
-    // 西/东墙（封住转角）
+    // 北墙（z=D：3 拱窗洞，无门洞；井道 footprint 处在平台层以上开豁口，
+    // 豁口里的是井道北墙及其顶部门洞——否则 4.5m 实墙会把门洞封死）
+    pushWallX(p, D, D + WT, -xw, xw, H, [
+        ...WIN_X.map(([a0, a1]) => ({ a0, a1, y0: WIN.y0, y1: WIN.y1, arch: true })),
+        { a0: SHAFT.x0, a1: xw, y0: ST.top, y1: H },
+    ]);
+    // 西墙（封住转角）
     pushBox(p, [-xw - WT, 0, -WT], [-xw, H, D + WT]);
-    pushBox(p, [xw, 0, -WT], [xw + WT, H, D + WT]);
+    // 东墙：井道段（z ≥ SHAFT.z0）只砌到平台层，上面由井道东墙接住（避免共面重叠）
+    pushBox(p, [xw, 0, -WT], [xw + WT, H, SHAFT.z0]);
+    pushBox(p, [xw, 0, SHAFT.z0], [xw + WT, ST.top, D + WT]);
 });
 
 // 天花板（楼梯上段上方开井口，井口向上接挑高井道）
@@ -189,20 +203,21 @@ add('CEILING', 'MAT_wall', (p) => {
     pushBox(p, [-W / 2 - WT, H, -WT], [W / 2 + WT, H + 0.12, HOLE.z0]);   // 南侧整板
     pushBox(p, [-W / 2 - WT, H, HOLE.z0], [HOLE.x0, H + 0.12, D + WT]);   // 井口西条
 });
-// 挑高井道（y 3.0..5.2：西/南/东墙 + 北墙顶部门洞 + 顶盖；楼梯全程净空 ≥2m）
+// 挑高井道（y 3.0..5.2，base=平台层不随层高走：西/南/东墙 + 北墙顶部门洞 + 顶盖；
+// 楼梯全程净空 ≥2m）
 add('SHAFT', 'MAT_wall', (p) => {
-    pushBox(p, [SHAFT.x0, H, SHAFT.z0], [SHAFT.x0 + WT, SHAFT.top, D + WT]);       // 西墙
-    pushBox(p, [SHAFT.x0, H, SHAFT.z0], [W / 2 + WT, SHAFT.top, SHAFT.z0 + WT]);   // 南墙
-    pushBox(p, [W / 2, H, SHAFT.z0], [W / 2 + WT, SHAFT.top, D + WT]);             // 东墙（接房间东墙）
-    pushBox(p, [SHAFT.x0, H, D], [TOP_DOOR.x0, SHAFT.top, D + WT]);                // 北墙·门洞西
-    pushBox(p, [TOP_DOOR.x1, H, D], [W / 2 + WT, SHAFT.top, D + WT]);              // 北墙·门洞东
-    pushBox(p, [TOP_DOOR.x0, TOP_DOOR.y1, D], [TOP_DOOR.x1, SHAFT.top, D + WT]);   // 门洞过梁
+    pushBox(p, [SHAFT.x0, SHAFT.base, SHAFT.z0], [SHAFT.x0 + WT, SHAFT.top, D + WT]);       // 西墙
+    pushBox(p, [SHAFT.x0, SHAFT.base, SHAFT.z0], [W / 2 + WT, SHAFT.top, SHAFT.z0 + WT]);   // 南墙
+    pushBox(p, [W / 2, SHAFT.base, SHAFT.z0], [W / 2 + WT, SHAFT.top, D + WT]);             // 东墙（接房间东墙）
+    pushBox(p, [SHAFT.x0, SHAFT.base, D], [TOP_DOOR.x0, SHAFT.top, D + WT]);                // 北墙·门洞西
+    pushBox(p, [TOP_DOOR.x1, SHAFT.base, D], [W / 2 + WT, SHAFT.top, D + WT]);              // 北墙·门洞东
+    pushBox(p, [TOP_DOOR.x0, TOP_DOOR.y1, D], [TOP_DOOR.x1, SHAFT.top, D + WT]);            // 门洞过梁
     pushBox(p, [SHAFT.x0 - 0.05, SHAFT.top, SHAFT.z0 - 0.05],
-               [W / 2 + WT + 0.05, SHAFT.top + 0.15, D + WT + 0.05]);              // 顶盖
+               [W / 2 + WT + 0.05, SHAFT.top + 0.15, D + WT + 0.05]);                       // 顶盖
 });
 // 顶部门洞暗龛（从门洞看 = "通往二楼的黑暗"；传送触发区在门洞处）
 add('STAIRWELL', 'MAT_stairwell', (p) =>
-    pushBox(p, [TOP_DOOR.x0 - 0.05, H - 0.05, D + WT],
+    pushBox(p, [TOP_DOOR.x0 - 0.05, SHAFT.base - 0.05, D + WT],
                [TOP_DOOR.x1 + 0.05, TOP_DOOR.y1 + 0.1, D + WT + 0.5]),
     { nav_ignore: true });
 
@@ -252,7 +267,7 @@ add('STAIRS', 'MAT_tread', (p) => {
         const z0 = ST.z0 + (k - 1) * ST.tread, top = k * ST.rise;
         pushBox(p, [ST.x0 - 0.02, top - 0.07, z0], [W / 2, top, z0 + ST.tread]);   // 悬臂踏步板
     }
-    pushBox(p, [ST.x0 - 0.05, H - 0.15, ST.landingZ0], [W / 2 + 0.05, H, D + 0.05]); // 平台薄板
+    pushBox(p, [ST.x0 - 0.05, ST.top - 0.15, ST.landingZ0], [W / 2 + 0.05, ST.top, D + 0.05]); // 平台薄板（y=3.0，不随层高走）
 }, { nav_no_inflate: true });
 
 // 西缘细栏杆（每步一根立柱 + 踏步式细扶手，扶手高 0.8；障碍，导航按净空绕行）

@@ -66,6 +66,33 @@ for (let i = 0; i < 15 && !arrived; i++) {
 }
 check('下楼走回门口（不触发传送）', arrived);
 
+console.log('— 点击楼梯中段（stairs_to 改写目标 → 应自动上楼并传送）—');
+// 把第 8 级踏步面中心（4.5, ~1.43, 8.0）投影到屏幕坐标，做一次真实鼠标点击
+const clickPt = await page.evaluate(() => {
+    const cam = window.__app.camera;
+    cam.updateMatrixWorld();
+    const V3 = Object.getPrototypeOf(cam.position).constructor;  // THREE.Vector3
+    const v = new V3(4.5, 8 * (3.0 / 17) + 0.015, 5.9 + 7.5 * 0.28).project(cam);
+    return {
+        x: (v.x + 1) / 2 * window.innerWidth,
+        y: (1 - v.y) / 2 * window.innerHeight,
+        onScreen: Math.abs(v.x) < 0.98 && Math.abs(v.y) < 0.98,
+    };
+});
+check('踏步投影在视口内', clickPt.onScreen, `screen=(${clickPt.x.toFixed(0)},${clickPt.y.toFixed(0)})`);
+if (clickPt.onScreen) {
+    await page.mouse.click(clickPt.x, clickPt.y);
+    let clickTeleported = false;
+    for (let i = 0; i < 15 && !clickTeleported; i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const s = await sample();
+        console.log(`clk pos=${s.pos.join(',')} scene=${s.scene}`);
+        if (s.scene === 'f2_study') clickTeleported = true;
+    }
+    await page.screenshot({ path: 'temp/stair_click_up.png' });
+    check('点击楼梯自动上楼并传送到学习室', clickTeleported);
+}
+
 await browser.close();
 console.log(failures === 0 ? '\nSTAIR WALK PASS' : `\n${failures} 项失败`);
 process.exit(failures === 0 ? 0 : 1);

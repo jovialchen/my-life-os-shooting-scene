@@ -23,6 +23,7 @@ Blender 选中 mesh → Object Properties → Custom Properties → 添加属性
 | `surface_layable` | Boolean | `True` | 人可以躺在上面 |
 | `surface_placeable` | Boolean | `True` | 可以在上面放小物品 |
 | `interactable_type` | String | `"door"` | 交互物体类型（目前只有门） |
+| `stairs_to` | Array | `[x, y, z]` | 点击楼梯面时自动走到梯顶点（`walker.js` 点击目标改写；客厅 `WALK_stairs` 在用，配合顶部触发区传送上楼） |
 
 一个 mesh 可以有多个属性。例如：
 

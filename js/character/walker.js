@@ -4,6 +4,7 @@
  *
  * 导航网格由 GLB 的 walkable/obstacle 表面生成（pathfinding.js），
  * 路径点自带地面高度，角色沿高度行走（可爬楼梯）
+ * 点击带 stairs_to extras 的面（楼梯）且梯顶在上方 → 目标改写为梯顶（自动上楼）
  */
 import * as THREE from 'three';
 import { CLICK_DRAG_THRESHOLD } from '../config.js';
@@ -131,7 +132,15 @@ export function initWalker(humanoid, camera, renderer, scene) {
         // 射线打可行走面（含隐藏的 WALK_ 逻辑面），取最近命中点
         const hits = raycaster.intersectObjects(meshes, false);
         if (hits.length === 0) return;
-        const hit = hits[0].point;
+        let hit = hits[0].point;
+
+        // 楼梯意图：命中面带 stairs_to（GLB extras，房间坐标=世界坐标），
+        // 且梯顶明显高于当前位置 → 目标改写为梯顶点（点击即上楼）；
+        // 站在梯顶反点下方踏步时不改写，按点击点走（下楼）
+        const stairsTo = findExtra(hits[0].object, 'stairs_to');
+        if (stairsTo && stairsTo[1] - humanoidGroup.position.y > 0.5) {
+            hit = new THREE.Vector3(stairsTo[0], stairsTo[1], stairsTo[2]);
+        }
 
         if (!isWalkableWorld(hit.x, hit.z, hit.y)) return;
         const path = findPath(humanoidGroup.position, hit);
@@ -196,6 +205,15 @@ export function updateWalker(delta) {
 }
 
 // ── 内部函数 ──────────────────────────────────────────
+
+/** 沿父链向上取 userData 值（GLB extras 可能落在 Group 而非子 mesh 上） */
+function findExtra(obj, key) {
+    for (let o = obj; o; o = o.parent) {
+        const v = o.userData?.[key];
+        if (v) return v;
+    }
+    return null;
+}
 
 function initBones() {
     const vrm = humanoidGroup.userData.vrm;

@@ -53,7 +53,7 @@ export const CAMERA_FOLLOW_DEADZONE = 2.5;   // 跟随死区：角色离 target 
 // 每场景：独立 glb 内容 + 机位表 + 落点表；门 = 传送点
 // （门 extras: door_target_scene / door_target_spawn）
 // spawns 的 pos 为 three 坐标 [x,y,z]，rotY 为落地朝向（弧度）
-// ── 客厅机位（f1_living：房间 10×12×3m，原点在门口地板中心）──
+// ── 客厅机位（f1_living：房间 10×12×4.5m 高厅，原点在门口地板中心）──
 // 斜 45° 俯看全屋，轨道距离/俯仰锁小范围，转不出房间
 const LIVING_ZONES = [
     { id: 'living_main', name: '客厅', nameEn: 'Living', category: 'room',
@@ -185,7 +185,7 @@ export const SCENES = [
           fill: 0.25,
           spot: 1.3,
           windowLight: { position: [-2.05, 2.0, 14.0], target: [-2.05, 0.4, 5.5] },
-          lamp: { position: [0, 2.7, 6.0], color: 0xFFD9A0, intensity: 1.6, distance: 16 },
+          lamp: { position: [0, 4.1, 6.0], color: 0xFFD9A0, intensity: 1.6, distance: 16 },
       } },
     ...ROOM_SCENES,
 ];
