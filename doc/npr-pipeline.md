@@ -36,8 +36,14 @@ Three.js 侧复刻：
 - `MAT_trunk`（TRUNK_GLSL）：纵向拉长 3D 噪声 = 环绕树干的竖向树皮纹（uBarkGrain）
 - `MAT_rock`/`MAT_stone`（ROCK_GLSL）：硬切 3 阶块面（斧劈皴）+ 细颗粒
   （uRockShade/uRockGrain），作用于岛底岩层和石板路
+- `MAT_floor_wood`（FLOOR_GLSL）：木地板拼缝勾线（顺 z 铺板、端缝逐排哈希错开）
+  + 顺板向拉长的双层木纹 + 每板微色差（uWoodLine/uWoodGrain，只画朝上面）。
+  调参：`setInkFloor(line, grain)` 或 URL `?floorline=&floorgrain=`
 - 以上五项调参：`setInkFlora({leafShade, leafGrain, barkGrain, rockShade, rockGrain})`
   或 URL `?leafshade=&leafgrain=&barkgrain=&rockshade=&rockgrain=`
+- 抗锯齿：EffectComposer 离屏 RT 不吃 canvas 的 `antialias`——细窗棂/栏杆在相机
+  微动时"闪"就是没 MSAA。composer 用 `samples: 4` 的 WebGLRenderTarget 构造
+  （WebGL2 多样本）；`?msaa=0/2/4` 可调（默认 4，软渲染测试环境用 0 提速）
 - 新增材质变体：在 VARIANTS 里登记材质名 + GLSL + cache key 即可
 - 克隆材质必须用 `cloneInkMaterial()`（Material.clone 丢 onBeforeCompile）
 - `main.js` 蒙版 `timeOfDay.update` → 每次时段变化后调 `setInkTime`

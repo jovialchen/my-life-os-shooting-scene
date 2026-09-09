@@ -18,7 +18,7 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 720 });
 page.on('pageerror', (e) => console.log('pageerror:', e.message));
-await page.goto(`${base}/index.html`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+await page.goto(`${base}/index.html?msaa=0`, { waitUntil: 'domcontentloaded', timeout: 90000 });
 await page.waitForFunction(() => window.__app?.humanoid.userData.vrm && window.__app.getDoors().length > 0, { timeout: 60000 });
 await new Promise((r) => setTimeout(r, 1000));
 await page.evaluate(() => window.__app.switchTo('f1_living'));

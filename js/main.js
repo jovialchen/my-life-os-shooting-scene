@@ -56,7 +56,7 @@ import {
 import { initDoorPrompt, updateDoorPrompt } from './systems/doorPrompt.js';
 import { initRoomNav } from './systems/roomNav.js';
 import { parseSurfaces } from './systems/surfaceParser.js';
-import { applyInkShading, createInkPaperPass, createInkMist, setInkTime, updateInk, setInkRoof, setInkWall, setInkFlora } from './systems/inkwash.js';
+import { applyInkShading, createInkPaperPass, createInkMist, setInkTime, updateInk, setInkRoof, setInkWall, setInkFlora, setInkFloor } from './systems/inkwash.js';
 
 // ── UI ──
 import { initUI, updateCompass } from './ui.js';
@@ -268,7 +268,15 @@ initUI({
 // ============================================================
 //  后期处理
 // ============================================================
-const composer = new EffectComposer(renderer);
+// EffectComposer 走离屏 RT，canvas 的 antialias 对它无效——细窗棂/栏杆
+// 在相机微动时"闪"就是没抗锯齿；samples 开 MSAA（WebGL2 多样本 RT）。
+// ?msaa=0/2/4 可调（默认 4；软渲染/弱 GPU 测试环境用 0 提速）
+const msaaSamples = parseInt(new URLSearchParams(location.search).get('msaa') ?? '4', 10);
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(
+    innerWidth * renderer.getPixelRatio(), innerHeight * renderer.getPixelRatio(),
+    { type: THREE.HalfFloatType, samples: msaaSamples }
+));
+composer.setSize(innerWidth, innerHeight);   // 让 RT 尺寸走 pixelRatio 换算
 composer.addPass(new RenderPass(scene, camera));
 
 // 水墨风不描边（原作无轮廓线）；纸感后处理：S 曲线 + 纸底 + 纸纹 + 暗角
@@ -340,7 +348,7 @@ function animate() {
 animate();
 
 // 调试句柄（控制台/自动化测试用）：window.__app
-window.__app = { scene, camera, controls, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo, getActiveScene, teleport, walkTo, nav: { findPath, isWalkableWorld, groundHeightAt }, config: { SCENES } };
+window.__app = { scene, camera, controls, composer, getDoors, pickDoorAt, humanoid, timeOfDay, lighting, camZones: getCameraZonesDebug(), switchTo, getActiveScene, teleport, walkTo, nav: { findPath, isWalkableWorld, groundHeightAt }, config: { SCENES } };
 
 // ============================================================
 //  截图调试模式（无头浏览器验收用，不影响正常交互）
@@ -387,6 +395,10 @@ let pendingScene = null;      // onModelsReady 后切换
                    q.has('roofline') ? parseFloat(q.get('roofline')) : null);
     }
     if (q.has('wallgrain')) setInkWall(parseFloat(q.get('wallgrain')));
+    if (q.has('floorline') || q.has('floorgrain')) {
+        setInkFloor(q.has('floorline') ? parseFloat(q.get('floorline')) : null,
+                    q.has('floorgrain') ? parseFloat(q.get('floorgrain')) : null);
+    }
     {
         const flora = {};
         for (const [param, key] of [['leafshade', 'leafShade'], ['leafgrain', 'leafGrain'],

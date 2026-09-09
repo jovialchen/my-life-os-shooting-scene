@@ -7,7 +7,8 @@
  * 用法: import { PALETTE, BASE_MATS } from './room_palette.mjs';
  */
 export const PALETTE = {
-    wall: '#EDE4D3',        // 暖白（墙/天花板默认）
+    wall: '#EDE4D3',        // 暖白（墙默认）
+    ceiling: '#E7D9BC',     // 天花板（暖木调米色——水墨无光照+纸感 S 曲线会洗掉近似色，必须拉开明度差才能和墙分清）
     floorWood: '#C9A97C',   // 暖木地板（卧室/学习室/阁楼/客厅）
     floorTile: '#B7C4BF',   // 灰绿地砖（厨房/卫生间）
     frame: '#6E4B32',       // 门窗框深木

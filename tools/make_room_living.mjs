@@ -62,7 +62,8 @@ const TOP_DOOR = { x0: 4.0, x1: 5.0, y1: 5.0 };
 // ── 材质（平涂：rough=1 metal=0）；结构色统一取 tools/room_palette.mjs ──
 const MATS = {
     MAT_wall: PALETTE.wall,
-    MAT_floor: PALETTE.floorWood,
+    MAT_ceiling: PALETTE.ceiling,     // 天花板独立色（比墙亮半档，否则水墨无光照墙顶不分）
+    MAT_floor_wood: PALETTE.floorWood, // 木地板：inkwash floor 变体画拼缝+木纹
     MAT_frame: PALETTE.frame,
     MAT_door: PALETTE.door,
     MAT_window_view: PALETTE.windowView,   // 窗景片：时间系统按名联动变色
@@ -149,12 +150,12 @@ function add(name, mat, build, extras = null, translation = null) {
 }
 
 // 可见地板
-add('FLOOR_visible', 'MAT_floor', (p) => pushBox(p, [-W / 2, -0.06, 0], [W / 2, 0, D]));
+add('FLOOR_visible', 'MAT_floor_wood', (p) => pushBox(p, [-W / 2, -0.06, 0], [W / 2, 0, D]));
 
 // WALK 逻辑面（抬高 0.015）：主地板让开楼梯带（x>3.85, z>0.05）；
 // 楼梯带整条铺面——低矮踏步下由净空规则自动剔除（nav_no_inflate 障碍），
 // 只留高段踏步下方和平台壁龛可走；楼梯每步顶面 + 顶部平台各铺一片——导航只认这些面
-add('WALK_floor', 'MAT_floor', (p) => {
+add('WALK_floor', 'MAT_floor_wood', (p) => {
     pushQuadXZ(p, -W / 2 + 0.05, 0.05, ST.x0 - 0.05, D - 0.05, 0.015);          // 主地板
     pushQuadXZ(p, ST.x0 - 0.05, 0.05, W / 2 - 0.05, D - 0.05, 0.015);           // 楼梯带（含梯下/壁龛）
 }, { surface_walkable: true });
@@ -199,7 +200,7 @@ add('WALLS', 'MAT_wall', (p) => {
 });
 
 // 天花板（楼梯上段上方开井口，井口向上接挑高井道）
-add('CEILING', 'MAT_wall', (p) => {
+add('CEILING', 'MAT_ceiling', (p) => {
     pushBox(p, [-W / 2 - WT, H, -WT], [W / 2 + WT, H + 0.12, HOLE.z0]);   // 南侧整板
     pushBox(p, [-W / 2 - WT, H, HOLE.z0], [HOLE.x0, H + 0.12, D + WT]);   // 井口西条
 });
@@ -222,34 +223,38 @@ add('STAIRWELL', 'MAT_stairwell', (p) =>
     { nav_ignore: true });
 
 // 门框 + 窗框（含十字窗棂、窗台板）
+// 注意：凡是与墙洞边共面的框面都要错开 E=8mm——深色框和浅色墙贴在同一平面上
+// 会 z-fighting（相机一动窗框就闪；MSAA 治不了深度平局）。内边探进洞 E，
+// 入墙的端面保持藏在墙体内
 add('FRAMES', 'MAT_frame', (p) => {
     const j = 0.06;   // 框条宽
+    const E = 0.008;  // 共面错开量
     // 南墙门框（凸出墙面两侧各 0.02）
     for (const c of S_DOORS) {
         const x0 = c - DOOR_W / 2, x1 = c + DOOR_W / 2;
-        pushBox(p, [x0 - j, 0, -WT - 0.02], [x0, DOOR_H + j, 0.02]);
-        pushBox(p, [x1, 0, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
-        pushBox(p, [x0 - j, DOOR_H, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
+        pushBox(p, [x0 - j, 0, -WT - 0.02], [x0 + E, DOOR_H + j, 0.02]);
+        pushBox(p, [x1 - E, 0, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
+        pushBox(p, [x0 - j, DOOR_H - E, -WT - 0.02], [x1 + j, DOOR_H + j, 0.02]);
     }
     // 窗框（拱窗：边框到起拱线 + 拱顶踏步框 + 矩形段十字棂 + 窗台板）
     for (const [x0, x1] of WIN_X) {
         const z0 = D - 0.03, z1 = D + WT + 0.03;
         const ys = WIN.y1 - 0.3;   // 起拱线
         const j2 = 0.06;
-        pushBox(p, [x0 - j2, WIN.y0 - j2, z0], [x0, ys + j2, z1]);   // 边框
-        pushBox(p, [x1, WIN.y0 - j2, z0], [x1 + j2, ys + j2, z1]);
-        pushBox(p, [x0 - j2 - 0.02, WIN.y0 - j2 - 0.04, z0 - 0.04], [x1 + j2 + 0.02, WIN.y0, z1]); // 窗台板
-        const cx = (x0 + x1) / 2, cy = (WIN.y0 + ys) / 2, m = 0.02;
-        pushBox(p, [cx - m, WIN.y0, D], [cx + m, ys, D + WT]);       // 竖棂（矩形段）
-        pushBox(p, [x0, cy - m, D], [x1, cy + m, D + WT]);           // 横棂
+        pushBox(p, [x0 - j2, WIN.y0 - j2, z0], [x0 + E, ys + j2, z1]);   // 边框
+        pushBox(p, [x1 - E, WIN.y0 - j2, z0], [x1 + j2, ys + j2, z1]);
+        pushBox(p, [x0 - j2 - 0.02, WIN.y0 - j2 - 0.04, z0 - 0.04], [x1 + j2 + 0.02, WIN.y0 + E, z1]); // 窗台板
+        const cx = (x0 + x1) / 2, cy = (WIN.y0 + ys) / 2, m = 0.028;   // 棂半宽（0.056 全宽≈框条，太细会亚像素闪）
+        pushBox(p, [cx - m, WIN.y0 + E, D], [cx + m, ys - E, D + WT]);   // 竖棂（矩形段）
+        pushBox(p, [x0 + E, cy - m, D], [x1 - E, cy + m, D + WT]);       // 横棂
         // 拱顶框：起拱线横梁 + 两级踏步边梃 + 顶梁
         const w = x1 - x0, hw1 = w * 0.7 / 2, hw2 = w * 0.35 / 2;
-        pushBox(p, [x0 - j2, ys, z0], [x1 + j2, ys + j2, z1]);
-        pushBox(p, [cx - hw1 - j2, ys, z0], [cx - hw1, ys + 0.15, z1]);
-        pushBox(p, [cx + hw1, ys, z0], [cx + hw1 + j2, ys + 0.15, z1]);
-        pushBox(p, [cx - hw2 - j2, ys + 0.15, z0], [cx - hw2, WIN.y1, z1]);
-        pushBox(p, [cx + hw2, ys + 0.15, z0], [cx + hw2 + j2, WIN.y1, z1]);
-        pushBox(p, [cx - hw2 - j2, WIN.y1, z0], [cx + hw2 + j2, WIN.y1 + j2, z1]);
+        pushBox(p, [x0 - j2, ys - E, z0], [x1 + j2, ys + j2, z1]);
+        pushBox(p, [cx - hw1 - j2, ys - E, z0], [cx - hw1 + E, ys + 0.15 - E, z1]);
+        pushBox(p, [cx + hw1 - E, ys - E, z0], [cx + hw1 + j2, ys + 0.15 - E, z1]);
+        pushBox(p, [cx - hw2 - j2, ys + 0.15 - E, z0], [cx - hw2 + E, WIN.y1 - E, z1]);
+        pushBox(p, [cx + hw2 - E, ys + 0.15 - E, z0], [cx + hw2 + j2, WIN.y1 - E, z1]);
+        pushBox(p, [cx - hw2 - j2, WIN.y1 - E, z0], [cx + hw2 + j2, WIN.y1 + j2, z1]);
     }
 });
 

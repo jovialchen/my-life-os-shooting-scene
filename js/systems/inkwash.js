@@ -36,6 +36,8 @@ const U = {
     uBarkGrain: { value: 0.5 },                         // 树干竖纹强度（仅 MAT_trunk）
     uRockShade: { value: 0.6 },                         // 石头块面明暗强度（仅 MAT_rock/MAT_stone）
     uRockGrain: { value: 0.35 },                        // 石头颗粒强度（仅 MAT_rock/MAT_stone）
+    uWoodLine:  { value: 0.55 },                        // 木地板拼缝勾线强度（仅 MAT_floor_wood）
+    uWoodGrain: { value: 0.5 },                         // 木地板木纹强度（仅 MAT_floor_wood）
 };
 
 // ── 时段调色预设（对齐 config.TIME_PRESETS 六段，水墨不打光只调色）──
@@ -79,12 +81,16 @@ const ROOF_MAT = 'MAT_roof';
 /** 墙面材质：灰泥大平面，需要细颗粒 + 垂直刷痕的淡纹理 */
 const WALL_MAT = 'MAT_wall';
 
+/** 木地板材质：纯色大平面没看头，需要拼缝勾线 + 顺板木纹 */
+const WOOD_FLOOR_MAT = 'MAT_floor_wood';
+
 const VARIANTS = {
     roof:  { mats: [ROOF_MAT],              compile: (s) => injectInk(s, ROOF_GLSL, ROOF_UNIFORMS),  key: 'inkwash_roof' },
     wall:  { mats: [WALL_MAT],              compile: (s) => injectInk(s, WALL_GLSL, WALL_UNIFORMS),  key: 'inkwash_wall' },
     leaf:  { mats: ['MAT_leaves'],          compile: (s) => injectInk(s, LEAF_GLSL, LEAF_UNIFORMS),  key: 'inkwash_leaf' },
     trunk: { mats: ['MAT_trunk'],           compile: (s) => injectInk(s, TRUNK_GLSL, TRUNK_UNIFORMS), key: 'inkwash_trunk' },
     rock:  { mats: ['MAT_rock', 'MAT_stone'], compile: (s) => injectInk(s, ROCK_GLSL, ROCK_UNIFORMS), key: 'inkwash_rock' },
+    floor: { mats: [WOOD_FLOOR_MAT],        compile: (s) => injectInk(s, FLOOR_GLSL, FLOOR_UNIFORMS), key: 'inkwash_floor' },
 };
 const variantOf = (name) => Object.keys(VARIANTS).find((k) => VARIANTS[k].mats.includes(name)) ?? '';
 
@@ -207,6 +213,33 @@ const ROCK_GLSL = /* glsl */`
     outgoingLight *= 1.0 + (kgrain - 0.5) * uRockGrain;
 `;
 const ROCK_UNIFORMS = 'uniform float uRockShade;\nuniform float uRockGrain;';
+
+/** 木地板变体 GLSL：拼缝勾线（顺 z 铺板、端缝逐排错开）+ 顺板向拉长的木纹 + 每板微色差。
+ *  只画在朝上的面（地板顶面），板侧/踢脚不画 */
+const FLOOR_GLSL = /* glsl */`
+    vec3 fn = normalize(vInkWorldNormal);
+    float fUp = smoothstep(0.6, 0.9, fn.y);
+    // ── 拼缝：板宽 0.14m（x 向）、板长 1.05m（z 向），端缝位置每排哈希错开 ──
+    float wob = (inkNoise(wp * 1.6) - 0.5) * 0.05;               // 缝的手绘抖动
+    float cX = wp.x / 0.14 + wob;
+    float row = floor(cX);
+    float fX = fract(cX);
+    float seamX = 1.0 - smoothstep(0.0, fwidth(cX) * 1.5 + 0.025, min(fX, 1.0 - fX));
+    float cZ = (wp.z + inkHash(vec3(row, 3.1, 7.7)) * 1.05) / 1.05;
+    float seg = floor(cZ);
+    float fZ = fract(cZ);
+    float seamZ = 1.0 - smoothstep(0.0, fwidth(cZ) * 1.5 + 0.02, min(fZ, 1.0 - fZ));
+    float seam = max(seamX, seamZ);
+    // ── 木纹：沿板向（z）拉长的双层噪声，每排相位不同 ──
+    float wg = inkNoise(vec3(wp.x * 34.0, wp.z * 2.4, row * 11.7)) * 0.65
+             + inkNoise(vec3(wp.x * 68.0, wp.z * 5.5, row * 5.3 + 4.0)) * 0.35;
+    // 每块板微色差（同一块板内一致）
+    float tone = inkHash(vec3(row, seg, 1.3)) - 0.5;
+    float woodMul = 1.0 + (wg - 0.5) * uWoodGrain + tone * 0.10;
+    woodMul *= 1.0 - seam * uWoodLine * 0.5;
+    outgoingLight *= mix(1.0, woodMul, fUp);
+`;
+const FLOOR_UNIFORMS = 'uniform float uWoodLine;\nuniform float uWoodGrain;';
 
 function injectInk(shader, variantGLSL, variantUniforms) {
     const needNormal = variantGLSL.length > 0;
@@ -468,6 +501,16 @@ export function setInkRoof(shade = null, line = null) {
  */
 export function setInkWall(grain = null) {
     if (grain !== null) U.uWallGrain.value = grain;
+}
+
+/**
+ * 木地板调参（仅 MAT_floor_wood 生效）
+ * @param {number|null} line  - 拼缝勾线强度 0~1（null 不变）
+ * @param {number|null} grain - 木纹强度 0~1（null 不变）
+ */
+export function setInkFloor(line = null, grain = null) {
+    if (line !== null) U.uWoodLine.value = line;
+    if (grain !== null) U.uWoodGrain.value = grain;
 }
 
 /**
