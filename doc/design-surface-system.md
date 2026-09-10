@@ -109,7 +109,7 @@ Blender 里建模时：
 - 帘杆等纯装饰件只标 `nav_ignore`。
 - 水墨质感：`MAT_curtain` 材质名触发 inkwash 的 curtain 变体（竖褶明暗 + 布纹；褶纹用对象本地 x，收拢时跟着压缩）。
 
-室内墙面/天花板质感同理按材质名区分：`MAT_wall_interior`（墙纸竖条纹，客厅果绿）、`MAT_ceiling_interior`（平滑浅蓝顶），与外墙 `MAT_wall` 的灰泥变体互不干扰。
+室内墙面/天花板质感同理按材质名区分：`MAT_wall_interior`（墙纸竖条纹，客厅雾霾蓝 #B4C7CE）、`MAT_ceiling_interior`（平滑浅蓝顶），与外墙 `MAT_wall` 的灰泥变体互不干扰。
 
 ---
 
@@ -552,6 +552,14 @@ Phase 1/2 已落地，与本文档有出入的实现细节：
   `node tools/test-nav-real.mjs`（真实 GLB 全链路端到端）、
   `node tools/test-nav-attic.mjs`（2F→阁楼端到端）。
 - Phase 3/4（坐躺交互、小物品摆放）未做。
+- **客厅家具（2026-09-10）**：`tools/make_living_furniture.py`（Blender）把
+  `furnitures/*.obj` 配平涂材质（MAT_fab_*/MAT_wood_*）、减面、按 three
+  房间坐标摆放后导出 `models/furniture_living.glb`；config.js 的
+  f1_living.glbs 挂两个文件（房间 + 家具），main.js loadScene 支持多 glb。
+  家具无 extras = 自动成为导航障碍。布局：会客区（沙发/茶几/电视柜）靠
+  **西墙** z5~8 段，东墙楼梯口留空；圆墩在北窗东窗前，脚凳在南墙西窗下。
+  预览：`tools/blender.sh -b --python tools/preview_living.py`
+  （Workbench 平色，含顶视布局核对）。
 
 ### 岛屿花园 & 四季（2026-07-30 更新，Phase 5 的落地方式与 §5 不同）
 

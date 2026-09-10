@@ -43,6 +43,10 @@ const U = {
     uCeilMottle:  { value: 0.14 },                      // 室内顶面大尺度斑驳强度（仅 MAT_ceiling_interior）
     uCurtainPleat: { value: 0.5 },                      // 窗帘竖褶明暗强度（仅 MAT_curtain）
     uCurtainGrain: { value: 0.25 },                     // 窗帘布纹颗粒强度（仅 MAT_curtain）
+    uWoodShade: { value: 0.55 },                        // 木件假光影强度（MAT_tread/MAT_railing/MAT_wood_*）
+    uWoodFine: { value: 0.30 },                         // 木件细木纹强度（MAT_tread/MAT_railing/MAT_wood_*）
+    uFabShade: { value: 0.5 },                          // 布艺假光影强度（仅 MAT_fab_* 家具布面）
+    uFabGrain: { value: 0.18 },                         // 布艺布纹颗粒强度（仅 MAT_fab_*）
 };
 
 // ── 时段调色预设（对齐 config.TIME_PRESETS 六段，水墨不打光只调色）──
@@ -95,6 +99,11 @@ const WALL_INTERIOR_MAT = 'MAT_wall_interior';
 const CEILING_INTERIOR_MAT = 'MAT_ceiling_interior';
 /** 窗帘布料：竖褶明暗 + 布纹 */
 const CURTAIN_MAT = 'MAT_curtain';
+/** 木作小件（楼梯踏步/栏杆 + 家具木件 MAT_wood_*）：大平面变体不适用，用假光影 + 细木纹显体积 */
+const TREAD_MAT = 'MAT_tread';
+const RAILING_MAT = 'MAT_railing';
+/** 家具布艺（MAT_fab_*）：柔和假光影 + 布纹颗粒——纯色平涂在无光照下分不清面 */
+const FABRIC_MATS = ['MAT_fab_sofa', 'MAT_fab_cushion', 'MAT_fab_pouf', 'MAT_fab_blanket'];
 
 const VARIANTS = {
     roof:  { mats: [ROOF_MAT],              compile: (s) => injectInk(s, ROOF_GLSL, ROOF_UNIFORMS),  key: 'inkwash_roof' },
@@ -102,6 +111,9 @@ const VARIANTS = {
     wallInterior: { mats: [WALL_INTERIOR_MAT], compile: (s) => injectInk(s, WALL_INTERIOR_GLSL, WALL_INTERIOR_UNIFORMS), key: 'inkwash_wall_interior' },
     ceilingInterior: { mats: [CEILING_INTERIOR_MAT], compile: (s) => injectInk(s, CEILING_INTERIOR_GLSL, CEILING_INTERIOR_UNIFORMS), key: 'inkwash_ceiling_interior' },
     curtain: { mats: [CURTAIN_MAT],         compile: (s) => injectInk(s, CURTAIN_GLSL, CURTAIN_UNIFORMS), key: 'inkwash_curtain' },
+    wood:  { mats: [TREAD_MAT, RAILING_MAT, 'MAT_wood_walnut', 'MAT_wood_oak', 'MAT_wood_dark'],
+             compile: (s) => injectInk(s, WOOD_GLSL, WOOD_UNIFORMS), key: 'inkwash_wood' },
+    fabric: { mats: FABRIC_MATS,            compile: (s) => injectInk(s, FABRIC_GLSL, FABRIC_UNIFORMS), key: 'inkwash_fabric' },
     leaf:  { mats: ['MAT_leaves'],          compile: (s) => injectInk(s, LEAF_GLSL, LEAF_UNIFORMS),  key: 'inkwash_leaf' },
     trunk: { mats: ['MAT_trunk'],           compile: (s) => injectInk(s, TRUNK_GLSL, TRUNK_UNIFORMS), key: 'inkwash_trunk' },
     rock:  { mats: ['MAT_rock', 'MAT_stone'], compile: (s) => injectInk(s, ROCK_GLSL, ROCK_UNIFORMS), key: 'inkwash_rock' },
@@ -229,6 +241,45 @@ const CURTAIN_GLSL = /* glsl */`
     outgoingLight *= 1.0 + (cloth - 0.5) * uCurtainGrain;
 `;
 const CURTAIN_UNIFORMS = 'uniform float uCurtainPleat;\nuniform float uCurtainGrain;';
+
+/** 木作小件变体 GLSL（楼梯踏步/平台/栏杆）：3 阶假光影让悬空踏步、细栏杆
+ *  在无光照下显出体积（不然一整块平涂色糊成纸片）+ 细木纹
+ *  （踏面顺长向 x，立面/立柱竖向，按面朝向分别投影，不用 UV） */
+const WOOD_GLSL = /* glsl */`
+    vec3 mn = normalize(vInkWorldNormal);
+    // 假光影：虚拟东南上方光源，3 阶色阶
+    float mnl = dot(mn, normalize(vec3(0.45, 0.75, 0.35))) * 0.5 + 0.5;
+    float mband = mnl < 0.42 ? 0.80 : (mnl < 0.72 ? 1.0 : 1.10);
+    outgoingLight *= mix(1.0, mband, uWoodShade);
+    // 细木纹：双层拉长噪声
+    float mfine;
+    if (abs(mn.y) > 0.7) {
+        // 踏面/平台顶面：顺踏步长向（x）拉纹
+        mfine = inkNoise(vec3(wp.x * 4.0, wp.z * 26.0, 5.1)) * 0.7
+              + inkNoise(vec3(wp.x * 9.0, wp.z * 55.0, 9.7)) * 0.3;
+    } else {
+        // 立面/立柱/扶手侧面：竖向纹
+        vec2 muv = abs(mn.x) > 0.7 ? wp.zy : wp.xy;
+        mfine = inkNoise(vec3(muv.x * 26.0, muv.y * 3.5, 5.1)) * 0.7
+              + inkNoise(vec3(muv.x * 55.0, muv.y * 8.0, 9.7)) * 0.3;
+    }
+    outgoingLight *= 1.0 + (mfine - 0.5) * uWoodFine;
+`;
+const WOOD_UNIFORMS = 'uniform float uWoodShade;\nuniform float uWoodFine;';
+
+/** 布艺家具变体 GLSL（MAT_fab_*）：柔和 3 阶假光影（比木件弱一档——布料明暗过渡软）
+ *  + 各向同性布纹细颗粒。无光照平涂下沙发/墩子的靠背、座面、侧面全是一个色，
+ *  假光影按法线朝向分面后体积才读得出来 */
+const FABRIC_GLSL = /* glsl */`
+    vec3 fn2 = normalize(vInkWorldNormal);
+    float fnl = dot(fn2, normalize(vec3(0.45, 0.75, 0.35))) * 0.5 + 0.5;
+    float fband = fnl < 0.45 ? 0.85 : (fnl < 0.75 ? 1.0 : 1.08);
+    outgoingLight *= mix(1.0, fband, uFabShade);
+    // 布纹：两层细颗粒噪声（织物质感，不勾方向）
+    float fcloth = inkNoise(wp * 40.0) * 0.5 + inkNoise(wp * 95.0 + 3.0) * 0.5;
+    outgoingLight *= 1.0 + (fcloth - 0.5) * uFabGrain;
+`;
+const FABRIC_UNIFORMS = 'uniform float uFabShade;\nuniform float uFabGrain;';
 
 /** 树冠变体 GLSL：团块假光影（动漫树丛的明暗面）+ 底部压暗 + 叶簇碎点 */
 const LEAF_GLSL = /* glsl */`
@@ -579,9 +630,10 @@ export function setInkFlora(opts = {}) {
 }
 
 /**
- * 室内质感调参（内墙墙纸/室内顶面/窗帘；null 的项不变）
+ * 室内质感调参（内墙墙纸/室内顶面/窗帘/木作小件/布艺家具；null 的项不变）
  * @param {{paperStripe?:number, paperGrain?:number, ceilMottle?:number,
- *   curtainPleat?:number, curtainGrain?:number}} opts
+ *   curtainPleat?:number, curtainGrain?:number, woodShade?:number, woodFine?:number,
+ *   fabShade?:number, fabGrain?:number}} opts
  */
 export function setInkInterior(opts = {}) {
     if (opts.paperStripe != null) U.uPaperStripe.value = opts.paperStripe;
@@ -589,4 +641,8 @@ export function setInkInterior(opts = {}) {
     if (opts.ceilMottle != null) U.uCeilMottle.value = opts.ceilMottle;
     if (opts.curtainPleat != null) U.uCurtainPleat.value = opts.curtainPleat;
     if (opts.curtainGrain != null) U.uCurtainGrain.value = opts.curtainGrain;
+    if (opts.woodShade != null) U.uWoodShade.value = opts.woodShade;
+    if (opts.woodFine != null) U.uWoodFine.value = opts.woodFine;
+    if (opts.fabShade != null) U.uFabShade.value = opts.fabShade;
+    if (opts.fabGrain != null) U.uFabGrain.value = opts.fabGrain;
 }

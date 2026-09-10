@@ -41,6 +41,13 @@ Three.js 侧复刻：
   调参：`setInkFloor(line, grain)` 或 URL `?floorline=&floorgrain=`
 - 以上五项调参：`setInkFlora({leafShade, leafGrain, barkGrain, rockShade, rockGrain})`
   或 URL `?leafshade=&leafgrain=&barkgrain=&rockshade=&rockgrain=`
+- `MAT_curtain`（CURTAIN_GLSL）：窗帘竖褶明暗 + 布纹
+- `MAT_tread` / `MAT_railing` / `MAT_wood_*`（WOOD_GLSL）：木作 3 阶假光影
+  + 细木纹（踏面顺长向、立柱竖向，按面朝向投影；uWoodShade/uWoodFine）——
+  悬空踏步/细栏杆/家具木件无光照下不再糊成平涂纸片
+- `MAT_fab_*`（FABRIC_GLSL）：布艺家具柔和 3 阶假光影 + 布纹颗粒
+  （uFabShade/uFabGrain）——沙发/墩子的靠背、座面、侧面按法线朝向分面；
+  以上两组调参 `setInkInterior({woodShade, woodFine, fabShade, fabGrain})`
 - 抗锯齿：EffectComposer 离屏 RT 不吃 canvas 的 `antialias`——细窗棂/栏杆在相机
   微动时"闪"就是没 MSAA。composer 用 `samples: 4` 的 WebGLRenderTarget 构造
   （WebGL2 多样本）；`?msaa=0/2/4` 可调（默认 4，软渲染测试环境用 0 提速）

@@ -68,7 +68,7 @@ const TOP_DOOR = { x0: 4.0, x1: 5.0, y1: 5.0 };
 // 内墙/天花板用独立材质名（_interior）：inkwash 按材质名挂变体，
 // 与外墙 MAT_wall 的灰泥质感区分开（室内墙纸 / 平滑顶面）
 const MATS = {
-    MAT_wall_interior: '#B5C9A4',       // 内墙：淡豆绿（2026-09 从果绿 #9CCB86 调柔）
+    MAT_wall_interior: '#B4C7CE',       // 内墙：雾霾蓝（2026-09-10 应要求从豆绿 #B5C9A4 换冷色，与浅蓝顶同色系）
     MAT_ceiling_interior: '#B7D6E8',    // 天花板：浅蓝
     MAT_floor_wood: PALETTE.floorWood, // 木地板：inkwash floor 变体画拼缝+木纹
     MAT_frame: PALETTE.frame,
@@ -76,7 +76,8 @@ const MATS = {
     MAT_window_view: PALETTE.windowView,   // 窗景片：时间系统按名联动变色
     MAT_curtain: '#E9E0C9',     // 窗帘：亚麻米白（inkwash curtain 变体画竖褶）
     MAT_stairs: '#C09A6B',     // WALK 逻辑面（隐藏，不进画面）
-    MAT_tread: '#8A5A3B',      // 悬臂踏步板 + 平台面（胡桃木，同门板色系）
+    MAT_tread: '#8A5A3B',      // 悬臂踏步板 + 平台面（胡桃木，同门板色系；inkwash wood 变体）
+    MAT_railing: '#6E4B32',    // 西缘细栏杆（深胡桃，同门窗框色系；inkwash wood 变体）
     MAT_stairwell: '#14100C',  // 顶部门洞暗龛
 };
 
@@ -357,7 +358,7 @@ add('STAIRS', 'MAT_tread', (p) => {
 }, { nav_no_inflate: true });
 
 // 西缘细栏杆（每步一根立柱 + 踏步式细扶手，扶手高 0.8；障碍，导航按净空绕行）
-add('RAILING', 'MAT_frame', (p) => {
+add('RAILING', 'MAT_railing', (p) => {
     for (let k = 1; k <= ST.steps; k++) {
         const z0 = ST.z0 + (k - 1) * ST.tread, top = k * ST.rise;
         pushBox(p, [ST.x0 - 0.04, top, z0 + 0.11], [ST.x0 + 0.01, top + 0.72, z0 + 0.16]);   // 立柱

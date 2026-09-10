@@ -160,7 +160,7 @@ export const SCENES = [
       // 室外无窗光/室内灯（旧内饰窗光已被黑内胆挡住，spot 归零）
       lighting: { spot: 0 } },
     { id: 'f1_living', name: '客厅', nameEn: 'Living Room',
-      glbs: ['models/room_living.glb'],
+      glbs: ['models/room_living.glb', 'models/furniture_living.glb'],   // 房间 + 家具（tools/make_living_furniture.py）
       zones: LIVING_ZONES, categories: LIVING_ZONE_CATEGORIES,
       spawns: {
           // 从室外大门进入：门内一步，面朝房间（+z）

@@ -5,13 +5,14 @@
 import puppeteer from 'puppeteer';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:8132';
-// 候选：当前果绿 + 几个更柔和的室内绿
+// 候选：当前豆绿（对照）+ 非绿色系候选
 const CANDIDATES = [
-    ['9CCB86', 'current'],   // 当前果绿（对照）
-    ['A3B18A', 'sage'],      // 鼠尾草灰绿
-    ['B5C9A4', 'bean'],      // 淡豆绿
-    ['A8D5BA', 'mint'],      // 薄荷绿
-    ['8FB996', 'retro'],     // 复古绿（略深）
+    ['B5C9A4', 'bean_current'],   // 当前淡豆绿（对照）
+    ['EDE4D3', 'cream'],          // 米白奶油（其余 11 间房统一墙色 PALETTE.wall）
+    ['E3D2B8', 'milktea'],        // 奶茶杏（暖米棕，木地板同族）
+    ['EBC9B0', 'peach'],          // 蜜桃粉（呼应圆墩灰珊瑚/人物粉）
+    ['F0DCAE', 'goose'],          // 鹅黄（暖黄，配木色）
+    ['B4C7CE', 'bluegray'],       // 雾霾蓝（和浅蓝天花板同色系偏冷）
 ];
 
 const browser = await puppeteer.launch({

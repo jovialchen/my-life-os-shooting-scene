@@ -166,39 +166,46 @@ initCameraZones(camera, controls, renderer, humanoid);
 initSceneManager({
     scene,
     hooks: {
-        // 室内场景按需加载：glb → 水墨材质 → 隐藏 WALK_ → 返回容器
+        // 室内场景按需加载：glb（可多个，如房间 + 家具）→ 水墨材质 → 隐藏 WALK_ → 返回容器
         // （门不在此注册——onActivated 统一 clearDoors + 重注册，保证状态恢复）
         loadScene: (def) => new Promise((resolve) => {
-            new GLTFLoader().load(
-                def.glbs[0],
-                (gltf) => {
-                    const group = new THREE.Group();
-                    group.name = `scene:${def.id}`;
-                    const model = gltf.scene;
-                    applyInkShading(model);   // 水墨：Standard → 无光照晕染材质
-                    model.traverse((child) => {
-                        if (!child.isMesh) return;
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                        // WALK_ 面是逻辑行走面，不渲染（寻路系统用）
-                        if (child.name.startsWith('WALK_')) {
-                            child.visible = false;
-                            child.castShadow = false;
-                            child.receiveShadow = false;
+            const group = new THREE.Group();
+            group.name = `scene:${def.id}`;
+            let pending = def.glbs.length;
+            let failed = false;
+            for (const url of def.glbs) {
+                new GLTFLoader().load(
+                    url,
+                    (gltf) => {
+                        const model = gltf.scene;
+                        applyInkShading(model);   // 水墨：Standard → 无光照晕染材质
+                        model.traverse((child) => {
+                            if (!child.isMesh) return;
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                            // WALK_ 面是逻辑行走面，不渲染（寻路系统用）
+                            if (child.name.startsWith('WALK_')) {
+                                child.visible = false;
+                                child.castShadow = false;
+                                child.receiveShadow = false;
+                            }
+                        });
+                        group.add(model);
+                        // 时段变色材质（室内窗景片 MAT_window_view）
+                        timeOfDay.registerTintMaterials(group);
+                        if (--pending === 0) {
+                            console.log(`[Main] 场景 ${def.id} 加载完成`);
+                            resolve(failed ? null : group);
                         }
-                    });
-                    group.add(model);
-                    // 时段变色材质（室内窗景片 MAT_window_view）
-                    timeOfDay.registerTintMaterials(group);
-                    console.log(`[Main] 场景 ${def.id} 加载完成`);
-                    resolve(group);
-                },
-                undefined,
-                (err) => {
-                    console.error(`[Main] 场景 ${def.id} 加载失败:`, err);
-                    resolve(null);
-                },
-            );
+                    },
+                    undefined,
+                    (err) => {
+                        console.error(`[Main] 场景 ${def.id} 加载失败 (${url}):`, err);
+                        failed = true;
+                        if (--pending === 0) resolve(null);
+                    },
+                );
+            }
         }),
         // 场景激活：重建导航/门/机位/相机碰撞/描边，角色落到 spawn
         onActivated: (def, group, spawnId) => {
