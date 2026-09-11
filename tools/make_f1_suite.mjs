@@ -30,6 +30,9 @@ import { PALETTE } from './room_palette.mjs';
 const WT = 0.1;
 const DOOR_W = 1.0, DOOR_H = 2.1;
 
+// 2026-09-11：厨房/客卫的简易家具先撤掉（后续用真实家具模型替换），置 true 恢复
+const WITH_FURNITURE = false;
+
 // ── 楼梯参数（东墙悬空梯，客厅/厨房共用同一套；平台 y3.0 = 二楼标高）──
 const ST = {
     x0: 3.9, z0: 5.9, steps: 17, top: 3.0,
@@ -482,6 +485,8 @@ function buildBath() {
              N_WIN_X[N_WIN_X.length - 1][1] + 0.4, N_WIN.y1 + 0.25, D + 0.46),
         { nav_ignore: true });
 
+    // 家具（浴缸/洗手台/马桶，含镜子）暂时撤掉，见 WITH_FURNITURE
+    if (WITH_FURNITURE) {
     // 大浴缸（东墙）+ 水面
     add('FURN_tub', 'MAT_fixture', (p) => {
         B(p, 2.5, 0, 3.5, 3.9, 0.62, 5.6);
@@ -504,6 +509,7 @@ function buildBath() {
         B(p, 2.1, 0.3, 9.35, 2.6, 0.78, 9.75);   // 水箱
         B(p, 2.1, 0, 8.75, 2.6, 0.42, 9.4);      // 座
     });
+    }
     // 绿植（东南角）+ 浴室垫
     add('PLANT_pot', 'MAT_pot', (p) => B(p, 3.3, 0, 0.3, 3.7, 0.4, 0.7), { nav_ignore: true });
     add('PLANT_leaves', 'MAT_plant', (p) => B(p, 3.35, 0.4, 0.35, 3.65, 0.95, 0.65), { nav_ignore: true });
@@ -578,6 +584,8 @@ function buildKitchen() {
                    [S_WIN_X[S_WIN_X.length - 1][1] + 0.4, S_WIN.y1 + 0.25, -0.40]),
         { nav_ignore: true });
 
+    // 家具（台面/灶台/水槽/冰箱/中岛/吧凳/餐桌椅）暂时撤掉，见 WITH_FURNITURE
+    if (WITH_FURNITURE) {
     // 北墙台面（避开窗洞 x -1.835..0.935 与楼梯带 x≤-3.85）：灶台 + 水槽
     add('FURN_counter', 'MAT_counter', (p) => B(p, 1.1, 0, 11.1, 2.9, 0.9, 11.9));
     add('FURN_stove', 'MAT_fridge', (p) => B(p, 1.35, 0.9, 11.35, 1.95, 0.98, 11.7));
@@ -604,6 +612,7 @@ function buildKitchen() {
             B(p, bx0, 0.45, cz - 0.2, bx0 + 0.12, 0.95, cz + 0.2);
         }
     });
+    }
     // 绿植（东南角，避开南门摆动区 x±0.5）
     add('PLANT_pot', 'MAT_pot', (p) => B(p, 1.6, 0, 0.35, 2.0, 0.4, 0.75), { nav_ignore: true });
     add('PLANT_leaves', 'MAT_plant', (p) => B(p, 1.65, 0.4, 0.4, 1.95, 0.95, 0.7), { nav_ignore: true });
