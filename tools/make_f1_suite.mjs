@@ -12,7 +12,7 @@
  *   西翼 客厅 10×12×4.5   —— 南墙大门+2 拱窗，北墙 3 大拱窗+窗帘（偏 -x），
  *                           +x 墙悬空楼梯（→学习室），-x 墙门→走廊（z2.2 右手边）
  *   中厅 走廊 3×12×3.2    —— 西/东墙门→客厅/厨房（靠南端），北尽头门→客卫，
- *                           南墙 2 拱窗；护墙板 + 2 盏吊灯 + 长地毯（深邃感）
+ *                           南墙 2 拱窗；护墙板 + 长地毯（深邃感）
  *   中厅北 客卫 8×10×3.5  —— 南墙门→走廊，北墙 3 拱窗（外壳 W3），浴缸/双盆/马桶
  *   东翼 厨房 10×12×4.5   —— 南墙大门+2 拱窗，北墙 3 拱窗，+x 墙门→走廊（左手边），
  *                           -x 墙悬空楼梯（右手边，→学习室）
@@ -431,14 +431,6 @@ function buildCorridor() {
         }
     });
 
-    // 两盏吊灯（纵深方向的视觉节拍；config 光照的 PointLight 在走廊中段）
-    add('LAMP', 'MAT_lamp', (p) => {
-        for (const zc of [4.5, 8.5]) {
-            B(p, -0.015, 2.62, zc - 0.015, 0.015, H, zc + 0.015);        // 吊线
-            B(p, -0.18, 2.45, zc - 0.18, 0.18, 2.62, zc + 0.18);         // 灯罩
-        }
-    }, { nav_ignore: true });
-
     // 长地毯（纯装饰）
     add('RUG', 'MAT_rug', (p) => B(p, -0.6, 0.02, 3.2, 0.6, 0.035, 10.8), { nav_ignore: true });
 
@@ -510,14 +502,8 @@ function buildBath() {
         B(p, 2.1, 0, 8.75, 2.6, 0.42, 9.4);      // 座
     });
     }
-    // 绿植（东南角）+ 浴室垫
-    add('PLANT_pot', 'MAT_pot', (p) => B(p, 3.3, 0, 0.3, 3.7, 0.4, 0.7), { nav_ignore: true });
-    add('PLANT_leaves', 'MAT_plant', (p) => B(p, 3.35, 0.4, 0.35, 3.65, 0.95, 0.65), { nav_ignore: true });
+    // 浴室垫（绿植/顶灯网格已按用户要求撤掉；config 光照的灯源保留）
     add('RUG', 'MAT_rug', (p) => B(p, -0.55, 0.02, 2.8, 0.55, 0.035, 4.0), { nav_ignore: true });
-
-    // 顶灯
-    add('LAMP', 'MAT_lamp', (p) => B(p, -0.22, H - 0.18, D / 2 - 0.22, 0.22, H - 0.02, D / 2 + 0.22),
-        { nav_ignore: true });
 
     doorS(add, 'DOOR_corridor', 0, { scene: 'f1_corridor', spawn: 'fromBath' });
 
@@ -613,10 +599,6 @@ function buildKitchen() {
         }
     });
     }
-    // 绿植（东南角，避开南门摆动区 x±0.5）
-    add('PLANT_pot', 'MAT_pot', (p) => B(p, 1.6, 0, 0.35, 2.0, 0.4, 0.75), { nav_ignore: true });
-    add('PLANT_leaves', 'MAT_plant', (p) => B(p, 1.65, 0.4, 0.4, 1.95, 0.95, 0.7), { nav_ignore: true });
-
     doorS(add, 'DOOR_outdoor', 0, { scene: 'outdoor', spawn: 'houseEast' });
     doorE(add, 'DOOR_corridor', xw, W_DOOR, { scene: 'f1_corridor', spawn: 'fromKitchen' });
 
