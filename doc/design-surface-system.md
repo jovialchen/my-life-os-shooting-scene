@@ -24,7 +24,7 @@ Blender 选中 mesh → Object Properties → Custom Properties → 添加属性
 | `surface_placeable` | Boolean | `True` | 可以在上面放小物品 |
 | `interactable_type` | String | `"door"` / `"curtain"` | 交互物体类型（门 / 窗帘） |
 | `curtain_group` | String | `"north"` | 同组帘片联动开关（仅窗帘，配合 `nav_ignore` 使用） |
-| `stairs_to` | Array | `[x, y, z]` | 点击楼梯面时自动走到梯顶点（`walker.js` 点击目标改写；客厅 `WALK_stairs` 在用，配合顶部触发区传送上楼） |
+| `stairs_to` | Array | `[x, y, z]` | 点击楼梯面时自动走到梯顶点（`walker.js` 点击目标改写；客厅/厨房 `WALK_stairs` 在用，配合顶部触发区传送上楼） |
 
 一个 mesh 可以有多个属性。例如：
 
@@ -102,7 +102,7 @@ Blender 里建模时：
 
 窗帘和门共用 `doors.js` 的点击开关机制，但**不是障碍**——纯视觉/交互物，必须同时标 `nav_ignore`（不进导航、不被 `refreshNavDoors` 当动态障碍）。
 
-**建模规范（见 `tools/make_room_living.mjs` 的 `addCurtain()`）：**
+**建模规范（见 `tools/make_f1_suite.mjs` 的 `addCurtain()`）：**
 
 - 帘片：独立 mesh，`interactable_type = "curtain"` + `nav_ignore = True`。**Object Origin 设在帘布外侧边缘**——开帘动画 = `scale.x` 从 1 收到 0.12，向边缘收拢成褶堆。
 - 联动：同 `curtain_group` 的帘片一点俱开（一副帘的左右两片）。

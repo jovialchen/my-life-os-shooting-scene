@@ -16,15 +16,22 @@ function check(name, cond, extra = '') {
 }
 
 // 传送图（= 生成器/外壳脚本里的 door extras，改图时两边同步）
+// 注意：客厅窗帘也注册为可交互物（target 为 null），顺序 = GLB 节点遍历序
 const GRAPH = {
     outdoor: { DOOR_entrance: ['f1_living', 'default'], DOOR_entrance_east: ['f1_kitchen', 'fromOutdoor'] },
     f1_living: {
-        DOOR_exit: ['outdoor', 'houseWest'], DOOR_bath: ['f1_bath', 'default'],
-        DOOR_kitchen: ['f1_kitchen', 'default'],
-        // 客厅→学习室改走楼梯间暗井触发区（triggers），不再有 DOOR_stairs
+        CURTAIN_L_north: [null, null], CURTAIN_R_north: [null, null],
+        CURTAIN_L_south_0: [null, null], CURTAIN_R_south_0: [null, null],
+        CURTAIN_L_south_1: [null, null], CURTAIN_R_south_1: [null, null],
+        DOOR_exit: ['outdoor', 'houseWest'], DOOR_corridor: ['f1_corridor', 'fromLiving'],
+        // 客厅→学习室改走厨房楼梯（2026-09-10 一楼改版）
     },
-    f1_kitchen: { DOOR_living: ['f1_living', 'fromKitchen'], DOOR_outdoor: ['outdoor', 'houseEast'] },
-    f1_bath: { DOOR_living: ['f1_living', 'fromBath'] },
+    f1_corridor: {
+        DOOR_living: ['f1_living', 'fromCorridor'], DOOR_kitchen: ['f1_kitchen', 'fromCorridor'],
+        DOOR_bath: ['f1_bath', 'default'],
+    },
+    f1_kitchen: { DOOR_outdoor: ['outdoor', 'houseEast'], DOOR_corridor: ['f1_corridor', 'fromKitchen'] },
+    f1_bath: { DOOR_corridor: ['f1_corridor', 'fromBath'] },
     f2_study: {
         DOOR_stairs_down: ['f1_living', 'fromStudy'], DOOR_bed2: ['f2_bed2', 'default'],
         DOOR_bed1: ['f2_bed1', 'default'], DOOR_bed3: ['f2_bed3', 'default'],
@@ -43,11 +50,14 @@ const GRAPH = {
 // 全动线：沿传送图走一遍（验收总标准的路线）
 const ROUTE = [
     ['f1_living', undefined],          // 室外西大门 -> 客厅
-    ['f1_kitchen', undefined],         // 客厅 -> 厨房
+    ['f1_corridor', 'fromLiving'],     // 客厅 -> 走廊
+    ['f1_bath', undefined],            // 走廊 -> 客卫（北尽头门）
+    ['f1_corridor', 'fromBath'],       // 客卫 -> 走廊
+    ['f1_kitchen', 'fromCorridor'],    // 走廊 -> 厨房
     ['outdoor', 'houseEast'],          // 厨房 -> 东大门外
-    ['f1_living', undefined],          // 室外 -> 客厅
-    ['f1_bath', undefined],            // 客厅 -> 客卫
-    ['f1_living', 'fromBath'],         // 客卫 -> 客厅
+    ['f1_kitchen', 'fromOutdoor'],     // 东大门 -> 厨房
+    ['f1_corridor', 'fromKitchen'],    // 厨房 -> 走廊
+    ['f1_living', 'fromCorridor'],     // 走廊 -> 客厅
     ['f2_study', undefined],           // 客厅楼梯 -> 学习室
     ['f2_bed1', undefined], ['f2_bath1', undefined], ['f2_bed1', 'fromBath'], ['f2_study', 'fromBed1'],
     ['f2_bed2', undefined], ['f2_bath2', undefined], ['f2_bed2', 'fromBath'], ['f2_study', 'fromBed2'],

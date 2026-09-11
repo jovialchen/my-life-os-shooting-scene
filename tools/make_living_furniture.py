@@ -33,12 +33,12 @@ OUT = os.path.join(ROOT, 'models', 'furniture_living.glb')
 # scale: 整体放大——角色身高 1.65m，原模型按真人偏小一号的比例做的，
 #        放大 ~1.2 倍后沙发座面/靠背和角色才对得上（不然"坐不下"）
 #
-# 布局（2026-09-10 改版）：会客区整体靠**西墙**（z 5~8 段无门），
-# 沙发面朝西墙电视柜；东墙楼梯口（z<5.9 是上梯必经通道）完全留空。
+# 布局（2026-09-10 定稿）：楼梯在 +x 墙（进门面窗左手边），会客区靠 -x 墙
+# （z 5~8 段），沙发面朝 -x 墙电视柜；-x 墙走廊门在 z2.2（会客区以南，不冲突）。
 FURNITURE = [
     {
         'file': 'sofa-bed-002.obj',
-        'pos': (-2.6, 0.0, 7.0), 'rotY': -90, 'scale': 1.2,  # 面朝西墙电视柜（-x）
+        'pos': (-2.55, 0.0, 7.0), 'rotY': -90, 'scale': 1.2,  # 面朝 -x 墙电视柜
         'mats': {
             'couch':   ('MAT_fab_sofa', '#CDB894'),    # 燕麦色布艺
             'base':    ('MAT_fab_sofa', '#CDB894'),
@@ -50,7 +50,7 @@ FURNITURE = [
     },
     {
         'file': 'tv-cabinet-002.obj',
-        'pos': (-4.75, 0.0, 7.0), 'rotY': -90, 'scale': 1.2,  # 三门面（-z）朝东进屋；贴西墙、厨房门以北
+        'pos': (-4.75, 0.0, 7.0), 'rotY': -90, 'scale': 1.2,  # 三门面（-z）朝屋内；贴 -x 墙
         'mats': {
             'cabinet': ('MAT_wood_walnut', '#8A5A3B'),  # 胡桃木（同门/踏步色系）
             'legs':    ('MAT_wood_dark', '#5F3F2A'),
@@ -59,13 +59,13 @@ FURNITURE = [
     },
     {
         'file': 'table-017.obj',
-        'pos': (-3.7, 0.0, 7.0), 'rotY': -90, 'scale': 1.2,   # 长边顺 z，沙发与电视柜之间
+        'pos': (-3.95, 0.0, 7.0), 'rotY': -90, 'scale': 1.2,  # 长边顺 z，沙发与电视柜之间
         'mats': {'table-017': ('MAT_wood_oak', '#D9BC8C')},   # 浅橡木茶几
         'decimate': ('COLLAPSE', 0.35),
     },
     {
         'file': 'pouf-001.obj',
-        'pos': (-0.6, 0.0, 10.2), 'rotY': 0, 'scale': 1.15,  # 北窗组东窗前的窗边坐墩（让开沙发）
+        'pos': (-2.05, 0.0, 10.2), 'rotY': 0, 'scale': 1.15,  # 北窗组正中前的窗边坐墩（窗组偏 -x，让开 +x 墙楼梯）
         'mats': {
             'pouf':    ('MAT_fab_pouf', '#C47F62'),     # 灰珊瑚点缀色
             'blanket': ('MAT_fab_blanket', '#E7DCC3'),  # 米白搭毯

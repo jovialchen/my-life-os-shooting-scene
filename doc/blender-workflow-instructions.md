@@ -262,7 +262,7 @@ File → Export → glTF 2.0：
 
 > 阶段 3/5 起，室内改为"每间房一个独立 glb、独立导航、独立机位"的场景切换方案。
 > 当前房间全部由纯 Node 脚本程序化生成：
-> `tools/make_room_living.mjs`（客厅）与 `tools/make_rooms.mjs`（其余 11 间，
+> `tools/make_f1_suite.mjs`（一楼 4 房）与 `tools/make_rooms.mjs`（二楼/阁楼 9 间，
 > 规格表驱动）。若以后改用 Blender 建房间，遵守同一套规范即可。
 > **2026-08 起全部 12 个房间统一为 7×7×3m 方形**（切换时画面尺寸一致，
 > 机位模板按 w/d/h 参数化，一屏可看全房间）。

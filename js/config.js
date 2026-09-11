@@ -61,7 +61,26 @@ const LIVING_ZONES = [
       minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
       bounds: null },
     { id: 'living_window', name: '客厅·窗', nameEn: 'Living N', category: 'room',
-      // 东北角高位看西南（避开东墙楼梯 x>3.9）
+      // 东北角高位看西南（避开 +x 墙楼梯）
+      pos: [3.2, 2.5, 10.5], target: [-2.0, 0.7, 2.0],
+      minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
+      bounds: null },
+];
+// 走廊机位（f1_corridor：3×12×3.2，南门口低位看北尽头客卫门，取纵深"深邃"感）
+const CORRIDOR_ZONES = [
+    { id: 'corridor_main', name: '走廊', nameEn: 'Corridor', category: 'room',
+      pos: [0, 2.3, 0.7], target: [0, 1.3, 9.5],
+      minDist: 1.0, maxDist: 10, maxPolar: Math.PI * 0.49,
+      bounds: null },
+];
+// 厨房机位（f1_kitchen：10×12×4.5 高厅，东墙楼梯；同客厅套路）
+const KITCHEN_ZONES = [
+    { id: 'kitchen_main', name: '厨房', nameEn: 'Kitchen', category: 'room',
+      pos: [-4.2, 2.7, 1.2], target: [1.2, 0.5, 6.5],
+      minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
+      bounds: null },
+    { id: 'kitchen_window', name: '厨房·窗', nameEn: 'Kitchen N', category: 'room',
+      // 东北角高位看西南（楼梯在 -x 墙，不在镜头侧）
       pos: [3.2, 2.5, 10.5], target: [-2.0, 0.7, 2.0],
       minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
       bounds: null },
@@ -70,7 +89,7 @@ const LIVING_ZONE_CATEGORIES = [
     { id: 'room', name: '房间', nameEn: 'Room' },
 ];
 
-// ── 房间场景模板（阶段 5：11 间房共用）──
+// ── 房间场景模板（阶段 5：二楼/阁楼 9 间房共用；一楼 4 房为定制条目）──
 // 单主机位：斜 45° 俯看全屋；光照：无直射阳光、窗光主光源、夜间顶灯
 // winLight: 窗光位姿（窗外 2m 照向屋内），spawns 见各房间连接表
 // winless=true：无窗房（卫生间）——无窗光、顶灯为主光源
@@ -111,17 +130,11 @@ const winN = (wxc, d) => ({ position: [wxc, 2.0, d + 2.0], target: [wxc, 0.4, d 
 const spS = (x) => ({ pos: [x, 0.02, 0.9], rotY: 0 });
 const spN = (x, d) => ({ pos: [x, 0.02, d - 0.9], rotY: Math.PI });
 const ROOM_SCENES = [
-    roomScene({ id: 'f1_kitchen', name: '厨房', nameEn: 'Kitchen', glb: 'models/room_kitchen.glb',
-        w: 7, d: 7, h: 3, winLight: winN(-0.45, 7),   // W4 北墙 3 拱窗组中心
-        spawns: { default: spS(0), fromOutdoor: spN(2.2, 7) } }),
-    roomScene({ id: 'f1_bath', name: '客卫', nameEn: 'Bathroom', glb: 'models/room_bath_f1.glb',
-        w: 7, d: 7, h: 3, winLight: null, winless: true,
-        spawns: { default: spS(0) } }),
     roomScene({ id: 'f2_study', name: '学习室', nameEn: 'Study', glb: 'models/room_study.glb',
         w: 7, d: 7, h: 3,
         winLight: { position: [1.95, 2.0, -2.0], target: [1.95, 0.4, 3.0] },   // 南墙 1 拱窗（W8 F2）
         spawns: {
-            default: spS(0),          // 客厅楼梯上来
+            default: spS(0),          // 厨房楼梯上来
             fromBed2: spS(-2),
             fromBed1: spN(-2, 7), fromBed3: spN(0, 7), fromAtticA: spN(2, 7),
         } }),
@@ -159,24 +172,26 @@ export const SCENES = [
       },
       // 室外无窗光/室内灯（旧内饰窗光已被黑内胆挡住，spot 归零）
       lighting: { spot: 0 } },
+    // ── 一楼四房（2026-09-10 改版，tools/make_f1_suite.mjs 生成）──
+    // 西翼客厅 10×12 + 东翼厨房 10×12（一样大），中间 3×12 走廊联通，
+    // 走廊北尽头门进客卫 8×10（比客厅略小）；楼梯在厨房东墙（→ 学习室）
     { id: 'f1_living', name: '客厅', nameEn: 'Living Room',
       glbs: ['models/room_living.glb', 'models/furniture_living.glb'],   // 房间 + 家具（tools/make_living_furniture.py）
       zones: LIVING_ZONES, categories: LIVING_ZONE_CATEGORIES,
       spawns: {
           // 从室外大门进入：门内一步，面朝房间（+z）
           default: { pos: [0, 0.02, 0.9], rotY: 0 },
-          // 各房间回程落点（西墙客卫/厨房门内侧一步，面朝房间 +x）
-          fromBath: { pos: [-4.0, 0.02, 1.6], rotY: Math.PI / 2 },
-          fromKitchen: { pos: [-4.0, 0.02, 4.3], rotY: Math.PI / 2 },
-          // 从学习室下楼：楼梯顶平台（顶部门洞触发区南侧，面朝南 -z 下楼方向）
+          // 从走廊进入：-x 墙门内侧一步，面朝房间（+x）
+          fromCorridor: { pos: [-4.0, 0.02, 2.2], rotY: Math.PI / 2 },
+          // 从学习室下楼：+x 墙楼梯顶平台（顶部门洞触发区南侧，面朝南 -z 下楼方向）
           fromStudy: { pos: [4.5, 3.02, 11.3], rotY: Math.PI },
       },
-      // 走上楼梯、将进顶部门洞时自动传送到二楼（学习室）
+      // 走上 +x 墙楼梯（进门面窗左手边）、将进顶部门洞时自动传送到二楼（学习室）
       triggers: [
           { min: [4.0, 2.9, 11.95], max: [5.05, 3.6, 12.35], target: 'f2_study', spawn: 'default' },
       ],
       // 室内光照（timeOfDay.setSceneProfile）：无直射阳光，窗光为主光源，
-      // 夜晚开顶灯；窗在北墙（z=12，3 拱窗组中心 x-2.05）
+      // 夜晚开顶灯；窗在北墙（z=12，3 拱窗组中心 x-2.05，偏 -x 让开 +x 墙楼梯）
       // 注意 ambient 是时段倍率（中午档基础值 0.4）：×3.2 ≈ 绝对 1.3，
       // 低了 MToon 人物全身掉进阴影色（"蒙灰"）
       lighting: {
@@ -185,6 +200,63 @@ export const SCENES = [
           fill: 0.25,
           spot: 1.3,
           windowLight: { position: [-2.05, 2.0, 14.0], target: [-2.05, 0.4, 5.5] },
+          lamp: { position: [0, 4.1, 6.0], color: 0xFFD9A0, intensity: 1.6, distance: 16 },
+      } },
+    { id: 'f1_corridor', name: '走廊', nameEn: 'Corridor',
+      glbs: ['models/room_corridor.glb'],
+      zones: CORRIDOR_ZONES, categories: LIVING_ZONE_CATEGORIES,
+      spawns: {
+          default: { pos: [0, 0.02, 1.0], rotY: 0 },
+          // 西墙门进（面朝走廊 +x）；东墙门进（面朝 -x）；北尽头客卫门出（面朝南）
+          fromLiving: { pos: [-0.9, 0.02, 2.2], rotY: Math.PI / 2 },
+          fromKitchen: { pos: [0.9, 0.02, 2.2], rotY: -Math.PI / 2 },
+          fromBath: { pos: [0, 0.02, 10.9], rotY: Math.PI },
+      },
+      lighting: {
+          sun: 0,
+          ambient: 3.2,
+          fill: 0.25,
+          spot: 1.2,
+          windowLight: { position: [0, 2.0, -2.0], target: [0, 0.5, 6.0] },   // 南墙 2 拱窗
+          lamp: { position: [0, 2.9, 6.5], color: 0xFFD9A0, intensity: 1.4, distance: 9 },
+      } },
+    { id: 'f1_bath', name: '客卫', nameEn: 'Bathroom',
+      glbs: ['models/room_bath_f1.glb'],
+      zones: [{ id: 'bath_main', name: '客卫', nameEn: 'Bathroom', category: 'room',
+          pos: [-3.4, 2.6, 0.5], target: [1.0, 0.6, 6.0],
+          minDist: 1.0, maxDist: 11, maxPolar: Math.PI * 0.49, bounds: null }],
+      categories: LIVING_ZONE_CATEGORIES,
+      spawns: { default: spS(0) },
+      lighting: {
+          sun: 0,
+          ambient: 3.2,
+          fill: 0.25,
+          spot: 1.3,
+          windowLight: winN(0, 10),   // 北墙 3 拱窗（W3）
+          lamp: { position: [0, 3.2, 5.0], color: 0xFFD9A0, intensity: 1.6, distance: 11 },
+      } },
+    { id: 'f1_kitchen', name: '厨房', nameEn: 'Kitchen',
+      glbs: ['models/room_kitchen.glb'],
+      zones: KITCHEN_ZONES, categories: LIVING_ZONE_CATEGORIES,
+      spawns: {
+          // 从室外东大门进入：门内一步，面朝房间（+z）
+          default: { pos: [0, 0.02, 0.9], rotY: 0 },
+          fromOutdoor: { pos: [0, 0.02, 0.9], rotY: 0 },
+          // 从走廊进入：+x 墙门内侧一步，面朝房间（-x）
+          fromCorridor: { pos: [4.0, 0.02, 2.2], rotY: -Math.PI / 2 },
+          // 从学习室下楼（备用落点；学习室"下楼"门当前指客厅）
+          fromStudy: { pos: [-4.5, 3.02, 11.3], rotY: Math.PI },
+      },
+      // 厨房 -x 墙楼梯（进门面窗右手边）：走上平台、将进顶部门洞时自动传送到学习室
+      triggers: [
+          { min: [-5.05, 2.9, 11.95], max: [-4.0, 3.6, 12.35], target: 'f2_study', spawn: 'default' },
+      ],
+      lighting: {
+          sun: 0,
+          ambient: 3.2,
+          fill: 0.25,
+          spot: 1.3,
+          windowLight: { position: [-0.45, 2.0, 14.0], target: [-0.45, 0.4, 5.5] },   // 北墙 W4 3 拱窗
           lamp: { position: [0, 4.1, 6.0], color: 0xFFD9A0, intensity: 1.6, distance: 16 },
       } },
     ...ROOM_SCENES,

@@ -1,6 +1,9 @@
-/** 阶段 5：批量房间生成器（11 间，纯 Node 写 GLB，无需 Blender）
+/** 阶段 5：批量房间生成器（9 间二楼/阁楼房，纯 Node 写 GLB，无需 Blender）
  *
- * 规范同 tools/make_room_living.mjs（客厅样板间）：
+ * 一楼 4 房（客厅/走廊/客卫/厨房）已移交 tools/make_f1_suite.mjs（2026-09-10
+ * 一楼改版：大厅×2 + 走廊 + 大客卫 + 厨房东墙楼梯）。
+ *
+ * 规范同 tools/make_f1_suite.mjs（一楼套房）：
  *   - 原点在主门（doors[0]，一律南墙 z=0 居中）门口地板中心；x±w/2，z 0..d
  *   - **所有门/窗只开在南墙(z=0)与北墙(z=d)**：门节点 rotY=0，
  *     南门 dir=left（开向屋内 +z），北门 dir=right（开向屋内 -z）
@@ -8,7 +11,7 @@
  *   - 窗景片 MAT_window_view 标 nav_ignore（时间系统按名联动变色）
  *   - 家具不标属性（自动障碍）；地毯/盆栽等纯装饰标 nav_ignore
  *
- * 用法: node tools/make_rooms.mjs   → 写出 models/room_*.glb × 11
+ * 用法: node tools/make_rooms.mjs   → 写出 models/room_*.glb × 9
  */
 import { writeFileSync } from 'node:fs';
 import { PALETTE, BASE_MATS } from './room_palette.mjs';
@@ -141,66 +144,6 @@ function pushWallX(part, z0, z1, x0, x1, h, holes) {
 // 结构色统一取 tools/room_palette.mjs（PALETTE / BASE_MATS 已导入）
 const ROOMS = [
     {
-        id: 'f1_kitchen', file: 'models/room_kitchen.glb',
-        w: 7, d: 7, h: 3,
-        mats: {
-            MAT_wall: '#F0E6D0', MAT_floor: PALETTE.floorTile,
-            MAT_counter: '#8C9AA5', MAT_fridge: '#D8E0E4',
-            MAT_furniture: '#A9744F', MAT_rug: '#C9B458', MAT_pot: '#B0764A', MAT_plant: '#5E8C5A',
-        },
-        doors: [
-            { name: 'DOOR_living', wall: 'S', off: 0, target: ['f1_living', 'fromKitchen'] },
-            { name: 'DOOR_outdoor', wall: 'N', off: 2.2, target: ['outdoor', 'houseEast'] },
-        ],
-        // W4 北墙东段 F1 3 拱窗（避让北门洞 1.7..2.7）
-        windows: [{ wall: 'N', centers: [-1.4, -0.45, 0.5], width: 0.87, y0: 0.55, y1: 2.45, arch: true }],
-        furnish(add, B) {
-            // 北墙台面（避开门洞 x1.7..2.7 及其摆动区）：灶台 + 水槽
-            add('FURN_counter', 'MAT_counter', (p) => {
-                B(p, -3.3, 0, 6.1, 1.5, 0.9, 6.9);
-            });
-            add('FURN_stove', 'MAT_fridge', (p) => B(p, -2.9, 0.9, 6.25, -2.1, 0.98, 6.75));
-            add('FURN_fridge', 'MAT_fridge', (p) => B(p, 2.9, 0, 3.0, 3.45, 1.9, 4.0));
-            // 餐桌 + 两把椅
-            add('FURN_table', 'MAT_furniture', (p) => {
-                B(p, -0.7, 0.66, 2.2, 0.9, 0.74, 3.4);
-                for (const [lx, lz] of [[-0.7, 2.2], [0.84, 2.2], [-0.7, 3.34], [0.84, 3.34]])
-                    B(p, lx, 0, lz, lx + 0.06, 0.66, lz + 0.06);
-            });
-            add('FURN_chairs', 'MAT_furniture', (p) => {
-                B(p, -0.5, 0, 1.6, -0.1, 0.45, 2.0);
-                B(p, -0.5, 0.45, 1.6, -0.1, 0.95, 1.7);
-                B(p, 0.3, 0, 3.6, 0.7, 0.45, 4.0);
-                B(p, 0.3, 0.45, 3.9, 0.7, 0.95, 4.0);
-            });
-            add('PLANT_pot', 'MAT_pot', (p) => B(p, -3.3, 0, 0.3, -2.9, 0.35, 0.7), { nav_ignore: true });
-            add('PLANT_leaves', 'MAT_plant', (p) => B(p, -3.25, 0.35, 0.35, -2.95, 0.85, 0.65), { nav_ignore: true });
-        },
-    },
-    {
-        id: 'f1_bath', file: 'models/room_bath_f1.glb',
-        w: 7, d: 7, h: 3,
-        mats: {
-            MAT_wall: '#D8E4E8', MAT_floor: PALETTE.floorTile,
-            MAT_fixture: '#F4F4F0', MAT_mirror: '#B8D8E8',
-        },
-        doors: [
-            { name: 'DOOR_living', wall: 'S', off: 0, target: ['f1_living', 'fromBath'] },
-        ],
-        windows: [],   // 卫生间无窗（doc/house-map.md）
-        furnish(add, B) {
-            add('FURN_toilet', 'MAT_fixture', (p) => {
-                B(p, 2.2, 0.3, 6.1, 2.65, 0.75, 6.45);   // 水箱
-                B(p, 2.2, 0, 5.65, 2.65, 0.4, 6.15);     // 座
-            });
-            add('FURN_sink', 'MAT_fixture', (p) => {
-                B(p, -3.0, 0.68, 6.0, -2.3, 0.78, 6.55); // 盆
-                B(p, -2.8, 0, 6.15, -2.5, 0.68, 6.45);   // 柱
-            });
-            add('MIRROR', 'MAT_mirror', (p) => B(p, -2.85, 1.05, 6.94, -2.45, 1.65, 6.98), { nav_ignore: true });
-        },
-    },
-    {
         id: 'f2_study', file: 'models/room_study.glb',
         w: 7, d: 7, h: 3,
         mats: {
@@ -209,7 +152,7 @@ const ROOMS = [
             MAT_rug: '#7A8CAA', MAT_pot: '#B0764A', MAT_plant: '#5E8C5A',
         },
         doors: [
-            { name: 'DOOR_stairs_down', wall: 'S', off: 0, target: ['f1_living', 'fromStudy'] },
+            { name: 'DOOR_stairs_down', wall: 'S', off: 0, target: ['f1_living', 'fromStudy'] },   // 下楼到客厅（楼梯在客厅东墙）
             { name: 'DOOR_bed2', wall: 'S', off: -2, target: ['f2_bed2', 'default'] },
             { name: 'DOOR_bed1', wall: 'N', off: -2, target: ['f2_bed1', 'default'] },
             { name: 'DOOR_bed3', wall: 'N', off: 0, target: ['f2_bed3', 'default'] },
@@ -509,7 +452,7 @@ function buildRoom(spec) {
     return parts;
 }
 
-// ── 写 GLB（与 make_room_living.mjs 同一套）──
+// ── 写 GLB（与 make_f1_suite.mjs 同一套）──
 function writeGlb(out, parts, mats) {
     const matNames = Object.keys(mats);
     const gltf = {

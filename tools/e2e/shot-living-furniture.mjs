@@ -25,7 +25,7 @@ await page.evaluate(() => window.__app.switchTo('f1_living'));
 await page.waitForFunction(() => window.__app.getActiveScene() === 'f1_living', { timeout: 15000 });
 await new Promise((r) => setTimeout(r, 1200));
 
-// 人物站到沙发正前方面朝沙发（-x），相机从东北低机位看沙发组
+// 人物站到沙发正前方面朝沙发（-x），相机从东北低机位看沙发组（会客区在 -x 墙）
 await page.evaluate(() => {
     const app = window.__app;
     app.teleport(-1.2, 0.02, 7.0, -Math.PI / 2);

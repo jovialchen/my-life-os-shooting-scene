@@ -22,7 +22,7 @@ await page.goto(`${base}/index.html?msaa=0`, { waitUntil: 'domcontentloaded', ti
 await page.waitForFunction(() => window.__app?.humanoid.userData.vrm && window.__app.getDoors().length > 0, { timeout: 60000 });
 await new Promise((r) => setTimeout(r, 1000));
 await page.evaluate(() => window.__app.switchTo('f1_living'));
-await page.waitForFunction(() => window.__app.getActiveScene() === 'f1_living' && window.__app.getDoors().length === 3, { timeout: 15000 });
+await page.waitForFunction(() => window.__app.getActiveScene() === 'f1_living' && window.__app.getDoors().length === 8, { timeout: 15000 });
 await new Promise((r) => setTimeout(r, 800));
 
 const sample = () => page.evaluate(() => ({
@@ -67,6 +67,15 @@ for (let i = 0; i < 15 && !arrived; i++) {
 check('下楼走回门口（不触发传送）', arrived);
 
 console.log('— 点击楼梯中段（stairs_to 改写目标 → 应自动上楼并传送）—');
+// 相机对准 +x 墙楼梯（否则踏步在默认机位视口外）
+await page.evaluate(() => {
+    const { camera, controls } = window.__app;
+    controls.maxPolarAngle = Math.PI * 0.55;
+    camera.position.set(-1.2, 1.6, 3.2);
+    controls.target.set(4.3, 1.2, 8.0);
+    controls.update();
+});
+await new Promise((r) => setTimeout(r, 500));
 // 把第 8 级踏步面中心（4.5, ~1.43, 8.0）投影到屏幕坐标，做一次真实鼠标点击
 const clickPt = await page.evaluate(() => {
     const cam = window.__app.camera;
