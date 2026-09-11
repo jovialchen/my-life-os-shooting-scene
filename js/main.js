@@ -25,7 +25,8 @@ import {
     CAMERA_FOV, CAMERA_NEAR, CAMERA_FAR, CAMERA_POS, CAMERA_TARGET,
     TONE_MAPPING_EXPOSURE,
     BLOOM_STRENGTH, BLOOM_RADIUS, BLOOM_THRESHOLD,
-    ORBIT_DAMPING, ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
+    ORBIT_DAMPING, ORBIT_ROTATE_SPEED, ORBIT_ZOOM_SPEED,
+    ORBIT_MIN_DISTANCE, ORBIT_MAX_DISTANCE, ORBIT_MAX_POLAR, MAX_PIXEL_RATIO,
     CAMERA_ZONES, SCENES,
 } from './config.js';
 
@@ -86,6 +87,8 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(CAMERA_TARGET.x, CAMERA_TARGET.y, CAMERA_TARGET.z);
 controls.enableDamping = true;
 controls.dampingFactor = ORBIT_DAMPING;
+controls.rotateSpeed = ORBIT_ROTATE_SPEED;
+controls.zoomSpeed = ORBIT_ZOOM_SPEED;
 controls.minDistance = ORBIT_MIN_DISTANCE;
 controls.maxDistance = ORBIT_MAX_DISTANCE;
 controls.maxPolarAngle = ORBIT_MAX_POLAR;
@@ -218,10 +221,10 @@ initSceneManager({
             });
             refreshNavDoors();
             setZones(def.zones, def.categories);
-            // 相机碰撞：室外用全部 mesh；室内只算结构件（墙/天花板/地板/门窗框），
+            // 相机碰撞：室外用全部 mesh；室内只算结构件（墙/天花板/地板/门窗框/楼梯栏杆），
             // 家具不收缩机位（否则 target→相机射线被桌椅挡住，机位被拉到家具前）
             setCameraCollisionRoot(group, def.id === 'outdoor' ? null :
-                (m) => /^(WALLS|CEILING|FLOOR|FRAMES|DOOR_)/.test(m.name));
+                (m) => /^(WALLS|CEILING|FLOOR|FRAMES|DOOR_|STAIRS|STAIRWELL|RAILING|SHAFT)/.test(m.name));
             inkMist.visible = def.id === 'outdoor';   // 雾片只在室外场景
             if (def.id === 'outdoor') updateSeason(seasonValue);
             // 光照换绑：室内关直射阳光/重摆窗光与顶灯，室外恢复默认

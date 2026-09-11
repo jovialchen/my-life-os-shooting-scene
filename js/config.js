@@ -13,7 +13,9 @@ export const CAMERA_POS     = { x: 0.5, y: 3.5, z: 6 };
 export const CAMERA_TARGET  = { x: -4, y: 1.2, z: 0 };
 
 // 轨道控制器
-export const ORBIT_DAMPING       = 0.05;
+export const ORBIT_DAMPING       = 0.1;    // 阻尼：松手后收敛更快，减少余滑发飘
+export const ORBIT_ROTATE_SPEED  = 0.5;    // 旋转灵敏度（OrbitControls 默认 1.0 太快）
+export const ORBIT_ZOOM_SPEED    = 0.7;
 export const ORBIT_MIN_DISTANCE  = 2;
 export const ORBIT_MAX_DISTANCE  = 60;
 export const ORBIT_MAX_POLAR     = Math.PI * 0.85;

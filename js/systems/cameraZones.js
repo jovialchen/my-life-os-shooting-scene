@@ -34,19 +34,29 @@ let currentZone = null;
 let transition = null;                // { t, fromPos, toPos, fromTarget, toTarget }
 
 const _followTarget = new THREE.Vector3();
+const _followDelta = new THREE.Vector3();
 
 // ── 墙体碰撞收缩（方案B：target→相机打射线，撞墙就收距离）──
 const COLLISION = {
-    margin: 0.3,          // 相机离墙的最小间隙（米）
-    minRadius: 0.3,       // 收缩下限，防止贴脸穿模
-    growSpeed: 8,         // 障碍消失后距离恢复速度（指数趋近）
+    margin: 0.45,         // 相机离墙的最小间隙（米）
+    minRadius: 0.8,       // 收缩下限，防止贴脸穿模
+    growSpeed: 3,         // 障碍消失后距离恢复速度（指数趋近，慢——不弹脸）
+    shrinkSpeed: 14,      // 收缩速度（指数趋近，快——不穿帮但无顿挫）
     zoomEps: 0.03,        // 判定「用户主动缩放」的半径差阈值
+    hysteresis: 0.05,     // 迟滞：半径差小于此值不动作，防命中逐帧抖动引起泵动
+    rayOffset: 0.25,      // 偏移射线的横向偏移量（近似 sphere cast，覆盖相机边角）
 };
 let collisionMeshes = [];   // 参与碰撞的 mesh（房子/岛屿/门，模型就绪后注入）
 let userRadius = 0;         // 用户想要的轨道半径（缩放输入会更新它）
 let appliedRadius = 0;      // 实际施加的半径（被墙收缩后 < userRadius）
 const _colRay = new THREE.Raycaster();
 const _colDir = new THREE.Vector3();
+const _colDir2 = new THREE.Vector3();
+const _colOrigin = new THREE.Vector3();
+const _colRight = new THREE.Vector3();
+const _colUp = new THREE.Vector3();
+// 中心 + 上下左右 4 条偏移射线（rx/ry 为 rayOffset 的倍数）
+const RAY_OFFSETS = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
 
 // ── 初始化 ──────────────────────────────────────────────
 
@@ -126,7 +136,11 @@ export function updateCameraZones(delta) {
         if (Math.hypot(dx, dz) > CAMERA_FOLLOW_DEADZONE) {
             const t = 1 - Math.exp(-CAMERA_FOLLOW_SPEED * delta);
             _followTarget.set(humanoid.position.x, CAMERA_FOLLOW_Y, humanoid.position.z);
-            controls.target.lerp(_followTarget, t);
+            // target 和相机同步平移（轨道偏移不变）——只移 target 会让
+            // OrbitControls 原地转头，角色一走动整个房间看起来在打转
+            _followDelta.subVectors(_followTarget, controls.target).multiplyScalar(t);
+            controls.target.add(_followDelta);
+            camera.position.add(_followDelta);
         }
     } else {
         // zone 模式：按角色位置自动切换
@@ -142,8 +156,9 @@ export function updateCameraZones(delta) {
 }
 
 // ── 墙体碰撞收缩 ────────────────────────────────────────
-// 每帧从 target 向相机方向打射线，撞到墙就把距离收回来；
-// 墙消失后平滑恢复到用户想要的半径。收缩立即、恢复渐进。
+// 每帧从 target 向相机方向打 5 条射线（中心 + 上下左右偏移，近似 sphere cast），
+// 取最近命中，撞到墙就把距离收回来；墙消失后平滑恢复到用户想要的半径。
+// 收缩快、恢复慢、带迟滞——避免命中结果逐帧跳变时半径来回泵动。
 
 function applyWallCollision(delta) {
     if (!controls.enabled) return;
@@ -163,17 +178,32 @@ function applyWallCollision(delta) {
 
     let allowed = userRadius;
     if (collisionMeshes.length > 0) {
-        _colRay.set(target, _colDir);
-        _colRay.far = userRadius;
-        const hits = _colRay.intersectObjects(collisionMeshes, false);
-        if (hits.length > 0) {
-            allowed = Math.min(allowed, Math.max(COLLISION.minRadius, hits[0].distance - COLLISION.margin));
+        // 相机局部坐标系的右/上方向，用于生成偏移射线
+        camera.updateWorldMatrix(true, false);
+        _colRight.setFromMatrixColumn(camera.matrixWorld, 0);
+        _colUp.setFromMatrixColumn(camera.matrixWorld, 1);
+        for (const [rx, ry] of RAY_OFFSETS) {
+            _colOrigin.copy(camera.position)
+                .addScaledVector(_colRight, rx * COLLISION.rayOffset)
+                .addScaledVector(_colUp, ry * COLLISION.rayOffset);
+            _colDir2.subVectors(_colOrigin, target).normalize();
+            _colRay.set(target, _colDir2);
+            _colRay.far = userRadius + COLLISION.rayOffset;
+            const hits = _colRay.intersectObjects(collisionMeshes, false);
+            if (hits.length > 0) {
+                allowed = Math.min(allowed, Math.max(COLLISION.minRadius, hits[0].distance - COLLISION.margin));
+            }
         }
     }
 
-    if (allowed < appliedRadius) {
-        appliedRadius = allowed;    // 收缩立即生效，不穿墙
+    if (Math.abs(allowed - appliedRadius) < COLLISION.hysteresis) {
+        // 迟滞：小抖动不响应
+    } else if (allowed < appliedRadius) {
+        // 收缩：快速指数趋近（从上方逼近 allowed，永不低于它，不穿墙）
+        const t = 1 - Math.exp(-COLLISION.shrinkSpeed * delta);
+        appliedRadius += (allowed - appliedRadius) * t;
     } else {
+        // 恢复：慢速指数趋近
         const t = 1 - Math.exp(-COLLISION.growSpeed * delta);
         appliedRadius += (allowed - appliedRadius) * t;
     }
