@@ -43,10 +43,14 @@ const U = {
     uCeilMottle:  { value: 0.14 },                      // 室内顶面大尺度斑驳强度（仅 MAT_ceiling_interior）
     uCurtainPleat: { value: 0.5 },                      // 窗帘竖褶明暗强度（仅 MAT_curtain）
     uCurtainGrain: { value: 0.25 },                     // 窗帘布纹颗粒强度（仅 MAT_curtain）
-    uWoodShade: { value: 0.55 },                        // 木件假光影强度（MAT_tread/MAT_railing/MAT_wood_*）
-    uWoodFine: { value: 0.30 },                         // 木件细木纹强度（MAT_tread/MAT_railing/MAT_wood_*）
+    uWoodShade: { value: 0.55 },                        // 木件假光影强度（MAT_tread/MAT_railing/MAT_wood_*/门框/门板/护墙板）
+    uWoodFine: { value: 0.30 },                         // 木件细木纹强度（同上）
     uFabShade: { value: 0.5 },                          // 布艺假光影强度（仅 MAT_fab_* 家具布面）
     uFabGrain: { value: 0.18 },                         // 布艺布纹颗粒强度（仅 MAT_fab_*）
+    uRugWeave: { value: 0.35 },                         // 地毯经纬织纹强度（仅 MAT_rug）
+    uRugGrain: { value: 0.30 },                         // 地毯绒毛颗粒强度（仅 MAT_rug）
+    uTileLine:  { value: 0.55 },                        // 地砖砖缝勾线强度（仅 MAT_floor_tile）
+    uTileGrain: { value: 0.35 },                        // 地砖釉面细颗粒强度（仅 MAT_floor_tile）
 };
 
 // ── 时段调色预设（对齐 config.TIME_PRESETS 六段，水墨不打光只调色）──
@@ -99,11 +103,16 @@ const WALL_INTERIOR_MAT = 'MAT_wall_interior';
 const CEILING_INTERIOR_MAT = 'MAT_ceiling_interior';
 /** 窗帘布料：竖褶明暗 + 布纹 */
 const CURTAIN_MAT = 'MAT_curtain';
-/** 木作小件（楼梯踏步/栏杆 + 家具木件 MAT_wood_*）：大平面变体不适用，用假光影 + 细木纹显体积 */
+/** 木作小件（楼梯踏步/栏杆 + 家具木件 MAT_wood_* + 门框/门板/护墙板）：
+ *  大平面变体不适用，用假光影 + 细木纹显体积 */
 const TREAD_MAT = 'MAT_tread';
 const RAILING_MAT = 'MAT_railing';
 /** 家具布艺（MAT_fab_*）：柔和假光影 + 布纹颗粒——纯色平涂在无光照下分不清面 */
 const FABRIC_MATS = ['MAT_fab_sofa', 'MAT_fab_cushion', 'MAT_fab_pouf', 'MAT_fab_blanket'];
+/** 地毯（MAT_rug）：大平面平躺，假光影对它无效，用经纬织纹 + 绒毛颗粒 */
+const RUG_MAT = 'MAT_rug';
+/** 地砖材质：纯色大平面没看头，需要砖缝勾线 + 每砖微色差 */
+const TILE_FLOOR_MAT = 'MAT_floor_tile';
 
 const VARIANTS = {
     roof:  { mats: [ROOF_MAT],              compile: (s) => injectInk(s, ROOF_GLSL, ROOF_UNIFORMS),  key: 'inkwash_roof' },
@@ -111,9 +120,12 @@ const VARIANTS = {
     wallInterior: { mats: [WALL_INTERIOR_MAT], compile: (s) => injectInk(s, WALL_INTERIOR_GLSL, WALL_INTERIOR_UNIFORMS), key: 'inkwash_wall_interior' },
     ceilingInterior: { mats: [CEILING_INTERIOR_MAT], compile: (s) => injectInk(s, CEILING_INTERIOR_GLSL, CEILING_INTERIOR_UNIFORMS), key: 'inkwash_ceiling_interior' },
     curtain: { mats: [CURTAIN_MAT],         compile: (s) => injectInk(s, CURTAIN_GLSL, CURTAIN_UNIFORMS), key: 'inkwash_curtain' },
-    wood:  { mats: [TREAD_MAT, RAILING_MAT, 'MAT_wood_walnut', 'MAT_wood_oak', 'MAT_wood_dark'],
+    wood:  { mats: [TREAD_MAT, RAILING_MAT, 'MAT_wood_walnut', 'MAT_wood_oak', 'MAT_wood_dark',
+                    'MAT_frame', 'MAT_door', 'MAT_wainscot'],
              compile: (s) => injectInk(s, WOOD_GLSL, WOOD_UNIFORMS), key: 'inkwash_wood' },
     fabric: { mats: FABRIC_MATS,            compile: (s) => injectInk(s, FABRIC_GLSL, FABRIC_UNIFORMS), key: 'inkwash_fabric' },
+    rug:   { mats: [RUG_MAT],               compile: (s) => injectInk(s, RUG_GLSL, RUG_UNIFORMS), key: 'inkwash_rug' },
+    tile:  { mats: [TILE_FLOOR_MAT],        compile: (s) => injectInk(s, TILE_GLSL, TILE_UNIFORMS), key: 'inkwash_tile' },
     leaf:  { mats: ['MAT_leaves'],          compile: (s) => injectInk(s, LEAF_GLSL, LEAF_UNIFORMS),  key: 'inkwash_leaf' },
     trunk: { mats: ['MAT_trunk'],           compile: (s) => injectInk(s, TRUNK_GLSL, TRUNK_UNIFORMS), key: 'inkwash_trunk' },
     rock:  { mats: ['MAT_rock', 'MAT_stone'], compile: (s) => injectInk(s, ROCK_GLSL, ROCK_UNIFORMS), key: 'inkwash_rock' },
@@ -281,6 +293,19 @@ const FABRIC_GLSL = /* glsl */`
 `;
 const FABRIC_UNIFORMS = 'uniform float uFabShade;\nuniform float uFabGrain;';
 
+/** 地毯变体 GLSL（MAT_rug）：经纬织纹（两组垂直细波交错出编织感）+ 绒毛细颗粒。
+ *  地毯是平躺大平面，假光影分面对它无效，全靠织纹显质感 */
+const RUG_GLSL = /* glsl */`
+    // 经纬纹：x/z 两组细条纹相乘，出十字编织格
+    float weave = sin(wp.x * 6.28318 / 0.035) * sin(wp.z * 6.28318 / 0.035);
+    float rlinter = inkNoise(wp * 6.0) * 0.5;   // 大尺度绒面不匀
+    float rgrain = inkNoise(wp * 45.0) * 0.5 + inkNoise(wp * 100.0 + 3.0) * 0.5;
+    outgoingLight *= 1.0 + weave * 0.5 * uRugWeave
+                   + (rlinter - 0.25) * uRugWeave * 0.4
+                   + (rgrain - 0.5) * uRugGrain;
+`;
+const RUG_UNIFORMS = 'uniform float uRugWeave;\nuniform float uRugGrain;';
+
 /** 树冠变体 GLSL：团块假光影（动漫树丛的明暗面）+ 底部压暗 + 叶簇碎点 */
 const LEAF_GLSL = /* glsl */`
     vec3 ln = normalize(vInkWorldNormal);
@@ -341,6 +366,27 @@ const FLOOR_GLSL = /* glsl */`
     outgoingLight *= mix(1.0, woodMul, fUp);
 `;
 const FLOOR_UNIFORMS = 'uniform float uWoodLine;\nuniform float uWoodGrain;';
+
+/** 地砖变体 GLSL：0.5m 方砖缝勾线（带手绘抖动）+ 每砖微色差 + 釉面细颗粒。
+ *  只画在朝上的面（地面），墙裙/立沿不画 */
+const TILE_GLSL = /* glsl */`
+    vec3 tn = normalize(vInkWorldNormal);
+    float tUp = smoothstep(0.6, 0.9, tn.y);
+    // ── 砖缝：0.5m 方砖网格，缝线轻微噪声抖动（手绘感）──
+    float twob = (inkNoise(wp * 1.7) - 0.5) * 0.04;
+    vec2 tc = wp.xz / 0.5 + twob;
+    vec2 tf = fract(tc);
+    float seamTx = 1.0 - smoothstep(0.0, fwidth(tc.x) * 1.5 + 0.02, min(tf.x, 1.0 - tf.x));
+    float seamTz = 1.0 - smoothstep(0.0, fwidth(tc.y) * 1.5 + 0.02, min(tf.y, 1.0 - tf.y));
+    float tseam = max(seamTx, seamTz);
+    // ── 每砖微色差（同一块砖内一致）+ 釉面细颗粒 ──
+    float ttone = inkHash(vec3(floor(tc.x), floor(tc.y), 5.9)) - 0.5;
+    float tgrain = inkNoise(wp * 23.0) * 0.6 + inkNoise(wp * 51.0 + 8.0) * 0.4;
+    float tileMul = 1.0 + ttone * 0.08 + (tgrain - 0.5) * uTileGrain;
+    tileMul *= 1.0 - tseam * uTileLine * 0.5;
+    outgoingLight *= mix(1.0, tileMul, tUp);
+`;
+const TILE_UNIFORMS = 'uniform float uTileLine;\nuniform float uTileGrain;';
 
 function injectInk(shader, variantGLSL, variantUniforms) {
     const needNormal = variantGLSL.length > 0;
@@ -630,10 +676,11 @@ export function setInkFlora(opts = {}) {
 }
 
 /**
- * 室内质感调参（内墙墙纸/室内顶面/窗帘/木作小件/布艺家具；null 的项不变）
+ * 室内质感调参（内墙墙纸/室内顶面/窗帘/木作小件/布艺家具/地砖/地毯；null 的项不变）
  * @param {{paperStripe?:number, paperGrain?:number, ceilMottle?:number,
  *   curtainPleat?:number, curtainGrain?:number, woodShade?:number, woodFine?:number,
- *   fabShade?:number, fabGrain?:number}} opts
+ *   fabShade?:number, fabGrain?:number, tileLine?:number, tileGrain?:number,
+ *   rugWeave?:number, rugGrain?:number}} opts
  */
 export function setInkInterior(opts = {}) {
     if (opts.paperStripe != null) U.uPaperStripe.value = opts.paperStripe;
@@ -645,4 +692,8 @@ export function setInkInterior(opts = {}) {
     if (opts.woodFine != null) U.uWoodFine.value = opts.woodFine;
     if (opts.fabShade != null) U.uFabShade.value = opts.fabShade;
     if (opts.fabGrain != null) U.uFabGrain.value = opts.fabGrain;
+    if (opts.tileLine != null) U.uTileLine.value = opts.tileLine;
+    if (opts.tileGrain != null) U.uTileGrain.value = opts.tileGrain;
+    if (opts.rugWeave != null) U.uRugWeave.value = opts.rugWeave;
+    if (opts.rugGrain != null) U.uRugGrain.value = opts.rugGrain;
 }
