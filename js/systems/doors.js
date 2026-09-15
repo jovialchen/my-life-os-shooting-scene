@@ -16,7 +16,10 @@
  *   - 必须同时标 nav_ignore（窗帘永不进导航/障碍）
  *
  * 注意：initDoors 必须在 initWalker 之前调用，
- * 这样点到门时 stopImmediatePropagation 能阻止角色走过去。
+ * 这样点到门时 walker 能通过 consumeDoorTap() 知道「这次点击是点门」，
+ * 不让角色走过去（不能用 stopImmediatePropagation 吞 pointerup：
+ * OrbitControls 的 pointerup 监听器注册更靠后，会被一起吞掉，
+ * 导致它永远卡在拖拽状态、之后的单指拖动被当成双指手势而无法旋转）。
  *
  * 命中检测在 pointerdown 时做（而不是 pointerup）：
  * 相机会每帧向角色跟随目标漂移，慢一点的点击（100ms+）在 pointerup 时
@@ -50,6 +53,14 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let pointerDownPos = null;
 let hitDoor = null;        // pointerdown 时命中的门
+let tapOnDoor = false;     // 本次 pointerup 点在门上（walker 据此抑制走动，消费一次）
+
+/** walker 用：这次 pointerup 是否点在了门上（读到即清零） */
+export function consumeDoorTap() {
+    const v = tapOnDoor;
+    tapOnDoor = false;
+    return v;
+}
 
 /** 射线检测指定屏幕坐标处的门（pointerdown 用，也可作调试 API） */
 export function pickDoorAt(clientX, clientY) {
@@ -90,8 +101,8 @@ export function initDoors(cam, renderer) {
 
         toggleDoor(hitDoor);
         hitDoor = null;
-        // 阻止 walker 的 pointerup（点到门不让角色走动）
-        e.stopImmediatePropagation();
+        // 标记本次点击是点门（walker 的 pointerup 随后触发，据此不走动）
+        tapOnDoor = true;
     });
 }
 

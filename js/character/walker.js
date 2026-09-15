@@ -8,6 +8,7 @@
  */
 import * as THREE from 'three';
 import { CLICK_DRAG_THRESHOLD } from '../config.js';
+import { consumeDoorTap } from '../systems/doors.js';
 import {
     findPath, smoothPath, isPathClear, isWalkableWorld,
     groundHeightAt, getWalkableMeshes,
@@ -121,6 +122,8 @@ export function initWalker(humanoid, camera, renderer, scene) {
         pointerDownPos = null;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > CLICK_DRAG_THRESHOLD) return;
+        // 点到门（doors.js 已开合门）→ 角色不走动
+        if (consumeDoorTap()) return;
 
         const meshes = getWalkableMeshes();
         if (meshes.length === 0) return;
