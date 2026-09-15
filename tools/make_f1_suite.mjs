@@ -30,7 +30,9 @@ import { PALETTE } from './room_palette.mjs';
 const WT = 0.1;
 const DOOR_W = 1.0, DOOR_H = 2.1;
 
-// 2026-09-11：厨房/客卫的简易家具先撤掉（后续用真实家具模型替换），置 true 恢复
+// 2026-09-11：厨房/客卫的简易家具先撤掉，置 true 恢复
+// 2026-09-15：真实家具已由 tools/make_changjing_furniture.py 提供
+// （models/furniture_kitchen.glb / furniture_bath_f1.glb，config.js glbs 挂载）
 const WITH_FURNITURE = false;
 
 // ── 楼梯参数（东墙悬空梯，客厅/厨房共用同一套；平台 y3.0 = 二楼标高）──

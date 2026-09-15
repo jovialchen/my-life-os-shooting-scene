@@ -95,11 +95,11 @@ const LIVING_ZONE_CATEGORIES = [
 // 单主机位：斜 45° 俯看全屋；光照：无直射阳光、窗光主光源、夜间顶灯
 // winLight: 窗光位姿（窗外 2m 照向屋内），spawns 见各房间连接表
 // winless=true：无窗房（卫生间）——无窗光、顶灯为主光源
-function roomScene({ id, name, nameEn, glb, w, d, h, spawns, winLight, mirrorZone = false, winless = false, zonePos = null, zoneTarget = null }) {
+function roomScene({ id, name, nameEn, glb, glbs, w, d, h, spawns, winLight, mirrorZone = false, winless = false, zonePos = null, zoneTarget = null }) {
     const sx = mirrorZone ? 1 : -1;   // 家具偏西墙的房间（卧室）从东南角拍西北
     return {
         id, name, nameEn,
-        glbs: [glb],
+        glbs: glbs ?? [glb],
         zones: [{
             id: `${id}_main`, name, nameEn, category: 'room',
             // 南墙角高位俯拍对角：尽量一屏看全 7×7 房间全景（阁楼坡顶用 zonePos 压低机位）
@@ -148,7 +148,9 @@ const ROOM_SCENES = [
             : { position: [0, 2.0, -2.0], target: [0, 0.4, 3.0] },
         spawns: { default: spS(0), fromBath: { pos: [-1.5, 0.02, 6.1], rotY: Math.PI } } })),
     ...[1, 2, 3].map((n) => roomScene({
-        id: `f2_bath${n}`, name: `卫生间${n}`, nameEn: `Bathroom ${n}`, glb: `models/room_bath${n}.glb`,
+        id: `f2_bath${n}`, name: `卫生间${n}`, nameEn: `Bathroom ${n}`,
+        // 房间 + changjing 卫浴家具（tools/make_changjing_furniture.py，三房共用一份）
+        glbs: [`models/room_bath${n}.glb`, 'models/furniture_bath_f2.glb'],
         w: 7, d: 7, h: 3, winLight: null, winless: true,
         spawns: { default: spS(0) } })),
     roomScene({ id: 'attic_game_a', name: '游戏室A', nameEn: 'Game Room A', glb: 'models/room_game_a.glb',
@@ -223,7 +225,7 @@ export const SCENES = [
           lamp: { position: [0, 2.9, 6.5], color: 0xFFD9A0, intensity: 1.4, distance: 9 },
       } },
     { id: 'f1_bath', name: '客卫', nameEn: 'Bathroom',
-      glbs: ['models/room_bath_f1.glb'],
+      glbs: ['models/room_bath_f1.glb', 'models/furniture_bath_f1.glb'],   // 房间 + changjing 卫浴家具
       zones: [{ id: 'bath_main', name: '客卫', nameEn: 'Bathroom', category: 'room',
           pos: [-3.4, 2.6, 0.5], target: [1.0, 0.6, 6.0],
           minDist: 1.0, maxDist: 11, maxPolar: Math.PI * 0.49, bounds: null }],
@@ -238,7 +240,7 @@ export const SCENES = [
           lamp: { position: [0, 3.2, 5.0], color: 0xFFD9A0, intensity: 1.6, distance: 11 },
       } },
     { id: 'f1_kitchen', name: '厨房', nameEn: 'Kitchen',
-      glbs: ['models/room_kitchen.glb'],
+      glbs: ['models/room_kitchen.glb', 'models/furniture_kitchen.glb'],   // 房间 + changjing 厨房家具
       zones: KITCHEN_ZONES, categories: LIVING_ZONE_CATEGORIES,
       spawns: {
           // 从室外东大门进入：门内一步，面朝房间（+z）

@@ -230,27 +230,13 @@ const ROOMS = [
         mats: {
             MAT_wall: ['#E4DCD8', '#D8E0E8', '#DDE8D8'][n - 1],
             MAT_floor: PALETTE.floorTile,
-            MAT_fixture: '#F4F4F0', MAT_shower: '#9AB8C8',
         },
         doors: [
             { name: 'DOOR_bed', wall: 'S', off: 0, target: [`f2_bed${n}`, 'fromBath'] },
         ],
         windows: [],   // 卫生间无窗（doc/house-map.md）
-        furnish(add, B) {
-            add('FURN_toilet', 'MAT_fixture', (p) => {
-                B(p, 2.2, 0.3, 6.1, 2.65, 0.75, 6.45);   // 水箱
-                B(p, 2.2, 0, 5.65, 2.65, 0.4, 6.15);     // 座
-            });
-            // 淋浴间（西墙，玻璃隔断）
-            add('FURN_shower', 'MAT_shower', (p) => {
-                B(p, -2.75, 0, 3.6, -2.69, 2.0, 4.55);   // 隔断
-                B(p, -3.4, 1.9, 4.0, -2.75, 1.96, 4.1);  // 花洒杆
-            });
-            add('FURN_sink', 'MAT_fixture', (p) => {
-                B(p, 0.55, 0.68, 6.0, 1.25, 0.78, 6.55);
-                B(p, 0.75, 0, 6.15, 1.05, 0.68, 6.45);
-            });
-        },
+        // 家具（浴缸/马桶/洗手盆/镜子）= models/furniture_bath_f2.glb，
+        // 由 tools/make_changjing_furniture.py 从 changjing.blend 提取，三房共用
     })),
     {
         id: 'attic_game_a', file: 'models/room_game_a.glb',
@@ -446,8 +432,8 @@ function buildRoom(spec) {
     add('LAMP', 'MAT_lamp', (p) => B(p, -0.25, h - 0.2, d / 2 - 0.25, 0.25, h - 0.02, d / 2 + 0.25),
         { nav_ignore: true });
 
-    // 家具
-    spec.furnish(add, B);
+    // 家具（可无：如 f2 卫生间由独立家具 GLB 提供）
+    spec.furnish?.(add, B);
 
     return parts;
 }
