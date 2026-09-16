@@ -47,6 +47,7 @@ MAT_MAP = {
 }
 # 逐对象材质覆盖：对象名 → {原材质名: (新材质名, 颜色, 自发光)}
 MAT_OVERRIDE = {
+    'Cube.001':  {'kaca': ('MAT_enamel', '#C6D9E2', 0.0)},       # 冰箱珐琅蓝（不用玻璃材质）
     'Cube.004':  {'bluemetal': ('MAT_wood_walnut', '#8A5A3B', 0.0)},   # 中岛底座胡桃木
     'Cube.005':  {'bluemetal': ('MAT_counter', '#EFEFEA', 0.0)},       # 中岛台面白
     'Plane.003': {'metal': ('MAT_stool_coral', '#C47F62', 0.0)},       # 吧凳三色（呼应客厅）
@@ -87,15 +88,17 @@ ROOMS = [
         'id': 'kitchen', 'file': 'furniture_kitchen.glb', 'w': 10, 'd': 12,
         'spawns': [(0, 0.9), (4, 2.2), (-4.5, 11.3)],
         'groups': [
-            # 东北角 L：长下柜跑北墙 x0.8..4.2（让开北窗 x≤0.94），短跑东墙 z9.8..12
+            # 东北角 L：长下柜跑北墙 x1.37..4.95（让开北窗组 x≤0.94 + 间隙），
+            # 短跑东墙贴内墙面 x≤4.95（z9.8..12）；灶台/把手全部退出窗洞带
             {'objs': G_CABINETS, 'rotY': 90, 'ref': ('min', 'min'),
-             'target': (4.23, 11.98), 'snap_floor': True},
+             'target': (4.95, 11.98), 'snap_floor': True},
             # 冰箱立东墙（L 短跑以南），面朝 -x
             {'objs': G_FRIDGE, 'rotY': 180, 'ref': ('min', 'min'),
              'target': (4.95, 8.4), 'snap_floor': True},
-            # 中岛+吧凳：房中部偏西（原占位中岛位），吧凳在南侧
+            # 中岛贴着橱柜 L 摆（操作区）：岛体 x0.9..2.9 / z9.75..10.48，
+            # 与北墙柜台面留 0.85m 走道；吧凳在南侧/东端。南半房留给餐桌区
             {'objs': G_ISLAND, 'rotY': 90, 'ref': ('min', 'min'),
-             'target': (0.42, 6.26), 'snap_floor': True},
+             'target': (3.69, 10.63), 'snap_floor': True},
         ],
     },
     {

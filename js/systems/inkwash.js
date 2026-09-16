@@ -47,6 +47,8 @@ const U = {
     uWoodFine: { value: 0.30 },                         // 木件细木纹强度（同上）
     uFabShade: { value: 0.5 },                          // 布艺假光影强度（仅 MAT_fab_* 家具布面）
     uFabGrain: { value: 0.18 },                         // 布艺布纹颗粒强度（仅 MAT_fab_*）
+    uFixShade: { value: 0.55 },                         // 厨卫硬面假光影强度（橱柜/陶瓷/金属/台面/家电）
+    uFixGrain: { value: 0.15 },                         // 厨卫硬面细颗粒强度（同上）
     uRugWeave: { value: 0.35 },                         // 地毯经纬织纹强度（仅 MAT_rug）
     uRugGrain: { value: 0.30 },                         // 地毯绒毛颗粒强度（仅 MAT_rug）
     uTileLine:  { value: 0.55 },                        // 地砖砖缝勾线强度（仅 MAT_floor_tile）
@@ -109,6 +111,11 @@ const TREAD_MAT = 'MAT_tread';
 const RAILING_MAT = 'MAT_railing';
 /** 家具布艺（MAT_fab_*）：柔和假光影 + 布纹颗粒——纯色平涂在无光照下分不清面 */
 const FABRIC_MATS = ['MAT_fab_sofa', 'MAT_fab_cushion', 'MAT_fab_pouf', 'MAT_fab_blanket'];
+/** 厨卫硬面家具（changjing 厨房/卫浴）：陶瓷/金属/台面/柜体/家电珐琅/吧凳。
+ *  光滑硬面比布艺吃更强一档的明暗对比，不然无光照下橱柜浴缸全糊成色块 */
+const FIXTURE_MATS = ['MAT_cabinet', 'MAT_ceramic', 'MAT_counter', 'MAT_metal',
+                      'MAT_bluegray', 'MAT_dark', 'MAT_enamel',
+                      'MAT_stool_coral', 'MAT_stool_sage', 'MAT_stool_oak'];
 /** 地毯（MAT_rug）：大平面平躺，假光影对它无效，用经纬织纹 + 绒毛颗粒 */
 const RUG_MAT = 'MAT_rug';
 /** 地砖材质：纯色大平面没看头，需要砖缝勾线 + 每砖微色差 */
@@ -121,9 +128,10 @@ const VARIANTS = {
     ceilingInterior: { mats: [CEILING_INTERIOR_MAT], compile: (s) => injectInk(s, CEILING_INTERIOR_GLSL, CEILING_INTERIOR_UNIFORMS), key: 'inkwash_ceiling_interior' },
     curtain: { mats: [CURTAIN_MAT],         compile: (s) => injectInk(s, CURTAIN_GLSL, CURTAIN_UNIFORMS), key: 'inkwash_curtain' },
     wood:  { mats: [TREAD_MAT, RAILING_MAT, 'MAT_wood_walnut', 'MAT_wood_oak', 'MAT_wood_dark',
-                    'MAT_frame', 'MAT_door', 'MAT_wainscot'],
+                    'MAT_frame', 'MAT_door', 'MAT_wainscot', 'MAT_trim'],
              compile: (s) => injectInk(s, WOOD_GLSL, WOOD_UNIFORMS), key: 'inkwash_wood' },
     fabric: { mats: FABRIC_MATS,            compile: (s) => injectInk(s, FABRIC_GLSL, FABRIC_UNIFORMS), key: 'inkwash_fabric' },
+    fixture: { mats: FIXTURE_MATS,          compile: (s) => injectInk(s, FIXTURE_GLSL, FIXTURE_UNIFORMS), key: 'inkwash_fixture' },
     rug:   { mats: [RUG_MAT],               compile: (s) => injectInk(s, RUG_GLSL, RUG_UNIFORMS), key: 'inkwash_rug' },
     tile:  { mats: [TILE_FLOOR_MAT],        compile: (s) => injectInk(s, TILE_GLSL, TILE_UNIFORMS), key: 'inkwash_tile' },
     leaf:  { mats: ['MAT_leaves'],          compile: (s) => injectInk(s, LEAF_GLSL, LEAF_UNIFORMS),  key: 'inkwash_leaf' },
@@ -292,6 +300,19 @@ const FABRIC_GLSL = /* glsl */`
     outgoingLight *= 1.0 + (fcloth - 0.5) * uFabGrain;
 `;
 const FABRIC_UNIFORMS = 'uniform float uFabShade;\nuniform float uFabGrain;';
+
+/** 厨卫硬面变体 GLSL（changjing 厨房/卫浴家具）：3 阶假光影——明暗差比布艺
+ *  强一档、亮阶更窄（陶瓷/珐琅/金属的硬高光感）+ 极细颗粒（釉面不匀）。
+ *  纯色平涂下橱柜/浴缸/冰箱的各个面一个色，分面后才读得出体积 */
+const FIXTURE_GLSL = /* glsl */`
+    vec3 xn = normalize(vInkWorldNormal);
+    float xnl = dot(xn, normalize(vec3(0.45, 0.75, 0.35))) * 0.5 + 0.5;
+    float xband = xnl < 0.45 ? 0.78 : (xnl < 0.78 ? 1.0 : 1.14);
+    outgoingLight *= mix(1.0, xband, uFixShade);
+    float xgrain = inkNoise(wp * 55.0) * 0.5 + inkNoise(wp * 120.0 + 5.0) * 0.5;
+    outgoingLight *= 1.0 + (xgrain - 0.5) * uFixGrain;
+`;
+const FIXTURE_UNIFORMS = 'uniform float uFixShade;\nuniform float uFixGrain;';
 
 /** 地毯变体 GLSL（MAT_rug）：经纬织纹（两组垂直细波交错出编织感）+ 绒毛细颗粒。
  *  地毯是平躺大平面，假光影分面对它无效，全靠织纹显质感 */
@@ -676,10 +697,11 @@ export function setInkFlora(opts = {}) {
 }
 
 /**
- * 室内质感调参（内墙墙纸/室内顶面/窗帘/木作小件/布艺家具/地砖/地毯；null 的项不变）
+ * 室内质感调参（内墙墙纸/室内顶面/窗帘/木作小件/布艺家具/厨卫硬面/地砖/地毯；null 的项不变）
  * @param {{paperStripe?:number, paperGrain?:number, ceilMottle?:number,
  *   curtainPleat?:number, curtainGrain?:number, woodShade?:number, woodFine?:number,
- *   fabShade?:number, fabGrain?:number, tileLine?:number, tileGrain?:number,
+ *   fabShade?:number, fabGrain?:number, fixShade?:number, fixGrain?:number,
+ *   tileLine?:number, tileGrain?:number,
  *   rugWeave?:number, rugGrain?:number}} opts
  */
 export function setInkInterior(opts = {}) {
@@ -692,6 +714,8 @@ export function setInkInterior(opts = {}) {
     if (opts.woodFine != null) U.uWoodFine.value = opts.woodFine;
     if (opts.fabShade != null) U.uFabShade.value = opts.fabShade;
     if (opts.fabGrain != null) U.uFabGrain.value = opts.fabGrain;
+    if (opts.fixShade != null) U.uFixShade.value = opts.fixShade;
+    if (opts.fixGrain != null) U.uFixGrain.value = opts.fixGrain;
     if (opts.tileLine != null) U.uTileLine.value = opts.tileLine;
     if (opts.tileGrain != null) U.uTileGrain.value = opts.tileGrain;
     if (opts.rugWeave != null) U.uRugWeave.value = opts.rugWeave;
