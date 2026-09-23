@@ -6,7 +6,8 @@ import puppeteer from 'puppeteer';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:8134';
 const SCENES = ['f1_living', 'f1_kitchen', 'f1_bath', 'f2_bed1', 'f2_bed2',
-    'f2_corridor', 'f2_bath', 'attic_game_a', 'attic_game_b'];
+    'f2_corridor', 'f2_bath', 'attic_bed_a', 'attic_bed_b', 'attic_game',
+    'attic_study', 'attic_corridor', 'attic_bath'];
 
 const browser = await puppeteer.launch({
     headless: true,
