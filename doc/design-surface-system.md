@@ -585,3 +585,31 @@ Phase 1/2 已落地，与本文档有出入的实现细节：
 - **测试**：`node tools/test-seasons.mjs`（四季状态机冒烟）。
 - 预览渲染：`tools/render_island_preview.py`、
   `tools/render_seasons_preview.py`（Blender 侧模拟四季状态出图）。
+
+### 浴室帘子 & 吸顶灯 & 开灯按钮（2026-09-22 新增）
+
+- **客卫帘子**（`tools/make_f1_suite.mjs` 的 `buildBath()`）：浴帘、马桶帘
+  均为**三面围合**（浴缸靠东墙 → 西/南/北三面；马桶靠北墙 → 南/西/东三面），
+  每面一杆两片，`curtain_group` 分别为 `'tub'` / `'toilet'`，同组联动——
+  点任何一面整组收拢到四角。机制与客厅窗帘相同（`nav_ignore`）。
+  `addCurtain()` 新增 `axis:'z'`：本地几何沿 x 做、节点 `rotY=-90°`
+  使本地 +x → 世界 +z，scale.x 收拢动画不受影响；`writeGlb()` 相应支持
+  节点 `rotation`（四元数）。
+- **一楼四房圆角方形吸顶灯**：`pushChamfPlate()`（切角八边形棱柱 =
+  低多边形"圆角方形"）生成 `LAMP_base`（MAT_frame 底座）+ `LAMP`
+  （MAT_lamp 灯罩），位置对齐 config 各场景 `lighting.lamp` 的
+  PointLight 位姿；均 `nav_ignore`。二楼房间的 LAMP 盒沿用。
+- **开灯/关灯按钮**（index.html `#light-toggle`，时间栏内；ui.js
+  `onLightToggle` → `timeOfDay.setLightsOn()`）：白炽灯逻辑——开灯即全档
+  （lamp 系数下限 1.0），关灯强制 0（覆盖无窗房 lampMin 常开下限）。
+  灯光为白色（config 各场景 lamp color + 灯罩 emissive 均 0xFFFFFF）。
+- **开灯的视觉走水墨提亮，不打真光**：水墨材质全部无光照，PointLight
+  只照得见角色。`inkwash.js` 新增全局 `uLampTint`
+  （`setInkLamp(level, timeValue)`，level 来自 `timeOfDay.getLampLevel()`），
+  仅室内材质变体乘算（wallInterior/ceilingInterior/curtain/wood/fabric/
+  fixture/rug/tile/floor）。提亮比 = **中午 tint ÷ 当前时段 tint**（分量，
+  上限 3）——早晚开灯直接补偿到中午亮度（白色），中午本身 ratio≈1
+  开灯几乎无感。`MAT_lamp` 加入 KEEP_TOON + timeOfDay TINT_KIND，
+  开灯时灯罩白色自发光。
+- **验收**：`node tools/e2e/shot-lamps-bath.mjs`（帘子点击开合 +
+  昼夜开灯对比截图，产出 temp/bath_curtain_*.png / lamp_*.png）。

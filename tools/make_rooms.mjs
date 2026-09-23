@@ -1,7 +1,10 @@
-/** 阶段 5：批量房间生成器（9 间二楼/阁楼房，纯 Node 写 GLB，无需 Blender）
+/** 阁楼房间生成器（2 间游戏室，纯 Node 写 GLB，无需 Blender）
  *
  * 一楼 4 房（客厅/走廊/客卫/厨房）已移交 tools/make_f1_suite.mjs（2026-09-10
- * 一楼改版：大厅×2 + 走廊 + 大客卫 + 厨房东墙楼梯）。
+ * 一楼改版：大厅×2 + 走廊 + 大客卫 + 厨房东墙楼梯）；
+ * 二楼 4 房（卧室1/卧室2/F2走廊/F2厕所）2026-09-23 起也移交 make_f1_suite.mjs
+ * （二楼重排：卧室需要悬空梯基建，取消 f2_study/f2_bed3/f2_bath1-3）。
+ * 本文件只剩阁楼 2 间（人字坡顶 + 山墙窗，规格表驱动）。
  *
  * 规范同 tools/make_f1_suite.mjs（一楼套房）：
  *   - 原点在主门（doors[0]，一律南墙 z=0 居中）门口地板中心；x±w/2，z 0..d
@@ -11,7 +14,7 @@
  *   - 窗景片 MAT_window_view 标 nav_ignore（时间系统按名联动变色）
  *   - 家具不标属性（自动障碍）；地毯/盆栽等纯装饰标 nav_ignore
  *
- * 用法: node tools/make_rooms.mjs   → 写出 models/room_*.glb × 9
+ * 用法: node tools/make_rooms.mjs   → 写出 models/room_game_a.glb / room_game_b.glb
  */
 import { writeFileSync } from 'node:fs';
 import { PALETTE, BASE_MATS } from './room_palette.mjs';
@@ -144,101 +147,6 @@ function pushWallX(part, z0, z1, x0, x1, h, holes) {
 // 结构色统一取 tools/room_palette.mjs（PALETTE / BASE_MATS 已导入）
 const ROOMS = [
     {
-        id: 'f2_study', file: 'models/room_study.glb',
-        w: 7, d: 7, h: 3,
-        mats: {
-            MAT_wall: '#E8E0D0', MAT_floor: PALETTE.floorWood,
-            MAT_furniture: '#A9744F', MAT_desk: '#8A6A4A',
-            MAT_rug: '#7A8CAA', MAT_pot: '#B0764A', MAT_plant: '#5E8C5A',
-        },
-        doors: [
-            { name: 'DOOR_stairs_down', wall: 'S', off: 0, target: ['f1_living', 'fromStudy'] },   // 下楼到客厅（楼梯在客厅东墙）
-            { name: 'DOOR_bed2', wall: 'S', off: -2, target: ['f2_bed2', 'default'] },
-            { name: 'DOOR_bed1', wall: 'N', off: -2, target: ['f2_bed1', 'default'] },
-            { name: 'DOOR_bed3', wall: 'N', off: 0, target: ['f2_bed3', 'default'] },
-            { name: 'DOOR_stairs_up', wall: 'N', off: 2, target: ['attic_game_a', 'fromStudy'] },
-        ],
-        // W8 的 F2 层（西前立面 1 拱窗；房内 5 门占满墙面，只能放 1 窗）
-        windows: [{ wall: 'S', centers: [1.95], width: 0.87, y0: 0.55, y1: 2.45, arch: true }],
-        furnish(add, B) {
-            // 东墙书桌 + 椅
-            add('FURN_desk', 'MAT_desk', (p) => {
-                B(p, 2.7, 0.64, 2.5, 3.4, 0.72, 3.9);
-                B(p, 2.7, 0, 2.5, 2.82, 0.64, 3.9);
-                B(p, 3.28, 0, 2.5, 3.4, 0.64, 3.9);
-            });
-            add('FURN_chair', 'MAT_furniture', (p) => {
-                B(p, 2.05, 0, 3.0, 2.45, 0.45, 3.4);
-                B(p, 2.05, 0.45, 3.0, 2.15, 0.95, 3.4);
-            });
-            // 西墙大书柜（北段，避开床2门洞 x-2.5..-1.5 摆动区）
-            add('FURN_shelf', 'MAT_furniture', (p) => {
-                B(p, -3.45, 0, 3.5, -3.05, 1.9, 6.0);
-                for (const y of [0.6, 1.2]) B(p, -3.5, y, 3.55, -3.05, y + 0.06, 5.95);
-            });
-            add('RUG', 'MAT_rug', (p) => B(p, -1.2, 0.02, 2.5, 1.2, 0.035, 4.7), { nav_ignore: true });
-            add('PLANT_pot', 'MAT_pot', (p) => B(p, 3.05, 0, 6.2, 3.45, 0.35, 6.6), { nav_ignore: true });
-            add('PLANT_leaves', 'MAT_plant', (p) => B(p, 3.1, 0.35, 6.25, 3.4, 0.85, 6.55), { nav_ignore: true });
-            // 实体楼梯（阶段 2.3）：东墙 z4.0→6.08 向北上行（DOOR_stairs_up 在旁，通向阁楼）
-            // 8 步：踏面 0.26、级高 0.32；西沿阶梯挡板每两级一段
-            add('STAIRS', 'MAT_frame', (p) => {
-                for (let k = 1; k <= 8; k++) {
-                    const z1 = 4.0 + 0.26 * k, z0 = z1 - 0.26, top = 0.32 * k;
-                    B(p, 2.79, 0, z0, 3.45, top, z1);
-                }
-                B(p, 2.71, 0, 4.0, 2.79, 1.44, 4.52);
-                B(p, 2.71, 0, 4.52, 2.79, 2.08, 5.04);
-                B(p, 2.71, 0, 5.04, 2.79, 2.72, 5.56);
-                B(p, 2.71, 0, 5.56, 2.79, 2.95, 6.08);
-                B(p, 2.71, 0, 3.92, 3.45, 1.1, 4.0);   // 底部新柱（横档）
-            });
-        },
-    },
-    ...[1, 2, 3].map((n) => ({
-        id: `f2_bed${n}`, file: `models/room_bed${n}.glb`,
-        w: 7, d: 7, h: 3,
-        mats: {
-            MAT_wall: ['#F2E4E0', '#E0E8F2', '#E4F0DC'][n - 1],
-            MAT_floor: PALETTE.floorWood,
-            MAT_bed: ['#D98E6A', '#7A9EC9', '#8CB87A'][n - 1],
-            MAT_blanket: ['#E8B49A', '#A8C4E4', '#B4D8A4'][n - 1],
-            MAT_furniture: '#A9744F', MAT_rug: ['#C96F5A', '#6A8CB8', '#6AA86A'][n - 1],
-        },
-        doors: [
-            { name: 'DOOR_study', wall: 'S', off: 0, target: ['f2_study', `fromBed${n}`] },
-            { name: 'DOOR_bath', wall: 'N', off: -1.5, target: [`f2_bath${n}`, 'default'] },
-        ],
-        // 北墙 F2 3 拱窗（避让卫生间门洞 -2..-1）；bed3 改南墙 2 窗（W11+W13，避让南门洞）
-        windows: n < 3
-            ? [{ wall: 'N', centers: [-0.4, 0.55, 1.5], width: 0.87, y0: 0.55, y1: 2.45, arch: true }]
-            : [{ wall: 'S', centers: [-2, 2], width: 0.87, y0: 0.55, y1: 2.45, arch: true }],
-        furnish(add, B) {
-            // 床（西墙，床头北端，避开浴室门洞 x-2.0..-1.0 摆动区 z>6）
-            add('FURN_bed', 'MAT_bed', (p) => {
-                B(p, -3.45, 0, 3.0, -2.05, 0.5, 4.7);      // 床架+床垫
-                B(p, -3.45, 0.5, 3.15, -2.05, 0.58, 4.55); // 被面
-            });
-            add('FURN_headboard', 'MAT_furniture', (p) => B(p, -3.45, 0, 4.7, -2.05, 1.05, 4.82));
-            add('FURN_wardrobe', 'MAT_furniture', (p) => B(p, 2.85, 0, 0.4, 3.45, 2.0, 1.6));
-            add('FURN_desk', 'MAT_furniture', (p) => B(p, -3.4, 0, 0.35, -2.4, 0.7, 1.15));
-            add('RUG', 'MAT_rug', (p) => B(p, -1.6, 0.02, 2.4, 0.4, 0.035, 4.0), { nav_ignore: true });
-        },
-    })),
-    ...[1, 2, 3].map((n) => ({
-        id: `f2_bath${n}`, file: `models/room_bath${n}.glb`,
-        w: 7, d: 7, h: 3,
-        mats: {
-            MAT_wall: ['#E4DCD8', '#D8E0E8', '#DDE8D8'][n - 1],
-            MAT_floor: PALETTE.floorTile,
-        },
-        doors: [
-            { name: 'DOOR_bed', wall: 'S', off: 0, target: [`f2_bed${n}`, 'fromBath'] },
-        ],
-        windows: [],   // 卫生间无窗（doc/house-map.md）
-        // 家具（浴缸/马桶/洗手盆/镜子）= models/furniture_bath_f2.glb，
-        // 由 tools/make_changjing_furniture.py 从 changjing.blend 提取，三房共用
-    })),
-    {
         id: 'attic_game_a', file: 'models/room_game_a.glb',
         w: 7, d: 7, h: 3,
         gable: { eave: 1.6, ridge: 3.2 },   // 人字坡顶：山墙在南北，屋脊沿 z
@@ -248,7 +156,8 @@ const ROOMS = [
             MAT_sofa: '#B87AB8', MAT_rug: '#8A6AC9',
         },
         doors: [
-            { name: 'DOOR_stairs', wall: 'S', off: 0, target: ['f2_study', 'fromAtticA'] },
+            // 2026-09-23 二楼重排：下楼门改指卧室1 上行梯平台
+            { name: 'DOOR_stairs', wall: 'S', off: 0, target: ['f2_bed1', 'fromAtticA'] },
             { name: 'DOOR_game_b', wall: 'N', off: 1.8, target: ['attic_game_b', 'default'] },
         ],
         // W14 西山墙 3 拱窗（山墙=北墙，避让北门洞 1.3..2.3；坡顶在阶段 2.2）
@@ -281,9 +190,12 @@ const ROOMS = [
         },
         doors: [
             { name: 'DOOR_game_a', wall: 'S', off: 0, target: ['attic_game_a', 'fromGameB'] },
+            // 2026-09-23 二楼重排：新增北墙下楼门 → 卧室2 上行梯平台（镜像 game_a 的
+            // 北门做法：门洞伸进山墙三角段；落点 off -1.8 让开窗组）
+            { name: 'DOOR_stairs', wall: 'N', off: -1.8, target: ['f2_bed2', 'fromAtticB'] },
         ],
-        // W15 东山墙 3 拱窗
-        windows: [{ wall: 'N', centers: [-0.95, 0, 0.95], width: 0.87, y0: 1.1, y1: 2.9, arch: true }],
+        // W15 东山墙 3 拱窗（组东移 0/0.95/1.9，避让北门洞 -2.3..-1.3——镜像 game_a）
+        windows: [{ wall: 'N', centers: [0, 0.95, 1.9], width: 0.87, y0: 1.1, y1: 2.9, arch: true }],
         furnish(add, B) {
             // 桌上足球
             add('FURN_foosball', 'MAT_foosball', (p) => {

@@ -1,5 +1,5 @@
 /** 楼梯行走实测（挑高井道版）：
- *  1. 进客厅 → walkTo 顶部门洞（4.5, 12.05）——应在踏上平台走向门洞时触发传送到学习室
+ *  1. 进客厅 → walkTo 顶部门洞（4.5, 12.05）——应在踏上平台走向门洞时触发传送到二楼卧室1
  *  2. switchTo('f1_living', 'fromStudy') ——落在顶平台（触发区外，不回环）
  *  3. walkTo 回门口 ——沿楼梯下楼，不触发传送
  * 用法: node tools/e2e/probe_stair_walk.mjs <baseUrl>
@@ -38,9 +38,9 @@ for (let i = 0; i < 15 && !teleported; i++) {
     const s = await sample();
     console.log(`up  pos=${s.pos.join(',')} scene=${s.scene}`);
     if (i === 4) await page.screenshot({ path: 'temp/stair_walk_up.png' });
-    if (s.scene === 'f2_study') teleported = true;
+    if (s.scene === 'f2_bed1') teleported = true;
 }
-check('上楼途中触发传送到学习室', teleported);
+check('上楼途中触发传送到卧室1', teleported);
 
 console.log('— 回客厅（fromStudy 落顶平台，不回环）—');
 await new Promise((r) => setTimeout(r, 1000));
@@ -96,10 +96,10 @@ if (clickPt.onScreen) {
         await new Promise((r) => setTimeout(r, 1000));
         const s = await sample();
         console.log(`clk pos=${s.pos.join(',')} scene=${s.scene}`);
-        if (s.scene === 'f2_study') clickTeleported = true;
+        if (s.scene === 'f2_bed1') clickTeleported = true;
     }
     await page.screenshot({ path: 'temp/stair_click_up.png' });
-    check('点击楼梯自动上楼并传送到学习室', clickTeleported);
+    check('点击楼梯自动上楼并传送到卧室1', clickTeleported);
 }
 
 await browser.close();

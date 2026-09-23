@@ -5,7 +5,7 @@
 import puppeteer from 'puppeteer';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:8135';
-const CYCLE = ['f1_living', 'f1_kitchen', 'f2_study', 'f2_bed1', 'attic_game_a', 'outdoor'];
+const CYCLE = ['f1_living', 'f1_kitchen', 'f2_bed1', 'f2_corridor', 'attic_game_a', 'outdoor'];
 const ROUNDS = 4;   // 4 轮 × 6 场景 = 24 次切换
 
 const browser = await puppeteer.launch({

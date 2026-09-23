@@ -1,5 +1,5 @@
 /**
- * UI：时间滑块、季节滑块、语言切换球、指南针
+ * UI：时间滑块、季节滑块、开灯按钮、语言切换球、指南针
  */
 import { TIME_PRESETS, SEASON_PRESETS } from './config.js';
 
@@ -12,9 +12,10 @@ export const LANG_CHANGE_EVENT = 'scene-lang-change';
 
 /**
  * 初始化滑块和语言切换
- * @param {{ onTimeChange: (v: number) => void, onSeasonChange: (v: number) => void }} handlers
+ * @param {{ onTimeChange: (v: number) => void, onSeasonChange: (v: number) => void,
+ *   onLightToggle?: (on: boolean) => void }} handlers
  */
-export function initUI({ onTimeChange, onSeasonChange }) {
+export function initUI({ onTimeChange, onSeasonChange, onLightToggle }) {
     const timeSlider   = document.getElementById('time-slider');
     const timeLabel    = document.getElementById('time-label');
     const seasonSlider = document.getElementById('season-slider');
@@ -44,6 +45,26 @@ export function initUI({ onTimeChange, onSeasonChange }) {
             onSeasonChange(parseFloat(seasonSlider.value));
             refreshSeasonLabel();
         });
+    }
+
+    // ── 开灯/关灯按钮 ──
+    const lightToggle = document.getElementById('light-toggle');
+    let lightOn = true;
+    function refreshLightToggle() {
+        if (!lightToggle) return;
+        lightToggle.classList.toggle('active', lightOn);
+        lightToggle.textContent = currentLang() === 'en'
+            ? (lightOn ? '💡 Lights: On' : '💡 Lights: Off')
+            : (lightOn ? '💡 灯：开' : '💡 灯：关');
+    }
+    if (lightToggle) {
+        lightToggle.addEventListener('click', () => {
+            lightOn = !lightOn;
+            refreshLightToggle();
+            onLightToggle?.(lightOn);
+        });
+        window.addEventListener(LANG_CHANGE_EVENT, refreshLightToggle);
+        refreshLightToggle();
     }
 
     // ── 语言切换球 ──

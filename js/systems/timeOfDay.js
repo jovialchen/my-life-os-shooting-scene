@@ -20,25 +20,34 @@ function lerpHSL(h1, s1, l1, h2, s2, l2, t) {
 }
 
 // 时段变色材质类型：窗景片要"透亮"（自发光跟 view 色）；
-// 窗玻璃白天微反光、晨昏/夜晚暖黄"屋里亮灯"（自发光跟 glow 色）
-const TINT_KIND = { MAT_window_view: 'view', MAT_window_glass: 'glass' };
+// 窗玻璃白天微反光、晨昏/夜晚暖黄"屋里亮灯"（自发光跟 glow 色）；
+// 吸顶灯罩 MAT_lamp：开灯时暖黄自发光（强度跟 lamp 档位），关灯熄灭
+const TINT_KIND = { MAT_window_view: 'view', MAT_window_glass: 'glass', MAT_lamp: 'lamp' };
 const VIEW_EMISSIVE = 0.55;
 
 /**
  * 创建时间系统
  * @param {THREE.Scene} scene
  * @param {ReturnType<import('./lighting.js').createLighting>} lighting
- * @returns {{ update, setSceneProfile, registerTintMaterials }}
+ * @returns {{ update, setSceneProfile, registerTintMaterials, setLightsOn, getLampLevel }}
  */
 export function createTimeOfDay(scene, lighting) {
     let currentValue = 2;               // 当前时段（切场景后重套用）
     let profile = { sun: 1, ambient: 1, spot: 1, lamp: 0, lampMin: 0, fill: 1 };   // 场景光照倍率
+    let lightsOn = true;                // 全局开灯/关灯（UI 按钮；关灯强制 lamp=0）
+    let lastLampLevel = 0;              // 最近算出的 lamp 强度（水墨室内提亮/灯罩发光用）
     const tintMats = [];                // { mat, kind }
     const lastTint = new THREE.Color(TIME_PRESETS[2].view);
     const lastGlow = { color: new THREE.Color(TIME_PRESETS[2].glow), intensity: TIME_PRESETS[2].glowI };
 
     function applyTint() {
         for (const { mat, kind } of tintMats) {
+            if (kind === 'lamp') {
+                if (!mat.emissive) continue;
+                mat.emissive.setHex(0xFFFFFF);   // 白炽灯：白色
+                mat.emissiveIntensity = lightsOn ? 0.15 + lastLampLevel * 0.9 : 0.0;
+                continue;
+            }
             mat.color.copy(lastTint);
             if (!mat.emissive) continue;
             if (kind === 'glass') {
@@ -71,12 +80,18 @@ export function createTimeOfDay(scene, lighting) {
         // 窗光色温跟太阳（提亮一点，保持"窗外光"感）
         lighting.windowLight.color.setHSL(hsl.h, hsl.s * 0.6, Math.min(hsl.l + 0.2, 0.95));
 
+        // 开灯即全档（白炽灯很亮：早晚开灯补偿到中午亮度，见 inkwash.setInkLamp），
+        // 关灯强制 0（覆盖 lampMin 常开下限）
+        lastLampLevel = lightsOn
+            ? Math.max(lerp(a.lamp, b.lamp, t), 1.0, profile.lampMin) * profile.lamp
+            : 0;
+
         lighting.setLevels({
             sun:     lerp(a.sun,     b.sun,     t) * profile.sun,
             ambient: lerp(a.ambient, b.ambient, t) * profile.ambient,
             fill:    lerp(a.fill,    b.fill,    t) * profile.fill,
             spot:    lerp(a.spot,    b.spot,    t) * profile.spot,
-            lamp:    Math.max(lerp(a.lamp, b.lamp, t), profile.lampMin) * profile.lamp,
+            lamp:    lastLampLevel,
         });
 
         scene.background = new THREE.Color(a.bg).lerp(new THREE.Color(b.bg), t);
@@ -110,8 +125,17 @@ export function createTimeOfDay(scene, lighting) {
         if (def?.lamp) {
             lighting.setLampPose(def.lamp.position, def.lamp.color, def.lamp.distance);
         }
-        update(currentValue);   // 立即按当前时段重套用
+        api.update(currentValue);   // 立即按当前时段重套用（走 main.js 蒙版，连带刷新水墨提亮）
     }
+
+    /** 全局开灯/关灯（UI 按钮）：关灯强制 lamp=0，覆盖时段系数与 lampMin */
+    function setLightsOn(on) {
+        lightsOn = on;
+        api.update(currentValue);
+    }
+
+    /** 最近算出的 lamp 强度（水墨室内提亮 setInkLamp 的输入） */
+    function getLampLevel() { return lastLampLevel; }
 
     /**
      * 收集 root 下的时段变色材质（MAT_window_view / MAT_window_glass）
@@ -131,5 +155,6 @@ export function createTimeOfDay(scene, lighting) {
         applyTint();   // 新注册材质立即上当前时段的颜色
     }
 
-    return { update, setSceneProfile, registerTintMaterials };
+    const api = { update, setSceneProfile, registerTintMaterials, setLightsOn, getLampLevel };
+    return api;
 }

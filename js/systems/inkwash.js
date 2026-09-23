@@ -21,6 +21,7 @@ import { toToonMaterial } from './toon.js';
 // ── 共享 uniforms（所有水墨材质引用同一组对象，改一处全局生效）──
 const U = {
     uTimeTint:  { value: new THREE.Color(1, 1, 1) },   // 时段调色（乘算）
+    uLampTint:  { value: new THREE.Color(1, 1, 1) },   // 室内灯提亮（乘算，仅室内变体；setInkLamp）
     uBlotch:    { value: 0.35 },                        // 颜料晕染强度
     uNoiseScale:{ value: 0.55 },                        // 晕染世界尺度
     uLowStain:  { value: 0.5 },                         // 低处水渍强度
@@ -88,8 +89,8 @@ float inkNoise(vec3 p) {
 
 // ── 水墨材质转换 ─────────────────────────────────────────
 
-/** 窗玻璃/窗景片保留 toon（timeOfDay 的 emissive 变色依赖它） */
-const KEEP_TOON = new Set(['MAT_window_view', 'MAT_window_glass']);
+/** 窗玻璃/窗景片/灯罩保留 toon（timeOfDay 的 emissive 变色/发光依赖它） */
+const KEEP_TOON = new Set(['MAT_window_view', 'MAT_window_glass', 'MAT_lamp']);
 
 /** 屋顶材质：无光照下瓦垄全平，需要注入假光影 + 瓦缝勾线 */
 const ROOF_MAT = 'MAT_roof';
@@ -121,23 +122,24 @@ const RUG_MAT = 'MAT_rug';
 /** 地砖材质：纯色大平面没看头，需要砖缝勾线 + 每砖微色差 */
 const TILE_FLOOR_MAT = 'MAT_floor_tile';
 
+// 室内变体（lamp:true）：开灯时乘算 uLampTint 提亮（白天系数≈0 几乎无感，夜晚明显）
 const VARIANTS = {
     roof:  { mats: [ROOF_MAT],              compile: (s) => injectInk(s, ROOF_GLSL, ROOF_UNIFORMS),  key: 'inkwash_roof' },
     wall:  { mats: [WALL_MAT],              compile: (s) => injectInk(s, WALL_GLSL, WALL_UNIFORMS),  key: 'inkwash_wall' },
-    wallInterior: { mats: [WALL_INTERIOR_MAT], compile: (s) => injectInk(s, WALL_INTERIOR_GLSL, WALL_INTERIOR_UNIFORMS), key: 'inkwash_wall_interior' },
-    ceilingInterior: { mats: [CEILING_INTERIOR_MAT], compile: (s) => injectInk(s, CEILING_INTERIOR_GLSL, CEILING_INTERIOR_UNIFORMS), key: 'inkwash_ceiling_interior' },
-    curtain: { mats: [CURTAIN_MAT],         compile: (s) => injectInk(s, CURTAIN_GLSL, CURTAIN_UNIFORMS), key: 'inkwash_curtain' },
+    wallInterior: { mats: [WALL_INTERIOR_MAT], compile: (s) => injectInk(s, WALL_INTERIOR_GLSL, WALL_INTERIOR_UNIFORMS, true), key: 'inkwash_wall_interior' },
+    ceilingInterior: { mats: [CEILING_INTERIOR_MAT], compile: (s) => injectInk(s, CEILING_INTERIOR_GLSL, CEILING_INTERIOR_UNIFORMS, true), key: 'inkwash_ceiling_interior' },
+    curtain: { mats: [CURTAIN_MAT],         compile: (s) => injectInk(s, CURTAIN_GLSL, CURTAIN_UNIFORMS, true), key: 'inkwash_curtain' },
     wood:  { mats: [TREAD_MAT, RAILING_MAT, 'MAT_wood_walnut', 'MAT_wood_oak', 'MAT_wood_dark',
                     'MAT_frame', 'MAT_door', 'MAT_wainscot', 'MAT_trim'],
-             compile: (s) => injectInk(s, WOOD_GLSL, WOOD_UNIFORMS), key: 'inkwash_wood' },
-    fabric: { mats: FABRIC_MATS,            compile: (s) => injectInk(s, FABRIC_GLSL, FABRIC_UNIFORMS), key: 'inkwash_fabric' },
-    fixture: { mats: FIXTURE_MATS,          compile: (s) => injectInk(s, FIXTURE_GLSL, FIXTURE_UNIFORMS), key: 'inkwash_fixture' },
-    rug:   { mats: [RUG_MAT],               compile: (s) => injectInk(s, RUG_GLSL, RUG_UNIFORMS), key: 'inkwash_rug' },
-    tile:  { mats: [TILE_FLOOR_MAT],        compile: (s) => injectInk(s, TILE_GLSL, TILE_UNIFORMS), key: 'inkwash_tile' },
+             compile: (s) => injectInk(s, WOOD_GLSL, WOOD_UNIFORMS, true), key: 'inkwash_wood' },
+    fabric: { mats: FABRIC_MATS,            compile: (s) => injectInk(s, FABRIC_GLSL, FABRIC_UNIFORMS, true), key: 'inkwash_fabric' },
+    fixture: { mats: FIXTURE_MATS,          compile: (s) => injectInk(s, FIXTURE_GLSL, FIXTURE_UNIFORMS, true), key: 'inkwash_fixture' },
+    rug:   { mats: [RUG_MAT],               compile: (s) => injectInk(s, RUG_GLSL, RUG_UNIFORMS, true), key: 'inkwash_rug' },
+    tile:  { mats: [TILE_FLOOR_MAT],        compile: (s) => injectInk(s, TILE_GLSL, TILE_UNIFORMS, true), key: 'inkwash_tile' },
     leaf:  { mats: ['MAT_leaves'],          compile: (s) => injectInk(s, LEAF_GLSL, LEAF_UNIFORMS),  key: 'inkwash_leaf' },
     trunk: { mats: ['MAT_trunk'],           compile: (s) => injectInk(s, TRUNK_GLSL, TRUNK_UNIFORMS), key: 'inkwash_trunk' },
     rock:  { mats: ['MAT_rock', 'MAT_stone'], compile: (s) => injectInk(s, ROCK_GLSL, ROCK_UNIFORMS), key: 'inkwash_rock' },
-    floor: { mats: [WOOD_FLOOR_MAT],        compile: (s) => injectInk(s, FLOOR_GLSL, FLOOR_UNIFORMS), key: 'inkwash_floor' },
+    floor: { mats: [WOOD_FLOOR_MAT],        compile: (s) => injectInk(s, FLOOR_GLSL, FLOOR_UNIFORMS, true), key: 'inkwash_floor' },
 };
 const variantOf = (name) => Object.keys(VARIANTS).find((k) => VARIANTS[k].mats.includes(name)) ?? '';
 
@@ -409,7 +411,7 @@ const TILE_GLSL = /* glsl */`
 `;
 const TILE_UNIFORMS = 'uniform float uTileLine;\nuniform float uTileGrain;';
 
-function injectInk(shader, variantGLSL, variantUniforms) {
+function injectInk(shader, variantGLSL, variantUniforms, lamp = false) {
     const needNormal = variantGLSL.length > 0;
     Object.assign(shader.uniforms, U);
     shader.vertexShader = shader.vertexShader
@@ -425,6 +427,7 @@ vInkLocalPos = transformed;${needNormal ? '\nvInkWorldNormal = normalize(mat3(mo
 varying vec3 vInkWorldPos;
 varying vec3 vInkLocalPos;${needNormal ? '\nvarying vec3 vInkWorldNormal;' : ''}
 uniform vec3 uTimeTint;
+uniform vec3 uLampTint;
 uniform float uBlotch;
 uniform float uNoiseScale;
 uniform float uLowStain;
@@ -446,6 +449,8 @@ ${NOISE_GLSL}`)
     outgoingLight = mix(outgoingLight, outgoingLight * vec3(0.80, 0.70, 0.58),
                         low * uLowStain * (0.4 + 0.6 * n1));
 ${variantGLSL}
+    // 室内灯提亮（仅室内变体注入；白天系数≈0 几乎无感，夜晚暖黄明显）
+    ${lamp ? 'outgoingLight *= uLampTint;' : ''}
     // 时段全局调色
     outgoingLight *= uTimeTint;
 }
@@ -631,6 +636,16 @@ export function createInkMist() {
  * @param {number} value - 0~5（对齐 TIME_PRESETS 索引，支持小数过渡）
  * @param {THREE.Scene} scene - 改背景色与雾色
  */
+/** 时段调色用的全局乘色（与 setInkTime 同一套插值） */
+function inkTintAt(value) {
+    const v = THREE.MathUtils.clamp(value, 0, 5);
+    const idx = Math.min(Math.floor(v), INK_TIME_PRESETS.length - 2);
+    const t = v - idx;
+    const s = t * t * (3 - 2 * t);
+    return new THREE.Color(INK_TIME_PRESETS[idx].tint)
+        .lerp(new THREE.Color(INK_TIME_PRESETS[idx + 1].tint), s);
+}
+
 export function setInkTime(value, scene) {
     const v = THREE.MathUtils.clamp(value, 0, 5);
     const idx = Math.min(Math.floor(v), INK_TIME_PRESETS.length - 2);
@@ -639,9 +654,8 @@ export function setInkTime(value, scene) {
     const a = INK_TIME_PRESETS[idx];
     const b = INK_TIME_PRESETS[idx + 1];
 
-    const tint = new THREE.Color(a.tint).lerp(new THREE.Color(b.tint), s);
     // tint 直接带亮度（水墨无光照，昼夜的明暗全靠它），不做归一化
-    U.uTimeTint.value.copy(tint);
+    U.uTimeTint.value.copy(inkTintAt(v));
 
     const paper = new THREE.Color(a.paper).lerp(new THREE.Color(b.paper), s);
     scene.background = paper;
@@ -654,6 +668,27 @@ export function setInkTime(value, scene) {
 /** 动画循环里调用：雾漂移 */
 export function updateInk(delta) {
     U.uMistTime.value += delta;
+}
+
+// ── 室内灯提亮（仅室内材质变体乘算 uLampTint）─────────────
+
+// 白炽灯目标：开灯后把当前时段乘色补偿回中午亮度（白色，不带暖黄）
+const NOON_TINT = new THREE.Color(INK_TIME_PRESETS[2].tint);
+/**
+ * @param {number} level - timeOfDay 算出的 lamp 强度（0=熄灭）
+ * @param {number} timeValue - 当前时段 0~5（算补偿比的基准）
+ * 补偿比 = 中午tint ÷ 当前tint（分量，上限 3）：夜晚基数暗 → 大比例提亮到中午亮度；
+ * 中午本身 ratio≈1 → 开灯几乎无感
+ */
+export function setInkLamp(level, timeValue) {
+    const t = THREE.MathUtils.clamp(level / 1.5, 0, 1);
+    const cur = inkTintAt(timeValue);
+    const ratio = new THREE.Color(
+        Math.min(NOON_TINT.r / Math.max(cur.r, 1e-3), 3),
+        Math.min(NOON_TINT.g / Math.max(cur.g, 1e-3), 3),
+        Math.min(NOON_TINT.b / Math.max(cur.b, 1e-3), 3),
+    );
+    U.uLampTint.value.setRGB(1, 1, 1).lerp(ratio, t);
 }
 
 /**

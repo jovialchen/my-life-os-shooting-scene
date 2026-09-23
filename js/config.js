@@ -75,6 +75,35 @@ const CORRIDOR_ZONES = [
       minDist: 1.0, maxDist: 10, maxPolar: Math.PI * 0.49,
       bounds: null },
 ];
+// 二楼卧室机位（f2_bed1/2：10×12×4.5，与一楼大厅同尺寸同套路）；
+// 卧室1 楼梯在 +x 墙（同客厅），卧室2 镜像（楼梯 -x 墙，机位 x 取反）
+const BED1_ZONES = [
+    { id: 'bed1_main', name: '卧室1', nameEn: 'Bedroom 1', category: 'room',
+      pos: [-4.2, 2.7, 1.2], target: [1.2, 0.5, 6.5],
+      minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
+      bounds: null },
+    { id: 'bed1_window', name: '卧室1·窗', nameEn: 'Bedroom 1 N', category: 'room',
+      pos: [3.2, 2.5, 10.5], target: [-2.0, 0.7, 2.0],
+      minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
+      bounds: null },
+];
+const BED2_ZONES = [
+    { id: 'bed2_main', name: '卧室2', nameEn: 'Bedroom 2', category: 'room',
+      pos: [4.2, 2.7, 1.2], target: [-1.2, 0.5, 6.5],
+      minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
+      bounds: null },
+    { id: 'bed2_window', name: '卧室2·窗', nameEn: 'Bedroom 2 N', category: 'room',
+      pos: [-3.2, 2.5, 10.5], target: [2.0, 0.7, 2.0],
+      minDist: 1.2, maxDist: 14, maxPolar: Math.PI * 0.49,
+      bounds: null },
+];
+// F2 走廊机位（3×12×3.2，同一楼走廊套路）
+const CORRIDOR_F2_ZONES = [
+    { id: 'corridor_f2_main', name: '走廊', nameEn: 'Corridor', category: 'room',
+      pos: [0, 2.3, 0.7], target: [0, 1.3, 9.5],
+      minDist: 1.0, maxDist: 10, maxPolar: Math.PI * 0.49,
+      bounds: null },
+];
 // 厨房机位（f1_kitchen：10×12×4.5 高厅，东墙楼梯；同客厅套路）
 const KITCHEN_ZONES = [
     { id: 'kitchen_main', name: '厨房', nameEn: 'Kitchen', category: 'room',
@@ -91,7 +120,7 @@ const LIVING_ZONE_CATEGORIES = [
     { id: 'room', name: '房间', nameEn: 'Room' },
 ];
 
-// ── 房间场景模板（阶段 5：二楼/阁楼 9 间房共用；一楼 4 房为定制条目）──
+// ── 房间场景模板（阁楼 2 间游戏室共用；一楼 4 房与二楼 4 房均为定制条目）──
 // 单主机位：斜 45° 俯看全屋；光照：无直射阳光、窗光主光源、夜间顶灯
 // winLight: 窗光位姿（窗外 2m 照向屋内），spawns 见各房间连接表
 // winless=true：无窗房（卫生间）——无窗光、顶灯为主光源
@@ -119,7 +148,7 @@ function roomScene({ id, name, nameEn, glb, glbs, w, d, h, spawns, winLight, mir
             spot: winless ? 0 : 1.3,
             ...(winLight ? { windowLight: winLight } : {}),
             lamp: {
-                position: [0, h - 0.3, d / 2], color: 0xFFD9A0,
+                position: [0, h - 0.3, d / 2], color: 0xFFFFFF,
                 intensity: winless ? 2.2 : 1.6, distance: Math.max(w, d) * 1.4,
                 ...(winless ? { min: 0.8 } : {}),   // 无窗房顶灯常开（白天也亮）
             },
@@ -132,34 +161,14 @@ const winN = (wxc, d) => ({ position: [wxc, 2.0, d + 2.0], target: [wxc, 0.4, d 
 const spS = (x) => ({ pos: [x, 0.02, 0.9], rotY: 0 });
 const spN = (x, d) => ({ pos: [x, 0.02, d - 0.9], rotY: Math.PI });
 const ROOM_SCENES = [
-    roomScene({ id: 'f2_study', name: '学习室', nameEn: 'Study', glb: 'models/room_study.glb',
-        w: 7, d: 7, h: 3,
-        winLight: { position: [1.95, 2.0, -2.0], target: [1.95, 0.4, 3.0] },   // 南墙 1 拱窗（W8 F2）
-        spawns: {
-            default: spS(0),          // 厨房楼梯上来
-            fromBed2: spS(-2),
-            fromBed1: spN(-2, 7), fromBed3: spN(0, 7), fromAtticA: spN(2, 7),
-        } }),
-    ...[1, 2, 3].map((n) => roomScene({
-        id: `f2_bed${n}`, name: `卧室${n}`, nameEn: `Bedroom ${n}`, glb: `models/room_bed${n}.glb`,
-        w: 7, d: 7, h: 3, mirrorZone: true,   // 床在西墙，从东南拍
-        // bed1/2 北墙 3 拱窗（W2/W5，组中心 0.55）；bed3 南墙 2 拱窗（W11+W13）
-        winLight: n < 3 ? winN(0.55, 7)
-            : { position: [0, 2.0, -2.0], target: [0, 0.4, 3.0] },
-        spawns: { default: spS(0), fromBath: { pos: [-1.5, 0.02, 6.1], rotY: Math.PI } } })),
-    ...[1, 2, 3].map((n) => roomScene({
-        id: `f2_bath${n}`, name: `卫生间${n}`, nameEn: `Bathroom ${n}`,
-        // 房间 + changjing 卫浴家具（tools/make_changjing_furniture.py，三房共用一份）
-        glbs: [`models/room_bath${n}.glb`, 'models/furniture_bath_f2.glb'],
-        w: 7, d: 7, h: 3, winLight: null, winless: true,
-        spawns: { default: spS(0) } })),
     roomScene({ id: 'attic_game_a', name: '游戏室A', nameEn: 'Game Room A', glb: 'models/room_game_a.glb',
         w: 7, d: 7, h: 3, winLight: winN(-0.95, 7),   // W14 山墙 3 拱窗组中心
         // 坡顶阁楼：机位压在屋脊下高区（檐口 1.6 处不能用默认 2.64 高位机位）
+        // default：卧室1 上行梯传送落点（南墙下楼门处）
         zonePos: [-1.2, 1.9, 0.4], zoneTarget: [0.5, 0.8, 4.4],
-        spawns: { default: spS(0), fromStudy: spS(0), fromGameB: spN(1.8, 7) } }),
+        spawns: { default: spS(0), fromGameB: spN(1.8, 7) } }),
     roomScene({ id: 'attic_game_b', name: '游戏室B', nameEn: 'Game Room B', glb: 'models/room_game_b.glb',
-        w: 7, d: 7, h: 3, winLight: winN(0, 7),
+        w: 7, d: 7, h: 3, winLight: winN(0.95, 7),   // W15 山墙 3 拱窗组中心（东移避让北门洞）
         zonePos: [1.2, 1.9, 0.4], zoneTarget: [-0.5, 0.8, 4.4],   // 桌上足球偏西，从东南拍
         spawns: { default: spS(0) } }),
 ];
@@ -178,7 +187,8 @@ export const SCENES = [
       lighting: { spot: 0 } },
     // ── 一楼四房（2026-09-10 改版，tools/make_f1_suite.mjs 生成）──
     // 西翼客厅 10×12 + 东翼厨房 10×12（一样大），中间 3×12 走廊联通，
-    // 走廊北尽头门进客卫 8×10（比客厅略小）；楼梯在厨房东墙（→ 学习室）
+    // 走廊北尽头门进客卫 8×10（比客厅略小）；客厅 +x 墙 / 厨房 -x 墙各一部
+    // 悬空梯 → 二楼卧室1/卧室2
     { id: 'f1_living', name: '客厅', nameEn: 'Living Room',
       glbs: ['models/room_living.glb', 'models/furniture_living.glb'],   // 房间 + 家具（tools/make_living_furniture.py）
       zones: LIVING_ZONES, categories: LIVING_ZONE_CATEGORIES,
@@ -187,12 +197,12 @@ export const SCENES = [
           default: { pos: [0, 0.02, 0.9], rotY: 0 },
           // 从走廊进入：-x 墙门内侧一步，面朝房间（+x）
           fromCorridor: { pos: [-4.0, 0.02, 2.2], rotY: Math.PI / 2 },
-          // 从学习室下楼：+x 墙楼梯顶平台（顶部门洞触发区南侧，面朝南 -z 下楼方向）
+          // 从卧室1下楼：+x 墙楼梯顶平台（顶部门洞触发区南侧，面朝南 -z 下楼方向）
           fromStudy: { pos: [4.5, 3.02, 11.3], rotY: Math.PI },
       },
-      // 走上 +x 墙楼梯（进门面窗左手边）、将进顶部门洞时自动传送到二楼（学习室）
+      // 走上 +x 墙楼梯（进门面窗左手边）、将进顶部门洞时自动传送到二楼卧室1
       triggers: [
-          { min: [4.0, 2.9, 11.95], max: [5.05, 3.6, 12.35], target: 'f2_study', spawn: 'default' },
+          { min: [4.0, 2.9, 11.95], max: [5.05, 3.6, 12.35], target: 'f2_bed1', spawn: 'default' },
       ],
       // 室内光照（timeOfDay.setSceneProfile）：无直射阳光，窗光为主光源，
       // 夜晚开顶灯；窗在北墙（z=12，3 拱窗组中心 x-2.05，偏 -x 让开 +x 墙楼梯）
@@ -204,7 +214,7 @@ export const SCENES = [
           fill: 0.25,
           spot: 1.3,
           windowLight: { position: [-2.05, 2.0, 14.0], target: [-2.05, 0.4, 5.5] },
-          lamp: { position: [0, 4.1, 6.0], color: 0xFFD9A0, intensity: 1.6, distance: 16 },
+          lamp: { position: [0, 4.1, 6.0], color: 0xFFFFFF, intensity: 1.6, distance: 16 },
       } },
     { id: 'f1_corridor', name: '走廊', nameEn: 'Corridor',
       glbs: ['models/room_corridor.glb'],
@@ -222,7 +232,7 @@ export const SCENES = [
           fill: 0.25,
           spot: 1.2,
           windowLight: { position: [0, 2.0, -2.0], target: [0, 0.5, 6.0] },   // 南墙 2 拱窗
-          lamp: { position: [0, 2.9, 6.5], color: 0xFFD9A0, intensity: 1.4, distance: 9 },
+          lamp: { position: [0, 2.9, 6.5], color: 0xFFFFFF, intensity: 1.4, distance: 9 },
       } },
     { id: 'f1_bath', name: '客卫', nameEn: 'Bathroom',
       glbs: ['models/room_bath_f1.glb', 'models/furniture_bath_f1.glb'],   // 房间 + changjing 卫浴家具
@@ -237,7 +247,7 @@ export const SCENES = [
           fill: 0.25,
           spot: 1.3,
           windowLight: winN(0, 10),   // 北墙 3 拱窗（W3）
-          lamp: { position: [0, 3.2, 5.0], color: 0xFFD9A0, intensity: 1.6, distance: 11 },
+          lamp: { position: [0, 3.2, 5.0], color: 0xFFFFFF, intensity: 1.6, distance: 11 },
       } },
     { id: 'f1_kitchen', name: '厨房', nameEn: 'Kitchen',
       glbs: ['models/room_kitchen.glb', 'models/furniture_kitchen.glb'],   // 房间 + changjing 厨房家具
@@ -248,12 +258,12 @@ export const SCENES = [
           fromOutdoor: { pos: [0, 0.02, 0.9], rotY: 0 },
           // 从走廊进入：+x 墙门内侧一步，面朝房间（-x）
           fromCorridor: { pos: [4.0, 0.02, 2.2], rotY: -Math.PI / 2 },
-          // 从学习室下楼（备用落点；学习室"下楼"门当前指客厅）
+          // 从卧室2下楼（-x 墙楼梯顶平台，备用落点；卧室2"下楼"门当前指这里）
           fromStudy: { pos: [-4.5, 3.02, 11.3], rotY: Math.PI },
       },
-      // 厨房 -x 墙楼梯（进门面窗右手边）：走上平台、将进顶部门洞时自动传送到学习室
+      // 厨房 -x 墙楼梯（进门面窗右手边）：走上平台、将进顶部门洞时自动传送到二楼卧室2
       triggers: [
-          { min: [-5.05, 2.9, 11.95], max: [-4.0, 3.6, 12.35], target: 'f2_study', spawn: 'default' },
+          { min: [-5.05, 2.9, 11.95], max: [-4.0, 3.6, 12.35], target: 'f2_bed2', spawn: 'default' },
       ],
       lighting: {
           sun: 0,
@@ -261,7 +271,94 @@ export const SCENES = [
           fill: 0.25,
           spot: 1.3,
           windowLight: { position: [-0.45, 2.0, 14.0], target: [-0.45, 0.4, 5.5] },   // 北墙 W4 3 拱窗
-          lamp: { position: [0, 4.1, 6.0], color: 0xFFD9A0, intensity: 1.6, distance: 16 },
+          lamp: { position: [0, 4.1, 6.0], color: 0xFFFFFF, intensity: 1.6, distance: 16 },
+      } },
+    // ── 二楼四房（2026-09-23 重排：镜像一楼布局，tools/make_f1_suite.mjs 生成）──
+    // 卧室1 = 客厅正上方（10×12×4.5）：+x 墙悬空上行梯 → 阁楼游戏室A（触发区），
+    // 北墙下楼门（x4.0..5.0，上行梯平台下方）→ 客厅楼梯平台，−x 墙门 → F2 走廊；
+    // 卧室2 = 厨房正上方镜像（楼梯/门左右互换）
+    { id: 'f2_bed1', name: '卧室1', nameEn: 'Bedroom 1',
+      glbs: ['models/room_bed1.glb'],
+      zones: BED1_ZONES, categories: LIVING_ZONE_CATEGORIES,
+      spawns: {
+          // 客厅楼梯上来（trigger 落点）：北墙下楼门内侧、梯下壁龛，面朝南进屋
+          default: { pos: [4.5, 0.02, 11.3], rotY: Math.PI },
+          // 从 F2 走廊进入：-x 墙门内侧一步，面朝房间（+x）
+          fromCorridor: { pos: [-4.0, 0.02, 2.2], rotY: Math.PI / 2 },
+          // 从游戏室A 下楼：+x 墙上行梯顶平台（触发区外 z11.3 < 11.95，不回环）
+          fromAtticA: { pos: [4.5, 3.02, 11.3], rotY: Math.PI },
+      },
+      // +x 墙上行梯顶部门洞 → 阁楼游戏室A
+      triggers: [
+          { min: [4.0, 2.9, 11.95], max: [5.05, 3.6, 12.35], target: 'attic_game_a', spawn: 'default' },
+      ],
+      lighting: {
+          sun: 0,
+          ambient: 3.2,
+          fill: 0.25,
+          spot: 1.3,
+          windowLight: { position: [-1.95, 2.0, 14.0], target: [-1.95, 0.4, 5.5] },   // 北墙 W2 3 拱窗（组偏 -x 让开井道）
+          lamp: { position: [0, 4.1, 6.0], color: 0xFFFFFF, intensity: 1.6, distance: 16 },
+      } },
+    { id: 'f2_bed2', name: '卧室2', nameEn: 'Bedroom 2',
+      glbs: ['models/room_bed2.glb'],
+      zones: BED2_ZONES, categories: LIVING_ZONE_CATEGORIES,
+      spawns: {
+          // 厨房楼梯上来（trigger 落点）：北墙下楼门内侧、梯下壁龛，面朝南进屋
+          default: { pos: [-4.5, 0.02, 11.3], rotY: Math.PI },
+          // 从 F2 走廊进入：+x 墙门内侧一步，面朝房间（-x）
+          fromCorridor: { pos: [4.0, 0.02, 2.2], rotY: -Math.PI / 2 },
+          // 从游戏室B 下楼：-x 墙上行梯顶平台
+          fromAtticB: { pos: [-4.5, 3.02, 11.3], rotY: Math.PI },
+      },
+      // -x 墙上行梯顶部门洞 → 阁楼游戏室B
+      triggers: [
+          { min: [-5.05, 2.9, 11.95], max: [-4.0, 3.6, 12.35], target: 'attic_game_b', spawn: 'default' },
+      ],
+      lighting: {
+          sun: 0,
+          ambient: 3.2,
+          fill: 0.25,
+          spot: 1.3,
+          windowLight: { position: [1.95, 2.0, 14.0], target: [1.95, 0.4, 5.5] },   // 北墙 W5 3 拱窗（组偏 +x）
+          lamp: { position: [0, 4.1, 6.0], color: 0xFFFFFF, intensity: 1.6, distance: 16 },
+      } },
+    { id: 'f2_corridor', name: '二楼走廊', nameEn: 'Corridor 2F',
+      glbs: ['models/room_corridor_f2.glb'],
+      zones: CORRIDOR_F2_ZONES, categories: LIVING_ZONE_CATEGORIES,
+      spawns: {
+          default: { pos: [0, 0.02, 1.0], rotY: 0 },
+          // 西墙门进（面朝 +x）；东墙门进（面朝 -x）；北尽头厕所门出（面朝南）
+          fromBed1: { pos: [-0.9, 0.02, 2.2], rotY: Math.PI / 2 },
+          fromBed2: { pos: [0.9, 0.02, 2.2], rotY: -Math.PI / 2 },
+          fromBath: { pos: [0, 0.02, 10.9], rotY: Math.PI },
+      },
+      lighting: {
+          sun: 0,
+          ambient: 3.2,
+          fill: 0.25,
+          spot: 1.2,
+          windowLight: { position: [0, 2.0, -2.0], target: [0, 0.5, 6.0] },   // 南墙 2 拱窗（W7 语汇）
+          lamp: { position: [0, 2.9, 6.5], color: 0xFFFFFF, intensity: 1.4, distance: 9 },
+      } },
+    { id: 'f2_bath', name: '二楼卫生间', nameEn: 'Bathroom 2F',
+      // 房间 + changjing 卫浴家具（复用一楼 8×10 那份，见 make_changjing_furniture.py）
+      glbs: ['models/room_bath_f2.glb', 'models/furniture_bath_f1.glb'],
+      zones: [{ id: 'bath_f2_main', name: '二楼卫生间', nameEn: 'Bathroom 2F', category: 'room',
+          pos: [-3.4, 2.6, 0.5], target: [1.0, 0.6, 6.0],
+          minDist: 1.0, maxDist: 11, maxPolar: Math.PI * 0.49, bounds: null }],
+      categories: LIVING_ZONE_CATEGORIES,
+      spawns: {
+          default: spS(0),
+          fromCorridor: spS(0),   // 唯一门（南墙↔走廊）
+      },
+      // 无窗房（外壳 F2 北墙中段无窗）：无窗光、顶灯常开
+      lighting: {
+          sun: 0,
+          ambient: 3.2,
+          fill: 0.25,
+          spot: 0,
+          lamp: { position: [0, 3.2, 5.0], color: 0xFFFFFF, intensity: 2.2, distance: 11, min: 0.8 },
       } },
     ...ROOM_SCENES,
 ];

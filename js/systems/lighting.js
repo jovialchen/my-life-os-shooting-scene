@@ -50,8 +50,8 @@ export function createLighting(scene) {
     scene.add(windowLight);
     scene.add(windowLight.target);
 
-    // 室内顶灯（夜间自动开；位姿/颜色由场景配置 lamp 决定，见 timeOfDay.setSceneProfile）
-    const lamp = new THREE.PointLight(0xFFD9A0, 0, 7);
+    // 室内顶灯（白炽灯，白色；位姿由场景配置 lamp 决定，见 timeOfDay.setSceneProfile）
+    const lamp = new THREE.PointLight(0xFFFFFF, 0, 7);
     lamp.castShadow = false;
     scene.add(lamp);
 

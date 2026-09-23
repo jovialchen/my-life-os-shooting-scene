@@ -1,4 +1,5 @@
-/** changjing 家具验收截图：厨房 / 客卫 / 卫生间1
+/** changjing 家具验收截图：厨房 / 客卫 / 二楼卫生间（2026-09-23 起 F2 厕所
+ *  与客卫同为 8×10、共用 furniture_bath_f1.glb）
  * 用法: node tools/e2e/shot-changjing-furniture.mjs <baseUrl>
  * 产出: temp/cgf_app_{kitchen,bath_f1,bath_f2}.png
  */
@@ -32,10 +33,10 @@ const SHOTS = [
         pos: [1.2, 0.02, 4.5], rotY: Math.PI * 0.5,
         cam: [-2.8, 2.2, 1.6], target: [1.5, 0.7, 7.5],
     },
-    {   // 卫生间1：机位从东南看西北（浴缸西墙 + 北墙马桶/洗手盆）
-        scene: 'f2_bath1', out: 'temp/cgf_app_bath_f2.png',
-        pos: [0.6, 0.02, 2.2], rotY: Math.PI * 0.55,
-        cam: [2.6, 2.0, 1.2], target: [-1.2, 0.7, 5.2],
+    {   // 二楼卫生间：房间 8×10 与客卫同（复用同一份卫浴家具），同机位
+        scene: 'f2_bath', out: 'temp/cgf_app_bath_f2.png',
+        pos: [1.2, 0.02, 4.5], rotY: Math.PI * 0.5,
+        cam: [-2.8, 2.2, 1.6], target: [1.5, 0.7, 7.5],
     },
 ];
 

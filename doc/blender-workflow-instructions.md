@@ -262,16 +262,19 @@ File → Export → glTF 2.0：
 
 > 阶段 3/5 起，室内改为"每间房一个独立 glb、独立导航、独立机位"的场景切换方案。
 > 当前房间全部由纯 Node 脚本程序化生成：
-> `tools/make_f1_suite.mjs`（一楼 4 房）与 `tools/make_rooms.mjs`（二楼/阁楼 9 间，
-> 规格表驱动）。若以后改用 Blender 建房间，遵守同一套规范即可。
-> **2026-08 起全部 12 个房间统一为 7×7×3m 方形**（切换时画面尺寸一致，
-> 机位模板按 w/d/h 参数化，一屏可看全房间）。
+> `tools/make_f1_suite.mjs`（一楼 4 房 + 二楼 4 房：卧室1/2、F2走廊、F2厕所，
+> 2026-09-23 二楼重排迁入——卧室需要悬空梯基建）与 `tools/make_rooms.mjs`
+> （阁楼 2 间游戏室，规格表驱动）。若以后改用 Blender 建房间，遵守同一套规范即可。
+> 尺寸：一楼大厅/厨房与二楼卧室 10×12×4.5 高厅，走廊 3×12×3.2，
+> 客卫/F2厕所 8×10×3.5，阁楼 7×7（人字坡顶，檐口 1.6 / 屋脊 3.2）；
+> 机位模板按 w/d/h 参数化。
 
 ### 7.1 坐标与单位
 
 - 房间独立坐标系，**原点在主门（南墙 z=0 居中那扇）门口地板中心**；three 坐标：y 向上，+z 进房间
 - 房间内容范围：x ∈ [-w/2, w/2]，z ∈ [0, d]，墙高 h，墙厚 0.1
-- 统一尺寸 w=7, d=7, h=3（家具靠墙摆、避开门洞摆动弧和 spawn 落点）
+- 尺寸按房：大厅/厨房/卧室 10×12×4.5，走廊 3×12×3.2，卫生间 8×10×3.5，
+  阁楼 7×7×3（家具靠墙摆、避开门洞摆动弧和 spawn 落点）
 
 ### 7.2 节点与属性约定
 
@@ -312,14 +315,15 @@ spawn 做 `isWalkableWorld` 检查并测 default↔各 spawn 双向寻路。
   `doc/house-map.md`（内部图纸；测绘 `node tools/survey_windows.mjs`）。
   窗规格：`windows: [{ wall, centers:[...], width, y0, y1, arch }]`；
   `arch=true` 为**台阶拱窗**（起拱线 y1-0.3，两级收缩 ×0.7/×0.35，与外壳
-  WINDOW_01 同一语汇）；卫生间×4 无窗（`windows: []`，config 侧 `winless`：
-  无窗光、顶灯常开 `lamp.min`）
+  WINDOW_01 同一语汇）；无窗房（F2 厕所）——无窗光、顶灯常开 `lamp.min`
 - **人字坡顶（阁楼）**：spec 加 `gable: { eave: 1.6, ridge: 3.2 }`——山墙
   （南北墙）矩形段到 eave + 扫描线三角段到 ridge，洞口（门/拱窗）可延续
   进三角段；东西墙只到檐口；机位用 `zonePos/zoneTarget` 压到屋脊下高区
-- **实体楼梯**：客厅（北墙，9 步跨楼梯门上方，k≥7 悬空切片）与学习室
-  （东墙，8 步）各一段 `STAIRS` 节点（自动障碍；净空规则 y>CHAR_HEIGHT
-  不挡导航）；楼梯节点断言在 check_room_glb.py 的 STAIRS_EXPECT
+- **悬空梯**（make_f1_suite.mjs 的 buildStairs，客厅/厨房/卧室1/卧室2 共用）：
+  17 步悬臂踏步 → y3.0 平台 → 挑高井道（y3.0..5.2）→ 北墙顶部门洞暗龛
+  （传送触发区在 config.js SCENES[*].triggers）；`STAIRS` 节点自动障碍
+  （nav_no_inflate；净空规则 y>CHAR_HEIGHT 不挡导航，梯下高段可走）；
+  楼梯节点断言在 check_room_glb.py 的 STAIRS_EXPECT
 - **统一色板**：结构色（墙/地/框/门/窗景/灯）一律取
   `tools/room_palette.mjs` 的 `PALETTE`/`BASE_MATS`，不在 spec 里另写 hex
 

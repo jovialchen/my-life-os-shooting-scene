@@ -1,21 +1,28 @@
-/** 一楼套房生成器（纯 Node 写 GLB，无需 Blender）
+/** 一楼套房 + 二楼重排生成器（纯 Node 写 GLB，无需 Blender）
  *
  * 2026-09-10 一楼改版：两个 10×12×4.5 高厅（西=客厅、东=厨房），
  * 中间 3×12 走廊联通，走廊北面尽头门进客卫（8×10，比客厅略小）。
  * **客厅和厨房都有悬空楼梯**（客厅在 +x 墙=进门面窗左手边；厨房在 -x 墙=
  * 右手边），走廊门：客厅在 -x 墙 z2.2（右手边），厨房在 +x 墙 z2.2（左手边）
- * ——走廊门都在靠中厅一侧。两梯都触发传送学习室（学习室"下楼"门回客厅）。
+ * ——走廊门都在靠中厅一侧。
+ * 2026-09-23 二楼重排（镜像一楼布局，取消学习室）：两间 10×12×4.5 卧室
+ * 分别坐在客厅/厨房正上方（同结构变体：南墙无大门只留 2 拱窗，北墙加
+ * 下楼门洞 x4.0..5.0 y0..2.1——在一楼上来的落点正上方；悬空上行梯 →
+ * 阁楼游戏室A/B），中间 3×12 F2 走廊联通，走廊北尽头门进 F2 厕所
+ * （8×10，无窗，家具复用 furniture_bath_f1.glb）。
+ * 一楼两梯上顶 → 卧室1/卧室2（各房北墙下楼门回一楼平台）。
  * 本生成器取代 tools/make_room_living.mjs（客厅）与 make_rooms.mjs 里
- * 的 f1_kitchen / f1_bath 两个规格。
+ * 的 f1_kitchen / f1_bath / 全部 f2 房型规格。
  *
  * 平面（世界坐标语义，各房间仍是独立场景）：
  *   西翼 客厅 10×12×4.5   —— 南墙大门+2 拱窗，北墙 3 大拱窗+窗帘（偏 -x），
- *                           +x 墙悬空楼梯（→学习室），-x 墙门→走廊（z2.2 右手边）
+ *                           +x 墙悬空楼梯（→卧室1），-x 墙门→走廊（z2.2 右手边）
  *   中厅 走廊 3×12×3.2    —— 西/东墙门→客厅/厨房（靠南端），北尽头门→客卫，
  *                           南墙 2 拱窗；护墙板 + 长地毯（深邃感）
  *   中厅北 客卫 8×10×3.5  —— 南墙门→走廊，北墙 3 拱窗（外壳 W3），浴缸/双盆/马桶
  *   东翼 厨房 10×12×4.5   —— 南墙大门+2 拱窗，北墙 3 拱窗，+x 墙门→走廊（左手边），
- *                           -x 墙悬空楼梯（右手边，→学习室）
+ *                           -x 墙悬空楼梯（右手边，→卧室2）
+ *   F2 与一楼同平面：卧室1（客厅上）/ F2 走廊 / F2 厕所（客卫上）/ 卧室2（厨房上）
  *
  * 规范同原 make_room_living.mjs：原点在南墙门口地板中心（y 上，z 进房间）；
  * WALK_ 逻辑面抬高 0.015 只作导航数据；门 origin 在铰链边 + door extras；
@@ -23,6 +30,7 @@
  *
  * 用法: node tools/make_f1_suite.mjs
  *   → models/room_living.glb / room_corridor.glb / room_bath_f1.glb / room_kitchen.glb
+ *     + room_bed1.glb / room_bed2.glb / room_corridor_f2.glb / room_bath_f2.glb（F2）
  */
 import { writeFileSync } from 'node:fs';
 import { PALETTE } from './room_palette.mjs';
@@ -35,7 +43,7 @@ const DOOR_W = 1.0, DOOR_H = 2.1;
 // （models/furniture_kitchen.glb / furniture_bath_f1.glb，config.js glbs 挂载）
 const WITH_FURNITURE = false;
 
-// ── 楼梯参数（东墙悬空梯，客厅/厨房共用同一套；平台 y3.0 = 二楼标高）──
+// ── 楼梯参数（东墙悬空梯，客厅/厨房/卧室共用同一套；平台 y3.0 = 上层标高）──
 const ST = {
     x0: 3.9, z0: 5.9, steps: 17, top: 3.0,
     tread: 0.28, rise: 3.0 / 17,
@@ -128,10 +136,10 @@ function pushWallZ(part, x0, x1, z0, z1, h, holes) {
 // ── 房间装配器 ──
 function roomBuilder() {
     const parts = [];
-    const add = (name, mat, build, extras = null, translation = null) => {
+    const add = (name, mat, build, extras = null, translation = null, rotY = 0) => {
         const part = makePart();
         build(part);
-        parts.push({ name, mat, extras, translation, part });
+        parts.push({ name, mat, extras, translation, rotY, part });
     };
     const B = (p, x0, y0, z0, x1, y1, z1) => pushBox(p, [x0, y0, z0], [x1, y1, z1]);
     return { parts, add, B };
@@ -220,19 +228,72 @@ function doorE(add, name, xw, c, target) {
 }
 
 /** 窗帘一副（两片帘布 origin 各在外侧边缘，开帘 scale.x 收拢成褶；
- *  同 curtain_group 联动；nav_ignore 纯视觉/交互物） */
-function addCurtain(add, { x0, x1, y0, y1, rodY, z0, z1, group }) {
+ *  同 curtain_group 联动；nav_ignore 纯视觉/交互物）
+ *  axis='x'（默认）：帘沿 x 走向，z0/z1 为厚度；axis='z'：帘沿 z 走向
+ *  （x0/x1 为厚度，z0/z1 为两端），本地几何仍沿 x 做、节点 rotY=-90°
+ *  使本地 +x → 世界 +z，scale.x 收拢动画在本地空间不受影响 */
+function addCurtain(add, { x0, x1, y0, y1, rodY, z0, z1, group, axis = 'x' }) {
+    const extras = { interactable_type: 'curtain', curtain_group: group, nav_ignore: true };
+    if (axis === 'z') {
+        const len = z1 - z0, half = len / 2, xc = (x0 + x1) / 2, t = (x1 - x0) / 2;
+        add(`CURTAIN_ROD_${group}`, 'MAT_frame', (p) => {
+            pushBox(p, [-0.08, rodY - 0.03, -t - 0.01], [len + 0.08, rodY + 0.03, t + 0.01]);
+            pushBox(p, [-0.13, rodY - 0.05, -t - 0.03], [-0.06, rodY + 0.05, t + 0.03]);
+            pushBox(p, [len + 0.06, rodY - 0.05, -t - 0.03], [len + 0.13, rodY + 0.05, t + 0.03]);
+        }, { nav_ignore: true }, [xc, 0, z0], -Math.PI / 2);
+        add(`CURTAIN_L_${group}`, 'MAT_curtain', (p) =>
+            pushBox(p, [0, y0, -t], [half, y1, t]), extras, [xc, 0, z0], -Math.PI / 2);
+        add(`CURTAIN_R_${group}`, 'MAT_curtain', (p) =>
+            pushBox(p, [-half, y0, -t], [0, y1, t]), extras, [xc, 0, z1], -Math.PI / 2);
+        return;
+    }
     add(`CURTAIN_ROD_${group}`, 'MAT_frame', (p) => {
         pushBox(p, [x0 - 0.08, rodY - 0.03, z0 - 0.01], [x1 + 0.08, rodY + 0.03, z1 + 0.01]);
         pushBox(p, [x0 - 0.13, rodY - 0.05, z0 - 0.03], [x0 - 0.06, rodY + 0.05, z1 + 0.03]);
         pushBox(p, [x1 + 0.06, rodY - 0.05, z0 - 0.03], [x1 + 0.13, rodY + 0.05, z1 + 0.03]);
     }, { nav_ignore: true });
     const half = (x1 - x0) / 2;
-    const extras = { interactable_type: 'curtain', curtain_group: group, nav_ignore: true };
     add(`CURTAIN_L_${group}`, 'MAT_curtain', (p) =>
         pushBox(p, [0, y0, z0], [half, y1, z1]), extras, [x0, 0, 0]);
     add(`CURTAIN_R_${group}`, 'MAT_curtain', (p) =>
         pushBox(p, [-half, y0, z0], [0, y1, z1]), extras, [x1, 0, 0]);
+}
+
+/** 切角方板（"圆角方形"的低多边形近似）：XZ 八边形棱柱，顶/底扇形 + 侧面 */
+function pushChamfPlate(part, cx, cz, y0, y1, half, ch) {
+    const pts = [
+        [cx - half + ch, cz - half], [cx + half - ch, cz - half],
+        [cx + half, cz - half + ch], [cx + half, cz + half - ch],
+        [cx + half - ch, cz + half], [cx - half + ch, cz + half],
+        [cx - half, cz + half - ch], [cx - half, cz - half + ch],
+    ];
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+        const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % n];
+        // 顶面(+y)与底面(-y)：以板心为轴的扇形三角
+        for (const [yy, ny, flip] of [[y1, 1, true], [y0, -1, false]]) {
+            const b = part.verts.length / 3;
+            part.verts.push(cx, yy, cz,
+                ...(flip ? [bx, yy, bz, ax, yy, az] : [ax, yy, az, bx, yy, bz]));
+            for (let k = 0; k < 3; k++) part.norms.push(0, ny, 0);
+            part.idx.push(b, b + 1, b + 2);
+        }
+        // 侧面（外法线沿边垂直方向）
+        const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz);
+        const b = part.verts.length / 3;
+        part.verts.push(ax, y0, az, bx, y0, bz, bx, y1, bz, ax, y1, az);
+        for (let k = 0; k < 4; k++) part.norms.push(dz / l, 0, -dx / l);
+        part.idx.push(b, b + 2, b + 1, b, b + 3, b + 2);
+    }
+}
+
+/** 圆角方形吸顶灯：底座薄板贴顶 + 切角灯罩
+ *  （MAT_lamp 保留 toon，自发光由 timeOfDay 按开灯状态/时段驱动） */
+function addCeilingLamp(add, cx, cz, H) {
+    add('LAMP_base', 'MAT_frame', (p) =>
+        pushChamfPlate(p, cx, cz, H - 0.03, H, 0.40, 0.12), { nav_ignore: true });
+    add('LAMP', 'MAT_lamp', (p) =>
+        pushChamfPlate(p, cx, cz, H - 0.13, H - 0.03, 0.34, 0.10), { nav_ignore: true });
 }
 
 /** 东/西墙悬空梯全套（17 步→y3.0 平台 + 挑高井道 + 顶部门洞暗龛 + WALK 导航面）。
@@ -307,7 +368,7 @@ function walkFloorWithStairs(add, W, D, mat = 'MAT_floor_wood', side = 1) {
 // ════════════════════════════════════════════════════════════
 //  客厅（西翼 10×12×4.5）：南墙大门+2 拱窗，北墙 3 大拱窗+窗帘（偏 -x 让开楼梯）；
 //  楼梯在 +x 墙（进门面窗左手边），走廊门在 -x 墙（右手边，z2.2）；
-//  楼梯：17 步→y3.0 平台→顶部门洞触发传送学习室（config.js f1_living.triggers）
+//  楼梯：17 步→y3.0 平台→顶部门洞触发传送二楼卧室1（config.js f1_living.triggers）
 // ════════════════════════════════════════════════════════════
 function buildLiving() {
     const W = 10, D = 12, H = 4.5, xw = W / 2;
@@ -378,6 +439,8 @@ function buildLiving() {
     doorS(add, 'DOOR_exit', 0, { scene: 'outdoor', spawn: 'houseWest' });
     doorW(add, 'DOOR_corridor', xw, C_DOOR, { scene: 'f1_corridor', spawn: 'fromLiving' });
 
+    addCeilingLamp(add, 0, 6.0, H);
+
     return parts;
 }
 
@@ -439,6 +502,8 @@ function buildCorridor() {
     doorW(add, 'DOOR_living', xw, SIDE_DOOR, { scene: 'f1_living', spawn: 'fromCorridor' });
     doorE(add, 'DOOR_kitchen', xw, SIDE_DOOR, { scene: 'f1_kitchen', spawn: 'fromCorridor' });
     doorN(add, 'DOOR_bath', 0, D, { scene: 'f1_bath', spawn: 'default' });
+
+    addCeilingLamp(add, 0, 6.5, H);
 
     return parts;
 }
@@ -507,6 +572,23 @@ function buildBath() {
     // 浴室垫（绿植/顶灯网格已按用户要求撤掉；config 光照的灯源保留）
     add('RUG', 'MAT_rug', (p) => B(p, -0.55, 0.02, 2.8, 0.55, 0.035, 4.0), { nav_ignore: true });
 
+    // 浴帘三面围合（浴缸靠东墙，西/南/北三面挂帘，同组联动，点哪面都整组开合）
+    addCurtain(add, { axis: 'z', x0: 2.32, x1: 2.38, z0: 3.3, z1: 5.9,
+        y0: 0.15, y1: 2.05, rodY: 2.08, group: 'tub' });
+    addCurtain(add, { x0: 2.32, x1: 3.98, y0: 0.15, y1: 2.05, rodY: 2.08,
+        z0: 3.27, z1: 3.33, group: 'tub' });
+    addCurtain(add, { x0: 2.32, x1: 3.98, y0: 0.15, y1: 2.05, rodY: 2.08,
+        z0: 5.87, z1: 5.93, group: 'tub' });
+    // 马桶帘三面围合（马桶靠北墙，南/西/东三面挂帘）
+    addCurtain(add, { x0: 1.35, x1: 2.85, y0: 0.1, y1: 1.9, rodY: 1.95,
+        z0: 8.42, z1: 8.48, group: 'toilet' });
+    addCurtain(add, { axis: 'z', x0: 1.32, x1: 1.38, z0: 8.45, z1: 9.95,
+        y0: 0.1, y1: 1.9, rodY: 1.95, group: 'toilet' });
+    addCurtain(add, { axis: 'z', x0: 2.82, x1: 2.88, z0: 8.45, z1: 9.95,
+        y0: 0.1, y1: 1.9, rodY: 1.95, group: 'toilet' });
+
+    addCeilingLamp(add, 0, 5.0, H);
+
     doorS(add, 'DOOR_corridor', 0, { scene: 'f1_corridor', spawn: 'fromBath' });
 
     return parts;
@@ -515,7 +597,7 @@ function buildBath() {
 // ════════════════════════════════════════════════════════════
 //  厨房（东翼 10×12×4.5，和客厅一样大）：南墙大门+2 拱窗（W11/W13 F1），
 //  北墙 3 拱窗（W4），+x 墙门→走廊（进门面窗左手边），
-//  **-x 墙悬空楼梯**（右手边；17 步→平台→顶部门洞触发传送学习室，
+//  **-x 墙悬空楼梯**（右手边；17 步→平台→顶部门洞触发传送二楼卧室2，
 //  触发区在 config.js f1_kitchen.triggers）
 // ════════════════════════════════════════════════════════════
 function buildKitchen() {
@@ -604,6 +686,224 @@ function buildKitchen() {
     doorS(add, 'DOOR_outdoor', 0, { scene: 'outdoor', spawn: 'houseEast' });
     doorE(add, 'DOOR_corridor', xw, W_DOOR, { scene: 'f1_corridor', spawn: 'fromKitchen' });
 
+    addCeilingLamp(add, 0, 6.0, H);
+
+    return parts;
+}
+
+// ════════════════════════════════════════════════════════════
+//  二楼卧室（10×12×4.5，与客厅/厨房同结构变体，2026-09-23 二楼重排）：
+//  南墙无大门只留 2 拱窗（W8/W10 或 W11/W13 的 F2 层，±2.8）；
+//  北墙 3 拱窗（W2/W5，0.87 标准窗 sill0.55/顶2.45，组偏 -楼梯侧 让开井道）
+//  + 下楼门洞 x4.0..5.0 y0..2.1（在上行梯平台下方，y 区间与井道豁口
+//  3.0..4.5 不重叠，北墙同 x 段两洞共存）；
+//  楼梯侧墙悬空梯 → 阁楼游戏室（触发区在 config.js f2_bed1/2.triggers）；
+//  另一侧墙 z2.2 门 → F2 走廊。
+//  side=+1 卧室1（西翼，楼梯 +x，下楼门 → 客厅平台）；
+//  side=-1 卧室2（东翼镜像，楼梯 -x，下楼门 → 厨房平台）
+// ════════════════════════════════════════════════════════════
+function buildBedroom(side, downTarget, corridorSpawn) {
+    const W = 10, D = 12, H = 4.5, xw = W / 2;
+    const m = (x) => side * x;
+    const box = (p, min, max) => pushBox(p,
+        [Math.min(m(min[0]), m(max[0])), min[1], min[2]],
+        [Math.max(m(min[0]), m(max[0])), max[1], max[2]]);
+    // 北墙 3 拱窗：组偏 -楼梯侧（让开井道与下楼门）
+    const N_WIN = { centers: [-2.9, -1.95, -1.0].map(m), width: 0.87, y0: 0.55, y1: 2.45 };
+    const N_WIN_X = N_WIN.centers.map((c) => [c - N_WIN.width / 2, c + N_WIN.width / 2]);
+    const S_WIN = { centers: [-2.8, 2.8], width: 0.87, y0: 0.55, y1: 2.45 };
+    const S_WIN_X = S_WIN.centers.map((c) => [c - S_WIN.width / 2, c + S_WIN.width / 2]);
+    const C_DOOR = 2.2;   // 走廊门中心 z
+    const { parts, add } = roomBuilder();
+
+    add('FLOOR_visible', 'MAT_floor_wood', (p) => pushBox(p, [-xw, -0.06, 0], [xw, 0, D]));
+    walkFloorWithStairs(add, W, D, 'MAT_floor_wood', side);
+
+    add('WALLS', 'MAT_wall_interior', (p) => {
+        // 南墙：无大门，只 2 拱窗
+        pushWallX(p, -WT, 0, -xw, xw, H,
+            S_WIN_X.map(([a0, a1]) => ({ a0, a1, y0: S_WIN.y0, y1: S_WIN.y1, arch: true })));
+        // 北墙主段（含 3 拱窗）砌到井道边；井道 footprint 段分三层：
+        //   y0..2.1 下楼门洞（门旁堵头 3.75..4.0）、y2.1..3.0 过梁带（平台板下）、
+        //   y3.0..H 豁口（接挑高井道，同一楼北墙做法）
+        pushWallX(p, D, D + WT, side > 0 ? -xw : -SHAFT.x0, side > 0 ? SHAFT.x0 : xw, H,
+            N_WIN_X.map(([a0, a1]) => ({ a0, a1, y0: N_WIN.y0, y1: N_WIN.y1, arch: true })));
+        box(p, [SHAFT.x0, 0, D], [TOP_DOOR.x0, DOOR_H, D + WT]);
+        box(p, [SHAFT.x0, DOOR_H, D], [xw, ST.top, D + WT]);
+        // 走廊侧墙（bed1 -x / bed2 +x）：z2.2 门洞，实心到顶
+        const [cx0, cx1] = side > 0 ? [-xw - WT, -xw] : [xw, xw + WT];
+        pushWallZ(p, cx0, cx1, -WT, D + WT, H,
+            [{ a0: C_DOOR - DOOR_W / 2, a1: C_DOOR + DOOR_W / 2, y0: 0, y1: DOOR_H }]);
+        // 楼梯侧墙：井道段（z ≥ SHAFT.z0）只砌到平台层
+        box(p, [xw, 0, -WT], [xw + WT, H, SHAFT.z0]);
+        box(p, [xw, 0, SHAFT.z0], [xw + WT, ST.top, D + WT]);
+    });
+
+    // 天花板（楼梯上段上方开井口——楼梯侧段，井口向上接挑高井道）
+    add('CEILING', 'MAT_ceiling_interior', (p) => {
+        box(p, [-xw - WT, H, -WT], [xw + WT, H + 0.12, HOLE.z0]);
+        box(p, [-xw - WT, H, HOLE.z0], [HOLE.x0, H + 0.12, D + WT]);
+    });
+
+    buildStairs(add, D, side);
+
+    add('FRAMES', 'MAT_frame', (p) => {
+        frameX(p, m(4.5), D, -1);                              // 北墙下楼门
+        if (side > 0) frameZ(p, C_DOOR, -xw, 1);               // -x 墙走廊门
+        else frameZ(p, C_DOOR, xw, -1);                        // +x 墙走廊门
+        for (const [x0, x1] of N_WIN_X) winFrame(p, x0, x1, N_WIN.y0, N_WIN.y1, D, 1);
+        for (const [x0, x1] of S_WIN_X) winFrame(p, x0, x1, S_WIN.y0, S_WIN.y1, 0, -1);
+    });
+
+    const nMin = Math.min(...N_WIN_X.map((r) => r[0]));
+    const nMax = Math.max(...N_WIN_X.map((r) => r[1]));
+    add('VIEW_window', 'MAT_window_view', (p) =>
+        pushBox(p, [nMin - 0.4, N_WIN.y0 - 0.25, D + 0.4],
+                   [nMax + 0.4, N_WIN.y1 + 0.25, D + 0.46]),
+        { nav_ignore: true });
+    add('VIEW_window_s', 'MAT_window_view', (p) =>
+        pushBox(p, [S_WIN_X[0][0] - 0.4, S_WIN.y0 - 0.25, -0.46],
+                   [S_WIN_X[S_WIN_X.length - 1][1] + 0.4, S_WIN.y1 + 0.25, -0.40]),
+        { nav_ignore: true });
+
+    // 简易家具（盒体语汇）：床靠走廊侧墙北段（让开门摆动区 z1.7..2.7），
+    // 衣柜靠楼梯侧墙南段（踏步 z5.9 以南，让开北墙下楼门落点区）
+    add('FURN_bed', 'MAT_bed', (p) => {
+        box(p, [-4.95, 0, 5.6], [-3.5, 0.5, 7.4]);        // 床架+床垫
+        box(p, [-4.95, 0.5, 5.75], [-3.5, 0.58, 7.25]);   // 被面
+    });
+    add('FURN_headboard', 'MAT_furniture', (p) => box(p, [-4.95, 0, 7.4], [-3.5, 1.05, 7.52]));
+    add('FURN_wardrobe', 'MAT_furniture', (p) => box(p, [4.3, 0, 1.2], [4.95, 2.0, 2.4]));
+    add('RUG', 'MAT_rug', (p) => box(p, [-1.8, 0.02, 4.0], [0.6, 0.035, 6.4]), { nav_ignore: true });
+
+    doorN(add, 'DOOR_stairs_down', m(4.5), D, downTarget);
+    if (side > 0) doorW(add, 'DOOR_corridor', xw, C_DOOR, { scene: 'f2_corridor', spawn: corridorSpawn });
+    else doorE(add, 'DOOR_corridor', xw, C_DOOR, { scene: 'f2_corridor', spawn: corridorSpawn });
+
+    addCeilingLamp(add, 0, 6.0, H);
+
+    return parts;
+}
+
+const buildBed1 = () =>
+    buildBedroom(1, { scene: 'f1_living', spawn: 'fromStudy' }, 'fromBed1');
+const buildBed2 = () =>
+    buildBedroom(-1, { scene: 'f1_kitchen', spawn: 'fromStudy' }, 'fromBed2');
+
+// ════════════════════════════════════════════════════════════
+//  F2 走廊（中厅 F2 南 3×12×3.2，与一楼走廊同位同尺寸）：
+//  西/东墙门→卧室1/卧室2（靠南端 z2.2），北尽头门→F2 厕所；
+//  南墙 2 拱窗（借 W7 语汇，同一楼走廊借 W6）；护墙板 + 吊灯 + 长地毯
+// ════════════════════════════════════════════════════════════
+function buildCorridorF2() {
+    const W = 3, D = 12, H = 3.2, xw = W / 2;
+    const SIDE_DOOR = 2.2;                       // 西/东墙门中心 z
+    const S_WIN = { centers: [-0.75, 0.75], width: 0.7, y0: 0.85, y1: 2.75 };
+    const S_WIN_X = S_WIN.centers.map((c) => [c - S_WIN.width / 2, c + S_WIN.width / 2]);
+    const { parts, add, B } = roomBuilder();
+
+    add('FLOOR_visible', 'MAT_floor_wood', (p) => B(p, -xw, -0.06, 0, xw, 0, D));
+    add('WALK_floor', 'MAT_floor_wood', (p) =>
+        pushQuadXZ(p, -xw + 0.05, 0.05, xw - 0.05, D - 0.05, 0.015),
+        { surface_walkable: true });
+
+    add('WALLS', 'MAT_wall_interior', (p) => {
+        pushWallX(p, -WT, 0, -xw, xw, H,
+            S_WIN_X.map(([a0, a1]) => ({ a0, a1, y0: S_WIN.y0, y1: S_WIN.y1, arch: true })));
+        pushWallX(p, D, D + WT, -xw, xw, H,
+            [{ a0: -DOOR_W / 2, a1: DOOR_W / 2, y0: 0, y1: DOOR_H }]);
+        pushWallZ(p, -xw - WT, -xw, -WT, D + WT, H,
+            [{ a0: SIDE_DOOR - DOOR_W / 2, a1: SIDE_DOOR + DOOR_W / 2, y0: 0, y1: DOOR_H }]);
+        pushWallZ(p, xw, xw + WT, -WT, D + WT, H,
+            [{ a0: SIDE_DOOR - DOOR_W / 2, a1: SIDE_DOOR + DOOR_W / 2, y0: 0, y1: DOOR_H }]);
+    });
+    add('CEILING', 'MAT_ceiling_interior', (p) =>
+        B(p, -xw - WT, H, -WT, xw + WT, H + 0.12, D + WT));
+
+    add('FRAMES', 'MAT_frame', (p) => {
+        frameX(p, 0, D, -1);                                  // 北尽头 F2 厕所门
+        frameZ(p, SIDE_DOOR, -xw, 1);                         // 西墙卧室1门
+        frameZ(p, SIDE_DOOR, xw, -1);                         // 东墙卧室2门
+        for (const [x0, x1] of S_WIN_X) winFrame(p, x0, x1, S_WIN.y0, S_WIN.y1, 0, -1);
+    });
+
+    add('VIEW_window_s', 'MAT_window_view', (p) =>
+        B(p, S_WIN_X[0][0] - 0.4, S_WIN.y0 - 0.25, -0.46,
+             S_WIN_X[S_WIN_X.length - 1][1] + 0.4, S_WIN.y1 + 0.25, -0.40),
+        { nav_ignore: true });
+
+    // 护墙板（西/东长墙，高 0.95 + 顶线；门洞 z1.66..2.78 处断开，门板摆动区不压板）
+    add('WAINSCOT', 'MAT_wainscot', (p) => {
+        for (const s of [-1, 1]) {
+            const x0 = s < 0 ? -xw : xw - 0.03, x1 = s < 0 ? -xw + 0.03 : xw;
+            for (const [z0, z1] of [[0.02, 1.66], [2.78, D - 0.02]]) {
+                B(p, x0, 0, z0, x1, 0.95, z1);
+                B(p, x0 - (s < 0 ? 0 : 0.005), 0.95, z0, x1 + (s < 0 ? 0.005 : 0), 1.02, z1);
+            }
+        }
+    });
+
+    // 长地毯（纯装饰）
+    add('RUG', 'MAT_rug', (p) => B(p, -0.6, 0.02, 3.2, 0.6, 0.035, 10.8), { nav_ignore: true });
+
+    doorW(add, 'DOOR_bed1', xw, SIDE_DOOR, { scene: 'f2_bed1', spawn: 'fromCorridor' });
+    doorE(add, 'DOOR_bed2', xw, SIDE_DOOR, { scene: 'f2_bed2', spawn: 'fromCorridor' });
+    doorN(add, 'DOOR_bath', 0, D, { scene: 'f2_bath', spawn: 'default' });
+
+    addCeilingLamp(add, 0, 6.5, H);
+
+    return parts;
+}
+
+// ════════════════════════════════════════════════════════════
+//  F2 厕所（中厅 F2 北 8×10×3.5，与一楼客卫同位同尺寸）：
+//  **无窗**（外壳 F2 北墙中段无窗；同一楼卫生间无窗原则），南墙门↔走廊，
+//  顶灯补偿（config.js winless）；家具由 config 挂 furniture_bath_f1.glb
+//  （同为 8×10 房型：浴缸东墙 + 马桶东北 + 洗手盆北墙西，浴帘位置随之保留）
+// ════════════════════════════════════════════════════════════
+function buildBathF2() {
+    const W = 8, D = 10, H = 3.5, xw = W / 2;
+    const { parts, add, B } = roomBuilder();
+
+    add('FLOOR_visible', 'MAT_floor_tile', (p) => B(p, -xw, -0.06, 0, xw, 0, D));
+    add('WALK_floor', 'MAT_floor_tile', (p) =>
+        pushQuadXZ(p, -xw + 0.05, 0.05, xw - 0.05, D - 0.05, 0.015),
+        { surface_walkable: true });
+
+    add('WALLS', 'MAT_wall_interior', (p) => {
+        pushWallX(p, -WT, 0, -xw, xw, H,
+            [{ a0: -DOOR_W / 2, a1: DOOR_W / 2, y0: 0, y1: DOOR_H }]);
+        B(p, -xw - WT, 0, D, xw + WT, H, D + WT);   // 北墙无窗实心
+        B(p, -xw - WT, 0, -WT, -xw, H, D + WT);
+        B(p, xw, 0, -WT, xw + WT, H, D + WT);
+    });
+    add('CEILING', 'MAT_ceiling_interior', (p) =>
+        B(p, -xw - WT, H, -WT, xw + WT, H + 0.12, D + WT));
+
+    add('FRAMES', 'MAT_frame', (p) => frameX(p, 0, 0, 1));
+
+    // 浴室垫（绿植/顶灯网格已按用户要求撤掉；config 光照的灯源保留）
+    add('RUG', 'MAT_rug', (p) => B(p, -0.55, 0.02, 2.8, 0.55, 0.035, 4.0), { nav_ignore: true });
+
+    // 浴帘三面围合（浴缸靠东墙，西/南/北三面挂帘，同组联动，点哪面都整组开合）
+    addCurtain(add, { axis: 'z', x0: 2.32, x1: 2.38, z0: 3.3, z1: 5.9,
+        y0: 0.15, y1: 2.05, rodY: 2.08, group: 'tub' });
+    addCurtain(add, { x0: 2.32, x1: 3.98, y0: 0.15, y1: 2.05, rodY: 2.08,
+        z0: 3.27, z1: 3.33, group: 'tub' });
+    addCurtain(add, { x0: 2.32, x1: 3.98, y0: 0.15, y1: 2.05, rodY: 2.08,
+        z0: 5.87, z1: 5.93, group: 'tub' });
+    // 马桶帘三面围合（马桶靠北墙，南/西/东三面挂帘）
+    addCurtain(add, { x0: 1.35, x1: 2.85, y0: 0.1, y1: 1.9, rodY: 1.95,
+        z0: 8.42, z1: 8.48, group: 'toilet' });
+    addCurtain(add, { axis: 'z', x0: 1.32, x1: 1.38, z0: 8.45, z1: 9.95,
+        y0: 0.1, y1: 1.9, rodY: 1.95, group: 'toilet' });
+    addCurtain(add, { axis: 'z', x0: 2.82, x1: 2.88, z0: 8.45, z1: 9.95,
+        y0: 0.1, y1: 1.9, rodY: 1.95, group: 'toilet' });
+
+    addCeilingLamp(add, 0, 5.0, H);
+
+    doorS(add, 'DOOR_corridor', 0, { scene: 'f2_corridor', spawn: 'fromBath' });
+
     return parts;
 }
 
@@ -617,6 +917,7 @@ const MATS = {
         MAT_door: PALETTE.door,
         MAT_window_view: PALETTE.windowView,
         MAT_curtain: '#E9E0C9',             // 亚麻米白
+        MAT_lamp: PALETTE.lamp,
         // 楼梯（东墙）
         MAT_stairs: '#C09A6B',              // WALK 逻辑面（隐藏）
         MAT_tread: '#8A5A3B',               // 悬臂踏步板 + 平台面（inkwash wood 变体）
@@ -643,6 +944,7 @@ const MATS = {
         MAT_window_view: PALETTE.windowView,
         MAT_fixture: '#F4F4F0',
         MAT_mirror: '#B8D8E8',
+        MAT_curtain: '#D8E8EC',             // 浴帘：淡蓝白
         MAT_pot: '#B0764A', MAT_plant: '#5E8C5A',
         MAT_rug: '#9AB8C8',
         MAT_lamp: PALETTE.lamp,
@@ -656,12 +958,45 @@ const MATS = {
         MAT_window_view: PALETTE.windowView,
         MAT_counter: '#8C9AA5', MAT_fridge: '#D8E0E4', MAT_fixture: '#F4F4F0',
         MAT_furniture: '#A9744F',
+        MAT_lamp: PALETTE.lamp,
         MAT_pot: '#B0764A', MAT_plant: '#5E8C5A',
         // 楼梯（东墙，与客厅同一套）
         MAT_stairs: '#C09A6B',              // WALK 逻辑面（隐藏）
         MAT_tread: '#8A5A3B',               // 悬臂踏步板 + 平台面（inkwash wood 变体）
         MAT_railing: '#6E4B32',             // 西缘细栏杆（inkwash wood 变体）
         MAT_stairwell: '#14100C',           // 顶部门洞暗龛
+    },
+    bed1: {
+        MAT_wall_interior: '#F2E4E0',       // 淡粉（卧室1，沿用旧 bed1 色系）
+        MAT_ceiling_interior: '#B7D6E8',
+        MAT_floor_wood: PALETTE.floorWood,
+        MAT_frame: PALETTE.frame,
+        MAT_door: PALETTE.door,
+        MAT_window_view: PALETTE.windowView,
+        MAT_bed: '#D98E6A', MAT_blanket: '#E8B49A',
+        MAT_furniture: '#A9744F', MAT_rug: '#C96F5A',
+        MAT_lamp: PALETTE.lamp,
+        // 楼梯（+x 墙，与客厅同一套）
+        MAT_stairs: '#C09A6B',
+        MAT_tread: '#8A5A3B',
+        MAT_railing: '#6E4B32',
+        MAT_stairwell: '#14100C',
+    },
+    bed2: {
+        MAT_wall_interior: '#E0E8F2',       // 淡蓝（卧室2，沿用旧 bed2 色系）
+        MAT_ceiling_interior: '#B7D6E8',
+        MAT_floor_wood: PALETTE.floorWood,
+        MAT_frame: PALETTE.frame,
+        MAT_door: PALETTE.door,
+        MAT_window_view: PALETTE.windowView,
+        MAT_bed: '#7A9EC9', MAT_blanket: '#A8C4E4',
+        MAT_furniture: '#A9744F', MAT_rug: '#6A8CB8',
+        MAT_lamp: PALETTE.lamp,
+        // 楼梯（-x 墙，与厨房同一套）
+        MAT_stairs: '#C09A6B',
+        MAT_tread: '#8A5A3B',
+        MAT_railing: '#6E4B32',
+        MAT_stairwell: '#14100C',
     },
 };
 
@@ -695,7 +1030,7 @@ function writeGlb(out, parts, mats) {
         return gltf.bufferViews.length - 1;
     }
 
-    for (const { name, mat, extras, translation, part } of parts) {
+    for (const { name, mat, extras, translation, rotY, part } of parts) {
         const vbuf = Buffer.alloc(part.verts.length * 4);
         part.verts.forEach((v, i) => vbuf.writeFloatLE(v, i * 4));
         const nbuf = Buffer.alloc(part.norms.length * 4);
@@ -724,6 +1059,7 @@ function writeGlb(out, parts, mats) {
         const node = { name, mesh: gltf.meshes.length - 1 };
         if (extras) node.extras = extras;
         if (translation) node.translation = translation;
+        if (rotY) node.rotation = [0, Math.sin(rotY / 2), 0, Math.cos(rotY / 2)];
         gltf.nodes.push(node);
         gltf.scenes[0].nodes.push(gltf.nodes.length - 1);
     }
@@ -749,16 +1085,20 @@ function writeGlb(out, parts, mats) {
 }
 
 // ── 主流程 ──
-const OUT = {
-    living: 'models/room_living.glb',
-    corridor: 'models/room_corridor.glb',
-    bath: 'models/room_bath_f1.glb',
-    kitchen: 'models/room_kitchen.glb',
-};
-const BUILDERS = { living: buildLiving, corridor: buildCorridor, bath: buildBath, kitchen: buildKitchen };
-for (const [key, build] of Object.entries(BUILDERS)) {
+// [输出文件, builder, 材质表键]（F2 走廊/厕所复用一楼走廊/客卫配色）
+const SUITE = [
+    ['models/room_living.glb', buildLiving, 'living'],
+    ['models/room_corridor.glb', buildCorridor, 'corridor'],
+    ['models/room_bath_f1.glb', buildBath, 'bath'],
+    ['models/room_kitchen.glb', buildKitchen, 'kitchen'],
+    ['models/room_bed1.glb', buildBed1, 'bed1'],
+    ['models/room_bed2.glb', buildBed2, 'bed2'],
+    ['models/room_corridor_f2.glb', buildCorridorF2, 'corridor'],
+    ['models/room_bath_f2.glb', buildBathF2, 'bath'],
+];
+for (const [out, build, matKey] of SUITE) {
     const parts = build();
-    writeGlb(OUT[key], parts, MATS[key]);
-    console.log(`${OUT[key]}: ${parts.length} 节点 — ${parts.map((p) => p.name).join(', ')}`);
+    writeGlb(out, parts, MATS[matKey]);
+    console.log(`${out}: ${parts.length} 节点 — ${parts.map((p) => p.name).join(', ')}`);
 }
-console.log('\n一楼 4 房间已生成');
+console.log('\n一楼 4 房间 + 二楼 4 房间已生成');

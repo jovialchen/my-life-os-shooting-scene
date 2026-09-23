@@ -57,7 +57,7 @@ import {
 import { initDoorPrompt, updateDoorPrompt } from './systems/doorPrompt.js';
 import { initRoomNav } from './systems/roomNav.js';
 import { parseSurfaces } from './systems/surfaceParser.js';
-import { applyInkShading, createInkPaperPass, createInkMist, setInkTime, updateInk, setInkRoof, setInkWall, setInkFlora, setInkFloor } from './systems/inkwash.js';
+import { applyInkShading, createInkPaperPass, createInkMist, setInkTime, updateInk, setInkRoof, setInkWall, setInkFlora, setInkFloor, setInkLamp } from './systems/inkwash.js';
 
 // ── UI ──
 import { initUI, updateCompass } from './ui.js';
@@ -259,10 +259,11 @@ initRoomNav({ onJump: (sceneId) => switchTo(sceneId) });
 // ============================================================
 const lighting = createLighting(scene);
 const timeOfDay = createTimeOfDay(scene, lighting);
-// 水墨模式：不打光，时段变化只改全局色温/纸色/雾（蒙版 update，覆盖所有调用路径）
+// 水墨模式：不打光，时段变化只改全局色温/纸色/雾（蒙版 update，覆盖所有调用路径）；
+// 顺带把开灯强度喂给水墨室内提亮（uLampTint，仅室内材质变体生效）
 {
     const _update = timeOfDay.update;
-    timeOfDay.update = (v) => { _update(v); setInkTime(v, scene); };
+    timeOfDay.update = (v) => { _update(v); setInkTime(v, scene); setInkLamp(timeOfDay.getLampLevel(), v); };
 }
 // 初始场景套用光照配置（内部按当前时段重算强度）；默认中午
 timeOfDay.setSceneProfile(SCENES.find((s) => s.id === 'outdoor')?.lighting ?? null);
@@ -274,6 +275,7 @@ timeOfDay.update(2);
 initUI({
     onTimeChange: (v) => timeOfDay.update(v),
     onSeasonChange: (v) => { seasonValue = v; updateSeason(v); },
+    onLightToggle: (on) => timeOfDay.setLightsOn(on),
 });
 
 // ============================================================

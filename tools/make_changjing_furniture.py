@@ -1,8 +1,9 @@
-"""从 changjing.blend 提取厨房/卫浴家具 → 3 个家具 GLB：
+"""从 changjing.blend 提取厨房/卫浴家具 → 2 个家具 GLB：
 
   models/furniture_kitchen.glb   → f1_kitchen（10×12，北墙 L 橱柜 + 东墙冰箱 + 中岛）
-  models/furniture_bath_f1.glb   → f1_bath（8×10，浴缸东墙 + 马桶东北 + 洗手盆/镜子北墙西）
-  models/furniture_bath_f2.glb   → f2_bath1/2/3 共用（7×7，浴缸西墙 + 马桶/洗手盆北墙）
+  models/furniture_bath_f1.glb   → f1_bath + f2_bath 共用（8×10，浴缸东墙 +
+                                   马桶东北 + 洗手盆/镜子北墙西；2026-09-23
+                                   二楼重排后 F2 厕所与客卫同为 8×10，复用本份）
 
 提取对象（changjing.blend 原命名，见 temp/changjing_objects.txt）：
   厨房：Cube.002 L 下柜 / Cube L 吊柜 / Cube.003 水槽灶台 / Cube.001 冰箱
@@ -17,7 +18,7 @@ Blender z-up：blender=(x, -z, y)，rotY → rotation.z（同 make_living_furnit
 逐对象覆盖。家具不设 extras = 自动导航障碍；镜子设 nav_ignore。
 
 用法: tools/blender.sh -b changjing.blend -P tools/make_changjing_furniture.py
-同时输出摆位校验图 temp/cgf_{kitchen,bath_f1,bath_f2}_{top,iso}.png
+同时输出摆位校验图 temp/cgf_{kitchen,bath_f1}_{top,iso}.png
 （灰地板=房间范围，红块=spawn 落点）。
 """
 import math
@@ -114,21 +115,6 @@ ROOMS = [
             # 洗手盆+镜子：北墙西段（让开窗洞 x≥-1.39）
             {'objs': G_SINK, 'rotY': 180, 'ref': ('min', 'min'),
              'target': (-2.04, 9.07), 'snap_floor': True},
-        ],
-    },
-    {
-        'id': 'bath_f2', 'file': 'furniture_bath_f2.glb', 'w': 7, 'd': 7,
-        'spawns': [(0, 0.9)],
-        'groups': [
-            # 浴缸西墙，龙头朝北
-            {'objs': G_TUB, 'rotY': 180, 'ref': ('min', 'min'),
-             'target': (-2.21, 3.4), 'snap_floor': True},
-            # 马桶北墙东，水箱贴墙
-            {'objs': G_TOILET, 'rotY': 180, 'ref': ('min', 'min'),
-             'target': (2.78, 5.62), 'snap_floor': True},
-            # 洗手盆+镜子：北墙中段
-            {'objs': G_SINK, 'rotY': 180, 'ref': ('min', 'min'),
-             'target': (1.51, 6.07), 'snap_floor': True},
         ],
     },
 ]

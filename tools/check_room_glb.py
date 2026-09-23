@@ -1,7 +1,9 @@
 """检查房间 GLB（阶段 3 样板间规范，仿 check_island_glb.py）。
 
 阶段 2.5（plan-0805）：窗景片按 doc/house-map.md 对应表逐房断言——
-有窗房校验 VIEW_ 片位置（墙/组中心），无窗房（卫生间×4）不允许有 VIEW_ 片。
+有窗房校验 VIEW_ 片位置（墙/组中心），无窗房（F2 厕所）不允许有 VIEW_ 片。
+2026-09-23 二楼重排：f2_study/f2_bed3/f2_bath1-3 取消；卧室1/2、F2走廊、
+F2厕所改由 make_f1_suite.mjs 生成（卧室带悬空梯）。
 
 用法: py tools/check_room_glb.py [glb路径]   默认 models/room_living.glb
 """
@@ -14,25 +16,22 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GLB = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'models', 'room_living.glb')
 
 # 各房窗景片期望（doc/house-map.md 对应表）：墙 + 窗组中心 x；None = 无窗房
-# 值可以是单片 (wall, cx) 或多片列表 [（wall, cx), ...]（客厅/厨房南北墙各一片）
+# 值可以是单片 (wall, cx) 或多片列表 [（wall, cx), ...]（客厅/厨房/卧室南北墙各一片）
 VIEW_EXPECT = {
     'room_living.glb': [('N', -2.05), ('S', 0.0)],   # 10×12 客厅：北墙 3 拱窗组偏 -x（让开 +x 墙楼梯）+ 南墙门脸 2 拱窗
     'room_kitchen.glb': [('N', -0.45), ('S', 0.0)],  # 10×12 厨房：北墙 W4 3 拱窗 + 南墙门脸 2 拱窗
     'room_corridor.glb': ('S', 0.0),                 # 3×12 走廊：南墙 2 拱窗（凹槽里墙 W6 语汇）
     'room_bath_f1.glb': ('N', 0.0),                  # 8×10 客卫：北墙 W3 3 拱窗
-    'room_study.glb': ('S', 1.95),
-    'room_bed1.glb': ('N', 0.55),
-    'room_bed2.glb': ('N', 0.55),
-    'room_bed3.glb': ('S', 0.0),
-    'room_bath1.glb': None,
-    'room_bath2.glb': None,
-    'room_bath3.glb': None,
+    'room_bed1.glb': [('N', -1.95), ('S', 0.0)],     # 10×12 卧室1：北墙 W2 3 拱窗组偏 -x（让开井道+下楼门）+ 南墙 2 拱窗
+    'room_bed2.glb': [('N', 1.95), ('S', 0.0)],      # 10×12 卧室2：北墙 W5 3 拱窗组偏 +x + 南墙 2 拱窗
+    'room_corridor_f2.glb': ('S', 0.0),              # F2 走廊：南墙 2 拱窗（W7 语汇）
+    'room_bath_f2.glb': None,                        # F2 厕所：无窗（外壳 F2 北墙中段无窗）
     'room_game_a.glb': ('N', -0.95),
-    'room_game_b.glb': ('N', 0.0),
+    'room_game_b.glb': ('N', 0.95),                  # 北墙窗组东移（避让新增北门洞 -2.3..-1.3）
 }
 
-# 实体楼梯（plan-0805 阶段 2.3）：客厅↔学习室、厨房→学习室（均东墙悬空梯）、学习室↔阁楼
-STAIRS_EXPECT = {'room_living.glb', 'room_kitchen.glb', 'room_study.glb'}
+# 悬空梯（2026-09-23）：客厅/厨房（→二楼卧室）+ 卧室1/2（→阁楼）
+STAIRS_EXPECT = {'room_living.glb', 'room_kitchen.glb', 'room_bed1.glb', 'room_bed2.glb'}
 # 阁楼人字坡顶（阶段 2.2）：坡面在 CEILING 节点里
 GABLE_EXPECT = {'room_game_a.glb', 'room_game_b.glb'}
 
@@ -80,7 +79,7 @@ if not walk_nodes:
 if not door_nodes:
     fail('缺门节点')
 
-# 实体楼梯断言（客厅/学习室必有 STAIRS 节点，其余房间不应有）
+# 悬空梯断言（客厅/厨房/卧室1/卧室2 必有 STAIRS 节点，其余房间不应有）
 base = os.path.basename(GLB)
 has_stairs = any(n.get('name') == 'STAIRS' for n in gltf.get('nodes', []))
 if base in STAIRS_EXPECT and not has_stairs:
