@@ -161,14 +161,14 @@ const winN = (wxc, d) => ({ position: [wxc, 2.0, d + 2.0], target: [wxc, 0.4, d 
 // spawn 简写：S 门到达（面朝 +z）/ N 门到达（面朝 -z）
 const spS = (x) => ({ pos: [x, 0.02, 0.9], rotY: 0 });
 const spN = (x, d) => ({ pos: [x, 0.02, d - 0.9], rotY: Math.PI });
-// ── 三楼（阁楼层）6 房（2026-09-23 三楼重写，tools/make_rooms.mjs 生成）──
-// 结构与一二楼一致 + 人字坡顶：卧室A/B（10×12，镜像 f2_bed1/2 布局、无上行梯，
-// 北墙=山墙：W14/W15 三联拱窗 + 下楼门回 f2 平台）、卧室A南 游戏室 / 卧室B南
-// 学习室（7×7）、中厅走廊（3×12）、北尽头厕所（8×10）。
-// 只有卧室A/B 有窗；游戏室/学习室/走廊/厕所均无窗（无对应外壳窗），
+// ── 三楼（阁楼层）4 房（2026-09-23 三楼重写，tools/make_rooms.mjs 生成）──
+// 与一二楼同构 + 人字坡顶。**阁楼没有卧室**：f2 卧室1/2 的楼梯上来分别进
+// 游戏室（西翼 10×12）/学习室（东翼镜像），北墙=山墙（W14/W15 三联拱窗 +
+// 下楼门回 f2 平台）；中厅走廊（3×12）+ 北尽头厕所（8×10）。
+// 游戏室/学习室有窗（winLight 主光源）；走廊/厕所无窗（无对应外壳窗），
 // 顶灯常开补偿（winless，min 0.8 参照 f2_bath）；机位压在坡顶高区。
 const ROOM_SCENES = [
-    roomScene({ id: 'attic_bed_a', name: '阁楼卧室A', nameEn: 'Attic Bedroom A', glb: 'models/room_bed_a.glb',
+    roomScene({ id: 'attic_game', name: '游戏室', nameEn: 'Game Room', glb: 'models/room_game.glb',
         w: 10, d: 12, h: 4.5, winLight: winN(-1.95, 12),   // W14 山墙 3 拱窗组中心（偏左让开下楼门）
         zonePos: [-2.2, 2.9, 0.5], zoneTarget: [1.2, 0.7, 7.5], lampY: 3.1,
         spawns: {
@@ -176,33 +176,22 @@ const ROOM_SCENES = [
             default: { pos: [4.5, 0.02, 11.3], rotY: Math.PI },
             // 从阁楼走廊进入：-x 墙门内侧一步，面朝房间（+x）
             fromCorridor: { pos: [-4.0, 0.02, 2.2], rotY: Math.PI / 2 },
-            // 从游戏室回身（南墙门口）
-            fromGame: { pos: [0, 0.02, 5.5], rotY: Math.PI },
         } }),
-    roomScene({ id: 'attic_bed_b', name: '阁楼卧室B', nameEn: 'Attic Bedroom B', glb: 'models/room_bed_b.glb',
+    roomScene({ id: 'attic_study', name: '学习室', nameEn: 'Study', glb: 'models/room_study.glb',
         w: 10, d: 12, h: 4.5, winLight: winN(1.95, 12),   // W15 山墙 3 拱窗组中心（偏右）
         zonePos: [2.2, 2.9, 0.5], zoneTarget: [-1.2, 0.7, 7.5], lampY: 3.1,
         spawns: {
             default: { pos: [-4.5, 0.02, 11.3], rotY: Math.PI },
             fromCorridor: { pos: [4.0, 0.02, 2.2], rotY: -Math.PI / 2 },
-            fromStudy: { pos: [0, 0.02, 5.5], rotY: Math.PI },
         } }),
-    roomScene({ id: 'attic_game', name: '游戏室', nameEn: 'Game Room', glb: 'models/room_game.glb',
-        w: 7, d: 7, h: 3.2, winless: true, lampY: 2.3,
-        zonePos: [-1.2, 1.9, 0.4], zoneTarget: [0.5, 0.8, 4.4],
-        spawns: { default: spN(0, 7) } }),   // 唯一门在北墙（↔ 卧室A 南门），落点在北墙门口
-    roomScene({ id: 'attic_study', name: '学习室', nameEn: 'Study', glb: 'models/room_study.glb',
-        w: 7, d: 7, h: 3.2, winless: true, lampY: 2.3,
-        zonePos: [1.2, 1.9, 0.4], zoneTarget: [-0.5, 0.8, 4.4],
-        spawns: { default: spN(0, 7) } }),   // 唯一门在北墙（↔ 卧室B 南门）
     roomScene({ id: 'attic_corridor', name: '阁楼走廊', nameEn: 'Attic Corridor', glb: 'models/room_corridor_attic.glb',
         w: 3, d: 12, h: 3.1, winless: true, lampY: 2.4,
         zonePos: [0, 2.3, 0.7], zoneTarget: [0, 1.2, 9.5],
         spawns: {
             default: { pos: [0, 0.02, 1.0], rotY: 0 },
             // 西墙门进（面朝 +x）；东墙门进（面朝 -x）；北尽头厕所门出（面朝南）
-            fromBedA: { pos: [-0.9, 0.02, 2.2], rotY: Math.PI / 2 },
-            fromBedB: { pos: [0.9, 0.02, 2.2], rotY: -Math.PI / 2 },
+            fromGame: { pos: [-0.9, 0.02, 2.2], rotY: Math.PI / 2 },
+            fromStudy: { pos: [0.9, 0.02, 2.2], rotY: -Math.PI / 2 },
             fromBath: { pos: [0, 0.02, 10.9], rotY: Math.PI },
         } }),
     roomScene({ id: 'attic_bath', name: '阁楼厕所', nameEn: 'Attic Bath', glb: 'models/room_bath_attic.glb',
@@ -312,7 +301,7 @@ export const SCENES = [
           lamp: { position: [0, 4.1, 6.0], color: 0xFFFFFF, intensity: 1.6, distance: 16 },
       } },
     // ── 二楼四房（2026-09-23 重排：镜像一楼布局，tools/make_f1_suite.mjs 生成）──
-    // 卧室1 = 客厅正上方（10×12×4.5）：+x 墙悬空上行梯 → 阁楼卧室A（触发区），
+    // 卧室1 = 客厅正上方（10×12×4.5）：+x 墙悬空上行梯 → 阁楼游戏室（触发区），
     // 北墙下楼门（x4.0..5.0，上行梯平台下方）→ 客厅楼梯平台，−x 墙门 → F2 走廊；
     // 卧室2 = 厨房正上方镜像（楼梯/门左右互换）
     { id: 'f2_bed1', name: '卧室1', nameEn: 'Bedroom 1',
@@ -323,12 +312,12 @@ export const SCENES = [
           default: { pos: [4.5, 0.02, 11.3], rotY: Math.PI },
           // 从 F2 走廊进入：-x 墙门内侧一步，面朝房间（+x）
           fromCorridor: { pos: [-4.0, 0.02, 2.2], rotY: Math.PI / 2 },
-          // 从阁楼卧室A 下楼：+x 墙上行梯顶平台（触发区外 z11.3 < 11.95，不回环）
+          // 从阁楼游戏室 下楼：+x 墙上行梯顶平台（触发区外 z11.3 < 11.95，不回环）
           fromAtticA: { pos: [4.5, 3.02, 11.3], rotY: Math.PI },
       },
-      // +x 墙上行梯顶部门洞 → 阁楼卧室A
+      // +x 墙上行梯顶部门洞 → 阁楼游戏室
       triggers: [
-          { min: [4.0, 2.9, 11.95], max: [5.05, 3.6, 12.35], target: 'attic_bed_a', spawn: 'default' },
+          { min: [4.0, 2.9, 11.95], max: [5.05, 3.6, 12.35], target: 'attic_game', spawn: 'default' },
       ],
       lighting: {
           sun: 0,
@@ -346,12 +335,12 @@ export const SCENES = [
           default: { pos: [-4.5, 0.02, 11.3], rotY: Math.PI },
           // 从 F2 走廊进入：+x 墙门内侧一步，面朝房间（-x）
           fromCorridor: { pos: [4.0, 0.02, 2.2], rotY: -Math.PI / 2 },
-          // 从阁楼卧室B 下楼：-x 墙上行梯顶平台
+          // 从阁楼学习室 下楼：-x 墙上行梯顶平台
           fromAtticB: { pos: [-4.5, 3.02, 11.3], rotY: Math.PI },
       },
-      // -x 墙上行梯顶部门洞 → 阁楼卧室B
+      // -x 墙上行梯顶部门洞 → 阁楼学习室
       triggers: [
-          { min: [-5.05, 2.9, 11.95], max: [-4.0, 3.6, 12.35], target: 'attic_bed_b', spawn: 'default' },
+          { min: [-5.05, 2.9, 11.95], max: [-4.0, 3.6, 12.35], target: 'attic_study', spawn: 'default' },
       ],
       lighting: {
           sun: 0,

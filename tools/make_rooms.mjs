@@ -1,17 +1,17 @@
-/** 三楼（阁楼层）房间生成器（6 间，纯 Node 写 GLB，无需 Blender）
+/** 三楼（阁楼层）房间生成器（4 间，纯 Node 写 GLB，无需 Blender）
  *
  * 一楼 4 房（客厅/走廊/客卫/厨房）已移交 tools/make_f1_suite.mjs（2026-09-10
  * 一楼改版：大厅×2 + 走廊 + 大客卫 + 厨房东墙楼梯）；
  * 二楼 4 房（卧室1/卧室2/F2走廊/F2厕所）2026-09-23 起也移交 make_f1_suite.mjs
  * （二楼重排：卧室需要悬空梯基建，取消 f2_study/f2_bed3/f2_bath1-3）。
- * 2026-09-23 三楼重写：取消旧阁楼 2 游戏室（attic_game_a/b），改为与一二楼
- * 同结构的 6 房 + 人字坡顶（屋脊沿 z，山墙=南/北墙）：
- *   西翼 卧室A 10×12（eave2.2/ridge4.5，镜像 f2_bed1 布局但无上行梯；
- *        北墙=山墙：下楼门 x4.0..5.0 → f2_bed1 上行梯平台 + W14 三联拱窗偏左）
- *   东翼 卧室B 10×12（镜像；W15 三联拱窗偏右，下楼门 → f2_bed2 平台）
- *   卧室A 南 游戏室 7×7（eave1.6/ridge3.2，无窗顶灯；北门 ↔ 卧室A 南门）
- *   卧室B 南 学习室 7×7（同游戏室结构，色系沿用旧 game_b）
- *   中厅 走廊 3×12（eave2.4/ridge3.1，无窗吊灯；西/东墙门 z2.2 ↔ 卧室A/B，
+ * 2026-09-23 三楼重写：取消旧阁楼 2 小屋（attic_game_a/b），阁楼与一二楼
+ * 同构 = 4 房 + 人字坡顶（屋脊沿 z，山墙=南/北墙）。**阁楼没有卧室**——
+ * f2 卧室1/2 的楼梯上来分别进游戏室/学习室（"上楼梯就进屋"）：
+ *   西翼 游戏室 10×12（eave2.2/ridge4.5；北墙=山墙：下楼门 x4.0..5.0 →
+ *        f2_bed1 上行梯平台 + W14 三联拱窗偏左；-x 墙 z2.2 门 → 阁楼走廊）
+ *   东翼 学习室 10×12（镜像；W15 三联拱窗偏右，下楼门 → f2_bed2 平台；
+ *        +x 墙 z2.2 门 → 阁楼走廊）
+ *   中厅 走廊 3×12（eave2.4/ridge3.1，无窗吊灯；西/东墙门 z2.2 ↔ 游戏室/学习室，
  *        北尽头门 → 厕所）
  *   中厅北 厕所 8×10（eave2.2/ridge4.0，无窗；南门 ↔ 走廊）
  *
@@ -24,7 +24,7 @@
  *   - 家具不标属性（自动障碍）；地毯/盆栽等纯装饰标 nav_ignore
  *
  * 用法: node tools/make_rooms.mjs
- *   → models/room_bed_a.glb / room_bed_b.glb / room_game.glb / room_study.glb
+ *   → models/room_game.glb / room_study.glb
  *     / room_corridor_attic.glb / room_bath_attic.glb
  */
 import { writeFileSync } from 'node:fs';
@@ -172,135 +172,89 @@ function pushWallZ(part, x0, x1, z0, z1, h, holes) {
 // furnish(add, B): B(x0,y0,z0,x1,y1,z1) 便捷盒体
 // 结构色统一取 tools/room_palette.mjs（PALETTE / BASE_MATS 已导入）
 const ROOMS = [
-    // ── 卧室A（西翼 10×12，坡顶 eave2.2/ridge4.5）：镜像 f2_bed1 布局但无上行梯。
-    //    北墙=山墙：下楼门 x4.0..5.0（→ f2_bed1 上行梯平台，y2.1<eave 留在矩形段）
-    //    + W14 三联拱窗（sill1.1/顶2.9，组偏左 -2.9/-1.95/-1.0 避让门洞，拱顶进山墙三角段）；
-    //    南门 → 游戏室；-x 墙 z2.2 门 → 阁楼走廊 ──
-    {
-        id: 'attic_bed_a', file: 'models/room_bed_a.glb',
-        w: 10, d: 12, h: 4.5,
-        gable: { eave: 2.2, ridge: 4.5 },
-        lampY: 3.4,
-        mats: {
-            MAT_wall: '#F2E4E0',            // 淡粉（同 f2_bed1）
-            MAT_floor: PALETTE.floorWood,
-            MAT_bed: '#D98E6A', MAT_furniture: '#A9744F', MAT_rug: '#C96F5A',
-        },
-        doors: [
-            { name: 'DOOR_stairs_down', wall: 'N', off: 4.5, target: ['f2_bed1', 'fromAtticA'] },
-            { name: 'DOOR_game', wall: 'S', off: 0, target: ['attic_game', 'default'] },
-            { name: 'DOOR_corridor', wall: 'W', off: 2.2, target: ['attic_corridor', 'fromBedA'] },
-        ],
-        windows: [{ wall: 'N', centers: [-2.9, -1.95, -1.0], width: 0.87, y0: 1.1, y1: 2.9, arch: true }],
-        furnish(add, B) {
-            // 床靠西墙北段（让开西墙门摆动区 z1.7..2.7）
-            add('FURN_bed', 'MAT_bed', (p) => {
-                B(p, -4.95, 0, 5.6, -3.5, 0.5, 7.4);
-                B(p, -4.95, 0.5, 5.75, -3.5, 0.58, 7.25);
-            });
-            add('FURN_headboard', 'MAT_furniture', (p) => B(p, -4.95, 0, 7.4, -3.5, 1.05, 7.52));
-            // 衣柜靠东墙南段（让开北墙下楼门 x4.0..5.0 摆动区 z11..12）
-            add('FURN_wardrobe', 'MAT_furniture', (p) => B(p, 4.3, 0, 1.2, 4.95, 2.0, 2.4));
-            add('RUG', 'MAT_rug', (p) => B(p, -1.8, 0.02, 4.0, 0.6, 0.035, 6.4), { nav_ignore: true });
-        },
-    },
-    // ── 卧室B（东翼镜像）：W15 三联拱窗偏右 +1.0/+1.95/+2.9，下楼门 x-5..-4 →
-    //    f2_bed2 平台；南门 → 学习室；+x 墙 z2.2 门 → 阁楼走廊 ──
-    {
-        id: 'attic_bed_b', file: 'models/room_bed_b.glb',
-        w: 10, d: 12, h: 4.5,
-        gable: { eave: 2.2, ridge: 4.5 },
-        lampY: 3.4,
-        mats: {
-            MAT_wall: '#E0E8F2',            // 淡蓝（同 f2_bed2）
-            MAT_floor: PALETTE.floorWood,
-            MAT_bed: '#7A9EC9', MAT_furniture: '#A9744F', MAT_rug: '#6A8CB8',
-        },
-        doors: [
-            { name: 'DOOR_stairs_down', wall: 'N', off: -4.5, target: ['f2_bed2', 'fromAtticB'] },
-            { name: 'DOOR_study', wall: 'S', off: 0, target: ['attic_study', 'default'] },
-            { name: 'DOOR_corridor', wall: 'E', off: 2.2, target: ['attic_corridor', 'fromBedB'] },
-        ],
-        windows: [{ wall: 'N', centers: [1.0, 1.95, 2.9], width: 0.87, y0: 1.1, y1: 2.9, arch: true }],
-        furnish(add, B) {
-            add('FURN_bed', 'MAT_bed', (p) => {
-                B(p, 3.5, 0, 5.6, 4.95, 0.5, 7.4);
-                B(p, 3.5, 0.5, 5.75, 4.95, 0.58, 7.25);
-            });
-            add('FURN_headboard', 'MAT_furniture', (p) => B(p, 3.5, 0, 7.4, 4.95, 1.05, 7.52));
-            add('FURN_wardrobe', 'MAT_furniture', (p) => B(p, -4.95, 0, 1.2, -4.3, 2.0, 2.4));
-            add('RUG', 'MAT_rug', (p) => B(p, -0.6, 0.02, 4.0, 1.8, 0.035, 6.4), { nav_ignore: true });
-        },
-    },
-    // ── 游戏室（卧室A 南，7×7，eave1.6/ridge3.2 沿用旧阁楼坡率）：唯一门在北墙
-    //    （↔ 卧室A 南门，2.1m 高过檐口、伸进山墙三角段）；无窗顶灯（winless）──
+    // ── 游戏室（西翼 10×12，坡顶 eave2.2/ridge4.5）：阁楼大房，f2_bed1 楼梯
+    //    上来就进这间。北墙=山墙：下楼门 x4.0..5.0（→ f2_bed1 上行梯平台，
+    //    y2.1<eave 留在矩形段）+ W14 三联拱窗（sill1.1/顶2.9，组偏左
+    //    -2.9/-1.95/-1.0 避让门洞，拱顶进山墙三角段）；-x 墙 z2.2 门 → 阁楼走廊 ──
     {
         id: 'attic_game', file: 'models/room_game.glb',
-        w: 7, d: 7, h: 3.2,
-        gable: { eave: 1.6, ridge: 3.2 },
-        lampY: 2.6,
+        w: 10, d: 12, h: 4.5,
+        gable: { eave: 2.2, ridge: 4.5 },
+        lampY: 3.4,
         mats: {
             MAT_wall: '#E0D8E8', MAT_floor: PALETTE.floorWood,
             MAT_furniture: '#8A6A4A', MAT_tv: '#2B2B33',
             MAT_sofa: '#B87AB8', MAT_rug: '#8A6AC9',
+            MAT_foosball: '#4A8C6A', MAT_chest: '#C9A44A',
         },
         doors: [
-            { name: 'DOOR_bed_a', wall: 'N', off: 0, target: ['attic_bed_a', 'fromGame'] },
+            { name: 'DOOR_stairs_down', wall: 'N', off: 4.5, target: ['f2_bed1', 'fromAtticA'] },
+            { name: 'DOOR_corridor', wall: 'W', off: 2.2, target: ['attic_corridor', 'fromGame'] },
         ],
-        windows: [],
+        windows: [{ wall: 'N', centers: [-2.9, -1.95, -1.0], width: 0.87, y0: 1.1, y1: 2.9, arch: true }],
         furnish(add, B) {
-            // 电视柜 + 电视（东墙，避开北门摆动区 x±0.5 z6..7）
-            add('FURN_tvstand', 'MAT_furniture', (p) => B(p, 3.0, 0, 3.9, 3.45, 0.5, 4.4));
-            add('FURN_tv', 'MAT_tv', (p) => B(p, 3.05, 0.5, 3.95, 3.4, 1.35, 4.35));
-            // 懒人沙发朝电视
+            // 电视柜 + 电视（东墙，避开北墙下楼门摆动区 x4.0..5.0 z11..12）
+            add('FURN_tvstand', 'MAT_furniture', (p) => B(p, 4.3, 0, 5.3, 4.75, 0.5, 5.8));
+            add('FURN_tv', 'MAT_tv', (p) => B(p, 4.35, 0.5, 5.35, 4.7, 1.35, 5.75));
+            // 懒人沙发朝电视（坐西朝东）
             add('FURN_sofa', 'MAT_sofa', (p) => {
-                B(p, 1.4, 0, 3.8, 2.4, 0.42, 4.7);
-                B(p, 1.4, 0.42, 3.8, 1.6, 0.7, 4.7);
+                B(p, 2.4, 0, 5.2, 3.4, 0.42, 6.1);
+                B(p, 2.4, 0.42, 5.2, 2.6, 0.7, 6.1);
             });
-            // 西墙游戏架
+            // 桌上足球（房心偏北西）
+            add('FURN_foosball', 'MAT_foosball', (p) => {
+                B(p, -1.6, 0.72, 8.0, 0.0, 1.0, 9.2);
+                for (const [lx, lz] of [[-1.6, 8.0], [-0.06, 8.0], [-1.6, 9.14], [-0.06, 9.14]])
+                    B(p, lx, 0, lz, lx + 0.06, 0.72, lz + 0.06);
+            });
+            // 西墙游戏架（让开西墙门摆动区 z1.7..2.7）+ 储物箱（西北角，
+            // 让开北墙下楼门摆动区 z11..12）
             add('FURN_shelf', 'MAT_furniture', (p) => {
-                B(p, -3.45, 0, 2.5, -3.1, 1.6, 4.9);
-                B(p, -3.48, 0.7, 2.55, -3.1, 0.76, 4.85);
+                B(p, -4.95, 0, 4.5, -4.6, 1.6, 6.9);
+                B(p, -4.98, 0.7, 4.55, -4.6, 0.76, 6.85);
             });
-            add('RUG', 'MAT_rug', (p) => B(p, -1.9, 0.02, 2.0, 0.5, 0.035, 4.2), { nav_ignore: true });
+            add('FURN_chest', 'MAT_chest', (p) => B(p, -4.9, 0, 8.6, -4.2, 0.6, 9.3));
+            add('RUG', 'MAT_rug', (p) => B(p, -1.5, 0.02, 4.5, 1.5, 0.035, 7.0), { nav_ignore: true });
         },
     },
-    // ── 学习室（卧室B 南，7×7 同游戏室结构；色系沿用旧 game_b 暖色组）──
+    // ── 学习室（东翼镜像）：W15 三联拱窗偏右 +1.0/+1.95/+2.9，下楼门 x-5..-4
+    //    → f2_bed2 平台；+x 墙 z2.2 门 → 阁楼走廊 ──
     {
         id: 'attic_study', file: 'models/room_study.glb',
-        w: 7, d: 7, h: 3.2,
-        gable: { eave: 1.6, ridge: 3.2 },
-        lampY: 2.6,
+        w: 10, d: 12, h: 4.5,
+        gable: { eave: 2.2, ridge: 4.5 },
+        lampY: 3.4,
         mats: {
             MAT_wall: '#E8DCD0', MAT_floor: PALETTE.floorWood,
             MAT_furniture: '#8A6A4A', MAT_chest: '#C9A44A', MAT_rug: '#C98A5A',
         },
         doors: [
-            { name: 'DOOR_bed_b', wall: 'N', off: 0, target: ['attic_bed_b', 'fromStudy'] },
+            { name: 'DOOR_stairs_down', wall: 'N', off: -4.5, target: ['f2_bed2', 'fromAtticB'] },
+            { name: 'DOOR_corridor', wall: 'E', off: 2.2, target: ['attic_corridor', 'fromStudy'] },
         ],
-        windows: [],
+        windows: [{ wall: 'N', centers: [1.0, 1.95, 2.9], width: 0.87, y0: 1.1, y1: 2.9, arch: true }],
         furnish(add, B) {
-            // 书桌 + 椅（东墙，避开北门摆动区 x±0.5 z6..7）
+            // 书桌 + 椅（西墙，椅朝西对桌；让开北墙下楼门摆动区 x-5..-4 z11..12）
             add('FURN_desk', 'MAT_furniture', (p) => {
-                B(p, 2.2, 0.68, 4.6, 3.4, 0.76, 5.4);
-                for (const [lx, lz] of [[2.26, 4.66], [3.28, 4.66], [2.26, 5.28], [3.28, 5.28]])
+                B(p, -4.95, 0.68, 5.4, -3.75, 0.76, 6.2);
+                for (const [lx, lz] of [[-4.89, 5.46], [-3.87, 5.46], [-4.89, 6.08], [-3.87, 6.08]])
                     B(p, lx, 0, lz, lx + 0.06, 0.68, lz + 0.06);
             });
             add('FURN_chair', 'MAT_furniture', (p) => {
-                B(p, 2.6, 0, 3.9, 3.0, 0.45, 4.3);        // 座面
-                B(p, 2.6, 0.45, 3.9, 3.0, 0.95, 4.02);   // 靠背（南面，朝桌）
+                B(p, -3.55, 0, 5.6, -3.15, 0.45, 6.0);        // 座面
+                B(p, -3.27, 0.45, 5.6, -3.15, 0.95, 6.0);   // 靠背（东面，朝西对桌）
             });
-            // 书柜（西墙）+ 储物箱（西北角）
+            // 书柜（东墙北段，让开东墙门摆动区 z1.7..2.7）
             add('FURN_shelf', 'MAT_furniture', (p) => {
-                B(p, -3.45, 0, 2.5, -3.1, 1.6, 4.9);
-                B(p, -3.48, 0.7, 2.55, -3.1, 0.76, 4.85);
+                B(p, 4.6, 0, 7.5, 4.95, 1.6, 9.9);
+                B(p, 4.6, 0.7, 7.55, 4.98, 0.76, 9.85);
             });
-            add('FURN_chest', 'MAT_chest', (p) => B(p, -3.4, 0, 5.8, -2.7, 0.6, 6.5));
-            add('RUG', 'MAT_rug', (p) => B(p, -1.2, 0.02, 1.8, 0.8, 0.035, 3.8), { nav_ignore: true });
+            add('FURN_chest', 'MAT_chest', (p) => B(p, -4.9, 0, 8.6, -4.2, 0.6, 9.3));
+            add('RUG', 'MAT_rug', (p) => B(p, -1.5, 0.02, 4.5, 1.5, 0.035, 7.0), { nav_ignore: true });
         },
     },
     // ── 阁楼走廊（中厅 3×12，与一二楼走廊同位同尺寸，eave2.4/ridge3.1）：
-    //    西/东墙 z2.2 门 ↔ 卧室A/B，北尽头门 → 厕所；无窗（阁楼中厅无外壳窗），
+    //    西/东墙 z2.2 门 ↔ 游戏室/学习室，北尽头门 → 厕所；无窗（阁楼中厅无外壳窗），
     //    吊灯照明；护墙板 + 长地毯（同一二楼走廊语汇）──
     {
         id: 'attic_corridor', file: 'models/room_corridor_attic.glb',
@@ -313,8 +267,8 @@ const ROOMS = [
             MAT_wainscot: '#6E4B32', MAT_rug: '#9E5648',
         },
         doors: [
-            { name: 'DOOR_bed_a', wall: 'W', off: 2.2, target: ['attic_bed_a', 'fromCorridor'] },
-            { name: 'DOOR_bed_b', wall: 'E', off: 2.2, target: ['attic_bed_b', 'fromCorridor'] },
+            { name: 'DOOR_game', wall: 'W', off: 2.2, target: ['attic_game', 'fromCorridor'] },
+            { name: 'DOOR_study', wall: 'E', off: 2.2, target: ['attic_study', 'fromCorridor'] },
             { name: 'DOOR_bath', wall: 'N', off: 0, target: ['attic_bath', 'default'] },
         ],
         windows: [],
@@ -505,9 +459,14 @@ function buildRoom(spec) {
     }
 
     // 吊灯（装饰，nav_ignore；PointLight 位姿在 config 场景光照里）
+    // 坡顶房：灯悬在屋脊下方，补一根吊杆接到屋脊，否则悬空
     const lampY = spec.lampY ?? h;
     add('LAMP', 'MAT_lamp', (p) => B(p, -0.25, lampY - 0.2, d / 2 - 0.25, 0.25, lampY - 0.02, d / 2 + 0.25),
         { nav_ignore: true });
+    if (gb && gb.ridge > lampY) {
+        add('LAMP_ROD', 'MAT_frame', (p) => B(p, -0.03, lampY - 0.02, d / 2 - 0.03, 0.03, gb.ridge, d / 2 + 0.03),
+            { nav_ignore: true });
+    }
 
     // 家具（可无：如 f2 卫生间由独立家具 GLB 提供）
     spec.furnish?.(add, B);

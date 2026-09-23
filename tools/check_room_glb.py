@@ -5,8 +5,9 @@
 走廊/厕所）不允许有 VIEW_ 片。
 2026-09-23 二楼重排：f2_study/f2_bed3/f2_bath1-3 取消；卧室1/2、F2走廊、
 F2厕所改由 make_f1_suite.mjs 生成（卧室带悬空梯）。
-2026-09-23 三楼重写：阁楼 6 房（卧室A/B + 游戏室/学习室 + 走廊 + 厕所，
-均人字坡顶），make_rooms.mjs 生成；旧 attic_game_a/b 取消。
+2026-09-23 三楼重写：阁楼 4 房（游戏室/学习室 10×12 大房 + 走廊 + 厕所，
+均人字坡顶；阁楼没有卧室——f2 卧室1/2 楼梯上来分别进游戏室/学习室），
+make_rooms.mjs 生成；旧 attic_game_a/b 取消。
 
 用法: py tools/check_room_glb.py [glb路径]   默认 models/room_living.glb
 """
@@ -29,21 +30,19 @@ VIEW_EXPECT = {
     'room_bed2.glb': [('N', 1.95), ('S', 0.0)],      # 10×12 卧室2：北墙 W5 3 拱窗组偏 +x + 南墙 2 拱窗
     'room_corridor_f2.glb': ('S', 0.0),              # F2 走廊：南墙 2 拱窗（W7 语汇）
     'room_bath_f2.glb': None,                        # F2 厕所：无窗（外壳 F2 北墙中段无窗）
-    # 三楼（阁楼层）6 房：只有卧室A/B 有窗（北墙=山墙 W14/W15 三联拱窗，组偏外侧
-    # 让开北墙下楼门 x±4.0..5.0）；游戏室/学习室/走廊/厕所均无窗（无对应外壳窗）
-    'room_bed_a.glb': ('N', -1.95),                  # 三楼卧室A：W14 组偏左（中心 -2.9/-1.95/-1.0）
-    'room_bed_b.glb': ('N', 1.95),                   # 三楼卧室B：W15 组偏右（中心 +1.0/+1.95/+2.9）
-    'room_game.glb': None,
-    'room_study.glb': None,
+    # 三楼（阁楼层）4 房：游戏室/学习室（10×12 大房）有窗（北墙=山墙 W14/W15
+    # 三联拱窗，组偏外侧让开北墙下楼门 x±4.0..5.0）；走廊/厕所无窗（无对应外壳窗）
+    'room_game.glb': ('N', -1.95),                   # 游戏室：W14 组偏左（中心 -2.9/-1.95/-1.0）
+    'room_study.glb': ('N', 1.95),                   # 学习室：W15 组偏右（中心 +1.0/+1.95/+2.9）
     'room_corridor_attic.glb': None,
     'room_bath_attic.glb': None,
 }
 
-# 悬空梯（2026-09-23）：客厅/厨房（→二楼卧室）+ 卧室1/2（→阁楼卧室A/B；三楼无梯）
+# 悬空梯（2026-09-23）：客厅/厨房（→二楼卧室）+ 卧室1/2（→阁楼游戏室/学习室；三楼无梯）
 STAIRS_EXPECT = {'room_living.glb', 'room_kitchen.glb', 'room_bed1.glb', 'room_bed2.glb'}
 # 三楼人字坡顶（2026-09-23 三楼重写）：坡面在 CEILING 节点里
-GABLE_EXPECT = {'room_bed_a.glb', 'room_bed_b.glb', 'room_game.glb',
-                'room_study.glb', 'room_corridor_attic.glb', 'room_bath_attic.glb'}
+GABLE_EXPECT = {'room_game.glb', 'room_study.glb',
+                'room_corridor_attic.glb', 'room_bath_attic.glb'}
 
 with open(GLB, 'rb') as f:
     magic, version, length = struct.unpack('<4sII', f.read(12))

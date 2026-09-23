@@ -1,8 +1,9 @@
-/** 阶段 5 端到端验证：全动线走通（15 场景 × 34 次切换）
+/** 阶段 5 端到端验证：全动线走通（13 场景 × 30 次切换）
  * 2026-09-23 二楼重排：学习室/卧室3/卫生间1-3 取消；卧室1/2（10×12，各带
  * 上行梯→阁楼）、F2 走廊、F2 厕所接入新拓扑。
- * 2026-09-23 三楼重写：阁楼 6 房（卧室A/B + 游戏室/学习室 + 走廊 + 厕所，
- * 均坡顶）取代旧 attic_game_a/b；f2 上行梯触发区改指 attic_bed_a/b。
+ * 2026-09-23 三楼重写：阁楼 4 房（游戏室/学习室 10×12 大房 + 走廊 + 厕所，
+ * 均坡顶）取代旧 attic_game_a/b；f2 上行梯触发区改指 attic_game/attic_study
+ * （阁楼没有卧室——f2 卧室1/2 楼梯上来分别进游戏室/学习室）。
  * 断言：
  *   - 每个场景注册的门与传送图一致（door_target_scene / door_target_spawn）
  *   - 沿门传送图切换后角色落在对应 spawn
@@ -65,28 +66,24 @@ const GRAPH = {
         CURTAIN_L_toilet_2: [null, null], CURTAIN_R_toilet_2: [null, null],
         DOOR_corridor: ['f2_corridor', 'fromBath'],
     },
-    attic_bed_a: {
+    attic_game: {
         DOOR_stairs_down: ['f2_bed1', 'fromAtticA'],
-        DOOR_game: ['attic_game', 'default'],
-        DOOR_corridor: ['attic_corridor', 'fromBedA'],
+        DOOR_corridor: ['attic_corridor', 'fromGame'],
     },
-    attic_bed_b: {
+    attic_study: {
         DOOR_stairs_down: ['f2_bed2', 'fromAtticB'],
-        DOOR_study: ['attic_study', 'default'],
-        DOOR_corridor: ['attic_corridor', 'fromBedB'],
+        DOOR_corridor: ['attic_corridor', 'fromStudy'],
     },
-    attic_game: { DOOR_bed_a: ['attic_bed_a', 'fromGame'] },
-    attic_study: { DOOR_bed_b: ['attic_bed_b', 'fromStudy'] },
     attic_corridor: {
-        DOOR_bed_a: ['attic_bed_a', 'fromCorridor'],
-        DOOR_bed_b: ['attic_bed_b', 'fromCorridor'],
+        DOOR_game: ['attic_game', 'fromCorridor'],
+        DOOR_study: ['attic_study', 'fromCorridor'],
         DOOR_bath: ['attic_bath', 'default'],
     },
     attic_bath: { DOOR_corridor: ['attic_corridor', 'fromBath'] },
 };
 
 // 全动线：沿传送图走一遍（含四条楼梯线：客厅↔卧室1、厨房↔卧室2、
-// 卧室1↔阁楼卧室A、卧室2↔阁楼卧室B；楼梯 trigger 用程序直达模拟落点）
+// 卧室1↔阁楼游戏室、卧室2↔阁楼学习室；楼梯 trigger 用程序直达模拟落点）
 const ROUTE = [
     ['f1_living', undefined],          // 室外西大门 -> 客厅
     ['f1_corridor', 'fromLiving'],     // 客厅 -> 走廊
@@ -98,22 +95,18 @@ const ROUTE = [
     ['f1_corridor', 'fromKitchen'],    // 厨房 -> 走廊
     ['f1_living', 'fromCorridor'],     // 走廊 -> 客厅
     ['f2_bed1', undefined],            // 客厅上行梯 -> 卧室1（北墙下楼门口，梯下壁龛）
-    ['attic_bed_a', undefined],        // 卧室1 上行梯 -> 阁楼卧室A（北墙下楼门口）
-    ['attic_game', undefined],         // 卧室A 南门 -> 游戏室（北墙门口落点）
-    ['attic_bed_a', 'fromGame'],       // 游戏室 北门 -> 卧室A
-    ['attic_corridor', 'fromBedA'],    // 卧室A 西墙门 -> 阁楼走廊
-    ['attic_bed_b', 'fromCorridor'],   // 走廊 东墙门 -> 卧室B
-    ['attic_study', undefined],        // 卧室B 南门 -> 学习室
-    ['attic_bed_b', 'fromStudy'],      // 学习室 北门 -> 卧室B
-    ['attic_corridor', 'fromBedB'],    // 卧室B 东墙门 -> 阁楼走廊
+    ['attic_game', undefined],         // 卧室1 上行梯 -> 阁楼游戏室（北墙下楼门口）
+    ['attic_corridor', 'fromGame'],    // 游戏室 西墙门 -> 阁楼走廊
+    ['attic_study', 'fromCorridor'],   // 走廊 东墙门 -> 学习室
+    ['attic_corridor', 'fromStudy'],   // 学习室 东墙门 -> 阁楼走廊
     ['attic_bath', undefined],         // 走廊 北尽头门 -> 阁楼厕所
     ['attic_corridor', 'fromBath'],    // 厕所 南门 -> 阁楼走廊
-    ['attic_bed_a', 'fromCorridor'],   // 走廊 西墙门 -> 卧室A
-    ['f2_bed1', 'fromAtticA'],         // 卧室A 北墙下楼门 -> 卧室1 上行梯平台
+    ['attic_game', 'fromCorridor'],    // 走廊 西墙门 -> 游戏室
+    ['f2_bed1', 'fromAtticA'],         // 游戏室 北墙下楼门 -> 卧室1 上行梯平台
     ['f2_corridor', 'fromBed1'],       // 卧室1 -> F2 走廊
     ['f2_bed2', 'fromCorridor'],       // F2 走廊 -> 卧室2
-    ['attic_bed_b', undefined],        // 卧室2 上行梯 -> 阁楼卧室B
-    ['f2_bed2', 'fromAtticB'],         // 卧室B 北墙下楼门 -> 卧室2 上行梯平台
+    ['attic_study', undefined],        // 卧室2 上行梯 -> 阁楼学习室
+    ['f2_bed2', 'fromAtticB'],         // 学习室 北墙下楼门 -> 卧室2 上行梯平台
     ['f1_kitchen', 'fromStudy'],       // 卧室2 北墙下楼门 -> 厨房平台
     ['f2_bed2', undefined],            // 厨房上行梯 -> 卧室2
     ['f2_corridor', 'fromBed2'],       // 卧室2 -> F2 走廊
